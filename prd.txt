@@ -15,37 +15,44 @@ Technology Stack:
 Data Models:
 
 1. Purpose
-- ID (Primary Key)
-- Hierarchy ID (ForeignKey to Hierarchy)
-- Excepted Delivery: Date
-- Last Modified: Date (auto-updated)
-- Comments: String
-- Status: Enum (Pending, In Progress, Rejected, Completed)
-- Creation Time: Date (auto-generated)
-- Supplier: String or Enum
-- EMFs: List of EMF IDs (One-to-Many)
-- Content: String
-- Description: String
-- Service Type: Enum
+- ID (Primary Key, auto-generated integer)
+- Hierarchy ID (Optional ForeignKey to Hierarchy, nullable)
+- Excepted Delivery: Date (nullable)
+- Last Modified: DateTime (auto-updated)
+- Comments: String (max 1000 chars, nullable)
+- Status: Enum (PENDING, IN_PROGRESS, REJECTED, COMPLETED)
+- Creation Time: DateTime (auto-generated)
+- Supplier: String (max 200 chars, nullable)
+- EMFs: List of EMF objects (One-to-Many relationship)
+- Content: String (max 2000 chars, nullable)
+- Description: String (max 2000 chars, nullable)
+- Service Type: String (max 100 chars, nullable)
 
-2. EMF
-- EMF ID: String or UUID (Primary Key)
-- Creation Time: Date (default: today)
-- Order ID and Date: Nullable
-- Demand ID and Date: Nullable
-- Bikushit ID and Date: Nullable
-- Costs: List of Cost IDs (One-to-Many)
+2. EMF (Procurement Form)
+- ID (Primary Key, auto-generated integer)
+- EMF ID: String (unique identifier, max 255 chars)
+- Purpose ID: ForeignKey to Purpose
+- Creation Time: DateTime (auto-generated)
+- Order ID: String (max 255 chars, nullable)
+- Order Creation Date: Date (nullable)
+- Demand ID: String (max 255 chars, nullable)
+- Demand Creation Date: Date (nullable)
+- Bikushit ID: String (max 255 chars, nullable)
+- Bikushit Creation Date: Date (nullable)
+- Costs: List of Cost objects (One-to-Many, integrated within EMF operations)
 
-3. Cost
-- Cost ID: Auto-generated Primary Key
-- Currency: Enum (e.g., ILS, USD)
-- Cost: Float
+3. Cost (Integrated within EMF)
+- ID (Primary Key, auto-generated integer)
+- EMF ID: ForeignKey to EMF
+- Currency: Enum (ILS, USD, EUR)
+- Cost: Float (>= 0)
+Note: Costs are managed directly through EMF operations, not as separate endpoints
 
-4. Hierarchy
-- Hierarchy ID: Auto-generated
-- Parent ID: Optional FK to Hierarchy
-- Type: Enum (unit, center, etc.)
-- Name: String
+4. Hierarchy (Organizational Structure)
+- ID (Primary Key, auto-generated integer)
+- Parent ID: Optional FK to Hierarchy (self-referencing, nullable)
+- Type: Enum (UNIT, CENTER, ANAF, TEAM)
+- Name: String (max 200 chars, required)
 
 API Endpoints:
 
@@ -66,25 +73,30 @@ API Endpoints:
     - last_modified
     - excepted_delivery
 - POST: create a new purpose
-- GET /{id}: retrieve full purpose with EMFs and costs
-- PUT /{id}: update purpose and EMFs
-- DELETE /{id}: delete purpose and cascade delete children
+- GET /{id}: retrieve full purpose with nested EMFs and their costs
+- PUT /{id}: update purpose data
+- DELETE /{id}: delete purpose and cascade delete children (EMFs and costs)
 
-/emfs
-- POST /purposes/{id}/emfs: add EMF to a purpose
-- PUT /emfs/{id}: update EMF data
-- DELETE /emfs/{id}: delete EMF
+/emfs (Integrated Cost Management)
+- POST /purposes/{id}/emfs: add EMF to a purpose with optional costs list
+  - Request body can include "costs" array with currency and cost values
+- PUT /emfs/{id}: update EMF data including costs
+  - Can update EMF fields and replace/update the entire costs list
+  - Costs are managed as part of EMF operations (no separate endpoints)
+- DELETE /emfs/{id}: delete EMF and cascade delete associated costs
 
-/costs
-- POST /emfs/{id}/costs: add cost to EMF
-- PUT /costs/{id}: edit cost
-- DELETE /costs/{id}: remove cost
+Cost Management:
+- Costs are managed exclusively through EMF operations
+- Create costs: include in EMF creation request
+- Update costs: include in EMF update request  
+- Delete costs: handled automatically when EMF is deleted or costs list is updated
+- No separate /costs endpoints - all cost operations go through /emfs
 
 /hierarchies
-- GET: get full hierarchy
-- POST: add a new node
-- PUT /{id}: edit hierarchy node
-- DELETE /{id}: remove node
+- GET: get full hierarchy tree structure
+- POST: add a new hierarchy node
+- PUT /{id}: edit hierarchy node (name, type, parent)
+- DELETE /{id}: remove node (only if no children and not used in purposes)
 
 /files (optional)
 - POST /purposes/{id}/files: upload file
@@ -95,10 +107,58 @@ Security (optional):
 - API key or JWT auth
 - Role-based permissions (admin, editor, viewer)
 
+Request/Response Schema Examples:
+
+1. Purpose Creation:
+POST /purposes
+{
+  "hierarchy_id": 1,
+  "excepted_delivery": "2024-12-31",
+  "comments": "Urgent procurement",
+  "status": "PENDING",
+  "supplier": "Tech Corp",
+  "content": "Software licenses",
+  "description": "Annual software license renewal",
+  "service_type": "Software"
+}
+
+2. EMF Creation with Costs:
+POST /purposes/1/emfs
+{
+  "emf_id": "EMF-2024-001",
+  "order_id": "ORD-001",
+  "order_creation_date": "2024-01-15",
+  "demand_id": "DEM-001", 
+  "demand_creation_date": "2024-01-10",
+  "costs": [
+    {"currency": "ILS", "cost": 5000.00},
+    {"currency": "USD", "cost": 1500.00}
+  ]
+}
+
+3. EMF Update with Cost Changes:
+PUT /emfs/1
+{
+  "order_id": "ORD-002",
+  "costs": [
+    {"currency": "EUR", "cost": 1200.00}
+  ]
+}
+
+4. Hierarchy Creation:
+POST /hierarchies
+{
+  "type": "UNIT",
+  "name": "IT Department",
+  "parent_id": 1
+}
+
 Testing:
 - Pytest for unit and integration tests
 - SQLite test DB or Docker test containers
 - Test CRUD flows and filtering logic
+- Test cost integration within EMF operations
+- Test cascade delete operations
 
 Deployment:
 - Dockerized app

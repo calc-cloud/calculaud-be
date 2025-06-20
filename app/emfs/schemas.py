@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..costs.schemas import Cost
+from app.costs.schemas import Cost, CostBase
 
 
 class EMFBase(BaseModel):
@@ -17,7 +17,18 @@ class EMFBase(BaseModel):
 
 
 class EMFCreate(EMFBase):
-    pass
+    costs: Annotated[list[CostBase], Field(default_factory=list)]
+
+
+class EMFUpdate(BaseModel):
+    emf_id: Annotated[str | None, Field(default=None, min_length=1, max_length=255)]
+    order_id: Annotated[str | None, Field(default=None, max_length=255)]
+    order_creation_date: Annotated[date | None, Field(default=None)]
+    demand_id: Annotated[str | None, Field(default=None, max_length=255)]
+    demand_creation_date: Annotated[date | None, Field(default=None)]
+    bikushit_id: Annotated[str | None, Field(default=None, max_length=255)]
+    bikushit_creation_date: Annotated[date | None, Field(default=None)]
+    costs: Annotated[list[CostBase] | None, Field(default=None)]
 
 
 class EMF(EMFBase):
