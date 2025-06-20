@@ -121,33 +121,11 @@ git branch -d feature/your-feature-name
 - **Global Config**: Use Pydantic BaseSettings for environment variables and application configuration
 - **Location**: Create `src/config.py` as the main configuration file using `pydantic_settings.BaseSettings`
 - **Environment Variables**: All environment variables should be defined as class attributes in the BaseSettings class
-- **Configuration Access**: Import and use the config instance throughout the application
+- **Configuration Access**: Import and use the config instance throughout the application (`from app.config import settings`)
 - **Module-Specific Configs**: Module-specific configs in each domain folder should extend or reference the global
   config
 - **Dynamic Attributes**: Add new configuration attributes to the BaseSettings class as needed for new features
 
-Example structure for `src/config.py`:
-
-```python
-from pydantic_settings import BaseSettings
-from pydantic import Field
-
-class Settings(BaseSettings):
-    # Database
-    database_url: str = Field(..., env="DATABASE_URL")
-    
-    # App
-    app_name: str = Field("Procurement Management System", env="APP_NAME")
-    debug: bool = Field(False, env="DEBUG")
-    
-    # Add new attributes as needed
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-
-settings = Settings()
-```
 
 ## Code Style Guidelines
 

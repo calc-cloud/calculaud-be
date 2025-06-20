@@ -1,12 +1,31 @@
 from fastapi import FastAPI
 
+from .config import settings
+from .emfs.router import router as emfs_router
+from .hierarchies.router import router as hierarchies_router
+from .purposes.router import router as purposes_router
+
 app = FastAPI(
-    title="Procurement Management System",
+    title=settings.app_name,
     description="Backend API for managing procurement purposes, EMFs, costs, and hierarchies",
-    version="1.0.0",
+    version=settings.version,
+    debug=settings.debug,
 )
+
+# Include routers
+app.include_router(
+    hierarchies_router,
+    prefix=f"{settings.api_v1_prefix}/hierarchies",
+    tags=["hierarchies"],
+)
+
+app.include_router(
+    purposes_router, prefix=f"{settings.api_v1_prefix}/purposes", tags=["purposes"]
+)
+
+app.include_router(emfs_router, prefix=settings.api_v1_prefix, tags=["emfs"])
 
 
 @app.get("/")
 def root():
-    return {"message": "Procurement Management System API"}
+    return {"message": settings.app_name, "version": settings.version}

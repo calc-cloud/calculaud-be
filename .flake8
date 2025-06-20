@@ -8,5 +8,6 @@ exclude =
     *.egg-info,
     build,
     dist
+    alembic
 per-file-ignores = 
     __init__.py:F401

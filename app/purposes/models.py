@@ -1,0 +1,46 @@
+from datetime import date, datetime
+from enum import Enum as PyEnum
+from typing import TYPE_CHECKING
+
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+if TYPE_CHECKING:
+    from app.emfs.models import EMF
+    from app.hierarchies.models import Hierarchy
+
+
+class StatusEnum(PyEnum):
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+
+
+class Purpose(Base):
+    __tablename__ = "purpose"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    service_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    content: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False)
+    comments: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    last_modified: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), server_onupdate=func.now()
+    )
+    excepted_delivery: Mapped[date | None] = mapped_column(Date, nullable=True)
+    hierarchy_id: Mapped[int | None] = mapped_column(
+        ForeignKey("hierarchy.id"), nullable=True
+    )
+
+    # Relationships
+    hierarchy: Mapped["Hierarchy"] = relationship(
+        "Hierarchy", back_populates="purposes"
+    )
+    emfs: Mapped[list["EMF"]] = relationship("EMF", back_populates="purpose")
