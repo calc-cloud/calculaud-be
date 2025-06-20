@@ -1,0 +1,107 @@
+Backend PRD: Procurement Management System
+
+Objective:
+Build a clean, efficient, and maintainable backend for the Procurement Management System using FastAPI. The backend must support full CRUD functionality for Purposes, EMFs, Costs, and Hierarchy entities, support advanced filtering, searching, and be easy to deploy and extend.
+
+Technology Stack:
+- Language: Python 3.11+
+- Framework: FastAPI
+- ORM: SQLAlchemy (v2 mode)
+- Migrations: Alembic
+- Database: PostgreSQL
+- Testing: Pytest
+- Deployment: Docker with .env config
+
+Data Models:
+
+1. Purpose
+- ID (Primary Key)
+- Hierarchy ID (ForeignKey to Hierarchy)
+- Excepted Delivery: Date
+- Last Modified: Date (auto-updated)
+- Comments: String
+- Status: Enum (Pending, In Progress, Rejected, Completed)
+- Creation Time: Date (auto-generated)
+- Supplier: String or Enum
+- EMFs: List of EMF IDs (One-to-Many)
+- Content: String
+- Description: String
+- Service Type: Enum
+
+2. EMF
+- EMF ID: String or UUID (Primary Key)
+- Creation Time: Date (default: today)
+- Order ID and Date: Nullable
+- Demand ID and Date: Nullable
+- Bikushit ID and Date: Nullable
+- Costs: List of Cost IDs (One-to-Many)
+
+3. Cost
+- Cost ID: Auto-generated Primary Key
+- Currency: Enum (e.g., ILS, USD)
+- Cost: Float
+
+4. Hierarchy
+- Hierarchy ID: Auto-generated
+- Parent ID: Optional FK to Hierarchy
+- Type: Enum (unit, center, etc.)
+- Name: String
+
+API Endpoints:
+
+/purposes
+- GET: list purposes (supports pagination, filtering, sorting, search)
+  - Filters:
+    - hierarchy_id
+    - emf_id
+    - supplier
+    - service_type
+    - status
+  - Searchable by:
+    - description
+    - content
+    - emf_id
+  - Sortable by:
+    - creation_time
+    - last_modified
+    - excepted_delivery
+- POST: create a new purpose
+- GET /{id}: retrieve full purpose with EMFs and costs
+- PUT /{id}: update purpose and EMFs
+- DELETE /{id}: delete purpose and cascade delete children
+
+/emfs
+- POST /purposes/{id}/emfs: add EMF to a purpose
+- PUT /emfs/{id}: update EMF data
+- DELETE /emfs/{id}: delete EMF
+
+/costs
+- POST /emfs/{id}/costs: add cost to EMF
+- PUT /costs/{id}: edit cost
+- DELETE /costs/{id}: remove cost
+
+/hierarchies
+- GET: get full hierarchy
+- POST: add a new node
+- PUT /{id}: edit hierarchy node
+- DELETE /{id}: remove node
+
+/files (optional)
+- POST /purposes/{id}/files: upload file
+- GET /purposes/{id}/files: list files
+- DELETE /files/{file_id}: delete file
+
+Security (optional):
+- API key or JWT auth
+- Role-based permissions (admin, editor, viewer)
+
+Testing:
+- Pytest for unit and integration tests
+- SQLite test DB or Docker test containers
+- Test CRUD flows and filtering logic
+
+Deployment:
+- Dockerized app
+- Environment-based configuration using .env
+- Use Gunicorn/Uvicorn for production
+
