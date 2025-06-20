@@ -172,7 +172,31 @@ errors before committing.
 
 ## Pydantic v2 Guidelines
 
-Use Pydantic v2 with the new Annotated syntax exclusively:
+Use Pydantic v2 with the new Annotated syntax and modern Python typing exclusively:
+
+### Modern Python Typing (Python 3.10+)
+
+Always use the modern union syntax and built-in collections:
+
+```python
+from typing import Annotated
+from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime, date
+from enum import Enum
+
+# Use built-in types instead of typing imports
+# ✅ Good - Modern syntax
+list[str]           # instead of List[str]
+dict[str, int]      # instead of Dict[str, int]
+tuple[str, int]     # instead of Tuple[str, int]
+str | None          # instead of Optional[str]
+int | str | None    # instead of Union[int, str, None]
+
+# ❌ Bad - Old syntax (don't import these)
+from typing import List, Dict, Tuple, Optional, Union
+```
+
+### Pydantic v2 with Modern Typing
 
 ```python
 from typing import Annotated
@@ -190,6 +214,10 @@ class UserCreate(BaseModel):
     age: Annotated[int, Field(ge=0, le=120)]
     is_active: Annotated[bool, Field(default=True)]
     status: StatusEnum
+    # Use modern union syntax for nullable fields
+    bio: Annotated[str | None, Field(default=None, max_length=500)]
+    tags: Annotated[list[str], Field(default_factory=list)]
+    metadata: Annotated[dict[str, str], Field(default_factory=dict)]
     created_at: Annotated[datetime, Field(default_factory=datetime.utcnow)]
 
 class User(UserCreate):
@@ -198,21 +226,35 @@ class User(UserCreate):
     model_config = ConfigDict(from_attributes=True)
 ```
 
-## SQLAlchemy v2 Guidelines
+### Nullable Fields
 
-Use SQLAlchemy v2 syntax with Mapped and mapped_column:
+For nullable/optional fields, use the modern union syntax with `None`:
 
 ```python
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum
+# ✅ Modern syntax
+field: Annotated[str | None, Field(default=None)]
+field: Annotated[int | None, Field(default=None)]
+field: Annotated[datetime | None, Field(default=None)]
+
+# ❌ Old syntax (avoid)
+from typing import Optional
+field: Annotated[Optional[str], Field(default=None)]
+```
+
+## SQLAlchemy v2 Guidelines
+
+Use SQLAlchemy v2 syntax with Mapped, mapped_column, and modern Python typing:
+
+```python
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime
-from typing import Optional, List
 
 class Base(DeclarativeBase):
     pass
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"  # Use singular form
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -220,21 +262,42 @@ class User(Base):
     age: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
     status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Use server defaults for timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), server_onupdate=func.now()
+    )
     
-    # Relationships with proper typing
-    posts: Mapped[List["Post"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    # Use modern typing for nullable fields and relationships
+    bio: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    posts: Mapped[list[Post]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class Post(Base):
-    __tablename__ = "posts"
+    __tablename__ = "post"  # Use singular form
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    content: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    content: Mapped[str | None] = mapped_column(String, nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     
-    # Relationships
-    user: Mapped["User"] = relationship(back_populates="posts")
+    # Relationships with modern typing
+    user: Mapped[User] = relationship(back_populates="posts")
+```
+
+### Modern Typing in SQLAlchemy
+
+```python
+# ✅ Modern syntax
+field: Mapped[str | None] = mapped_column(String(100), nullable=True)
+field: Mapped[int | None] = mapped_column(Integer, nullable=True)
+items: Mapped[list[Item]] = relationship(...)
+parent: Mapped[Parent | None] = relationship(...)
+
+# ❌ Old syntax (avoid)
+from typing import Optional, List
+field: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+items: Mapped[List["Item"]] = relationship(...)
 ```
 
 When implementing:

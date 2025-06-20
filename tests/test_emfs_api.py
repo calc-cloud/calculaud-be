@@ -5,7 +5,7 @@ class TestEMFsAPI:
     """Test EMF API endpoints."""
 
     def test_add_emf_to_purpose(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test POST /purposes/{id}/emfs adds EMF to purpose."""
         # Create purpose first
@@ -25,14 +25,14 @@ class TestEMFsAPI:
         assert "creation_time" in data
 
     def test_add_emf_to_nonexistent_purpose(
-            self, test_client: TestClient, sample_emf_data: dict
+        self, test_client: TestClient, sample_emf_data: dict
     ):
         """Test POST /purposes/{id}/emfs returns 404 for non-existent purpose."""
         response = test_client.post("/purposes/999/emfs", json=sample_emf_data)
         assert response.status_code == 404
 
     def test_add_emf_invalid_data(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test POST /purposes/{id}/emfs with invalid data returns 422."""
         # Create purpose first
@@ -45,7 +45,7 @@ class TestEMFsAPI:
         assert response.status_code == 422
 
     def test_add_duplicate_emf_id(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test POST /purposes/{id}/emfs with duplicate EMF ID returns 400."""
         # Create purpose first
@@ -63,7 +63,7 @@ class TestEMFsAPI:
         assert "already exists" in response.json()["detail"].lower()
 
     def test_update_emf(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test PUT /emfs/{id} updates EMF data."""
         # Create purpose and EMF first
@@ -93,7 +93,7 @@ class TestEMFsAPI:
         assert response.status_code == 404
 
     def test_update_emf_invalid_data(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test PUT /emfs/{id} with invalid data returns 422."""
         # Create purpose and EMF first
@@ -106,12 +106,12 @@ class TestEMFsAPI:
         emf_id = emf_response.json()["id"]
 
         # Try to update with invalid data
-        invalid_data = {"order_date": "invalid-date-format"}
+        invalid_data = {"order_creation_date": "invalid-date-format"}
         response = test_client.put(f"/emfs/{emf_id}", json=invalid_data)
         assert response.status_code == 422
 
     def test_delete_emf(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test DELETE /emfs/{id} deletes EMF."""
         # Create purpose and EMF first
@@ -139,11 +139,11 @@ class TestEMFsAPI:
         assert response.status_code == 404
 
     def test_delete_emf_cascades_to_costs(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test DELETE /emfs/{id} cascades delete to associated costs."""
         # Create purpose and EMF first
@@ -168,7 +168,7 @@ class TestEMFsAPI:
         assert get_cost_response.status_code == 404
 
     def test_emf_appears_in_purpose_details(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test that EMF appears in purpose details after creation."""
         # Create purpose first
@@ -192,7 +192,7 @@ class TestEMFsAPI:
         assert purpose_data["emfs"][0]["emf_id"] == sample_emf_data["emf_id"]
 
     def test_multiple_emfs_per_purpose(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test adding multiple EMFs to a single purpose."""
         # Create purpose first

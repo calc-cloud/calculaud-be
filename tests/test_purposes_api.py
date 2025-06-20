@@ -28,7 +28,7 @@ class TestPurposesAPI:
         assert response.status_code == 422
 
     def test_get_purpose_by_id(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes/{id} returns purpose with EMFs and costs."""
         # Create purpose first
@@ -58,17 +58,17 @@ class TestPurposesAPI:
         # Update purpose
         update_data = sample_purpose_data.copy()
         update_data["description"] = "Updated description"
-        update_data["status"] = "In Progress"
+        update_data["status"] = "IN_PROGRESS"
 
         response = test_client.put(f"/purposes/{purpose_id}", json=update_data)
         assert response.status_code == 200
         data = response.json()
         assert data["description"] == "Updated description"
-        assert data["status"] == "In Progress"
+        assert data["status"] == "IN_PROGRESS"
         assert data["id"] == purpose_id
 
     def test_update_purpose_not_found(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test PUT /purposes/{id} returns 404 for non-existent purpose."""
         response = test_client.put("/purposes/999", json=sample_purpose_data)
@@ -94,7 +94,7 @@ class TestPurposesAPI:
         assert response.status_code == 404
 
     def test_get_purposes_with_pagination(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes with pagination parameters."""
         # Create multiple purposes
@@ -113,26 +113,26 @@ class TestPurposesAPI:
         assert data["limit"] == 2
 
     def test_get_purposes_with_filters(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes with filtering."""
         # Create purposes with different attributes
         data1 = sample_purpose_data.copy()
-        data1["status"] = "Pending"
+        data1["status"] = "PENDING"
         data1["supplier"] = "Supplier A"
         test_client.post("/purposes", json=data1)
 
         data2 = sample_purpose_data.copy()
-        data2["status"] = "Completed"
+        data2["status"] = "COMPLETED"
         data2["supplier"] = "Supplier B"
         test_client.post("/purposes", json=data2)
 
         # Test status filter
-        response = test_client.get("/purposes?status=Pending")
+        response = test_client.get("/purposes?status=PENDING")
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
-        assert data["items"][0]["status"] == "Pending"
+        assert data["items"][0]["status"] == "PENDING"
 
         # Test supplier filter
         response = test_client.get("/purposes?supplier=Supplier B")
@@ -142,7 +142,7 @@ class TestPurposesAPI:
         assert data["items"][0]["supplier"] == "Supplier B"
 
     def test_get_purposes_with_search(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes with search functionality."""
         # Create purposes with different descriptions
@@ -171,7 +171,7 @@ class TestPurposesAPI:
         assert "computers" in data["items"][0]["content"].lower()
 
     def test_get_purposes_with_sorting(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes with sorting."""
         # Create purposes with different dates
@@ -189,8 +189,8 @@ class TestPurposesAPI:
         data = response.json()
         assert len(data["items"]) == 2
         assert (
-                data["items"][0]["excepted_delivery"]
-                <= data["items"][1]["excepted_delivery"]
+            data["items"][0]["excepted_delivery"]
+            <= data["items"][1]["excepted_delivery"]
         )
 
         # Test sort by excepted_delivery descending
@@ -201,29 +201,29 @@ class TestPurposesAPI:
         data = response.json()
         assert len(data["items"]) == 2
         assert (
-                data["items"][0]["excepted_delivery"]
-                >= data["items"][1]["excepted_delivery"]
+            data["items"][0]["excepted_delivery"]
+            >= data["items"][1]["excepted_delivery"]
         )
 
     def test_get_purposes_combined_filters(
-            self, test_client: TestClient, sample_purpose_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes with combined filters, search, and sorting."""
         # Create multiple purposes
         for i in range(3):
             data = sample_purpose_data.copy()
             data["description"] = f"Project {i}"
-            data["status"] = "Pending" if i % 2 == 0 else "Completed"
+            data["status"] = "PENDING" if i % 2 == 0 else "COMPLETED"
             data["excepted_delivery"] = f"2024-0{i + 1}-01"
             test_client.post("/purposes", json=data)
 
         # Test combined filters
         response = test_client.get(
-            "/purposes?status=Pending&search=Project&sort_by=excepted_delivery&sort_order=desc&limit=10"
+            "/purposes?status=PENDING&search=Project&sort_by=excepted_delivery&sort_order=desc&limit=10"
         )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2  # Only pending projects
         for item in data["items"]:
-            assert item["status"] == "Pending"
+            assert item["status"] == "PENDING"
             assert "Project" in item["description"]

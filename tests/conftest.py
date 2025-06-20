@@ -55,7 +55,7 @@ def test_client(test_db) -> TestClient:
 @pytest.fixture
 def sample_hierarchy(db_session) -> Hierarchy:
     """Create sample hierarchy."""
-    hierarchy = Hierarchy(type="unit", name="Test Unit")
+    hierarchy = Hierarchy(type="UNIT", name="Test Unit")
     db_session.add(hierarchy)
     db_session.commit()
     db_session.refresh(hierarchy)
@@ -64,12 +64,12 @@ def sample_hierarchy(db_session) -> Hierarchy:
 
 @pytest.fixture
 def sample_purpose_data(sample_hierarchy) -> dict:
-    """Sample purpose data for creation."""
+    """Sample purpose data for creation with required fields."""
     return {
         "hierarchy_id": sample_hierarchy.id,
         "excepted_delivery": "2024-12-31",
         "comments": "Test comments",
-        "status": "Pending",
+        "status": "PENDING",
         "supplier": "Test Supplier",
         "content": "Test content",
         "description": "Test description",
@@ -78,19 +78,59 @@ def sample_purpose_data(sample_hierarchy) -> dict:
 
 
 @pytest.fixture
+def minimal_purpose_data() -> dict:
+    """Minimal purpose data with nullable fields as None."""
+    return {
+        "status": "PENDING",
+    }
+
+
+@pytest.fixture
+def purpose_data_no_hierarchy() -> dict:
+    """Purpose data without hierarchy_id."""
+    return {
+        "excepted_delivery": "2024-12-31",
+        "status": "PENDING",
+        "supplier": "Test Supplier",
+        "content": "Test content",
+    }
+
+
+@pytest.fixture
+def purpose_data_no_delivery(sample_hierarchy) -> dict:
+    """Purpose data without excepted_delivery."""
+    return {
+        "hierarchy_id": sample_hierarchy.id,
+        "status": "PENDING",
+        "supplier": "Test Supplier",
+        "content": "Test content",
+    }
+
+
+@pytest.fixture
 def sample_purpose(db_session, sample_hierarchy) -> Purpose:
-    """Create sample purpose."""
+    """Create sample purpose with all fields."""
     purpose = Purpose(
         hierarchy_id=sample_hierarchy.id,
         excepted_delivery=date(2024, 12, 31),
         comments="Test comments",
-        status="Pending",
+        status="PENDING",
         supplier="Test Supplier",
         content="Test content",
         description="Test description",
         service_type="Consulting",
-        creation_time=datetime.now(),
-        last_modified=datetime.now(),
+    )
+    db_session.add(purpose)
+    db_session.commit()
+    db_session.refresh(purpose)
+    return purpose
+
+
+@pytest.fixture
+def minimal_purpose(db_session) -> Purpose:
+    """Create minimal purpose with only required fields."""
+    purpose = Purpose(
+        status="PENDING",
     )
     db_session.add(purpose)
     db_session.commit()
@@ -104,11 +144,11 @@ def sample_emf_data() -> dict:
     return {
         "emf_id": "EMF-001",
         "order_id": "ORD-001",
-        "order_date": "2024-01-15",
+        "order_creation_date": "2024-01-15",
         "demand_id": "DEM-001",
-        "demand_date": "2024-01-10",
+        "demand_creation_date": "2024-01-10",
         "bikushit_id": "BIK-001",
-        "bikushit_date": "2024-01-20",
+        "bikushit_creation_date": "2024-01-20",
     }
 
 
@@ -120,11 +160,11 @@ def sample_emf(db_session, sample_purpose) -> EMF:
         purpose_id=sample_purpose.id,
         creation_time=datetime.now(),
         order_id="ORD-001",
-        order_date=date(2024, 1, 15),
+        order_creation_date=date(2024, 1, 15),
         demand_id="DEM-001",
-        demand_date=date(2024, 1, 10),
+        demand_creation_date=date(2024, 1, 10),
         bikushit_id="BIK-001",
-        bikushit_date=date(2024, 1, 20),
+        bikushit_creation_date=date(2024, 1, 20),
     )
     db_session.add(emf)
     db_session.commit()
@@ -151,4 +191,4 @@ def sample_cost(db_session, sample_emf) -> Cost:
 @pytest.fixture
 def sample_hierarchy_data() -> dict:
     """Sample hierarchy data for creation."""
-    return {"type": "center", "name": "Test Center", "parent_id": None}
+    return {"type": "CENTER", "name": "Test Center", "parent_id": None}

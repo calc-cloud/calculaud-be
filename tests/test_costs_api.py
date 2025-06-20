@@ -5,11 +5,11 @@ class TestCostsAPI:
     """Test Cost API endpoints."""
 
     def test_add_cost_to_emf(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test POST /emfs/{id}/costs adds cost to EMF."""
         # Create purpose and EMF first
@@ -31,14 +31,14 @@ class TestCostsAPI:
         assert "id" in data
 
     def test_add_cost_to_nonexistent_emf(
-            self, test_client: TestClient, sample_cost_data: dict
+        self, test_client: TestClient, sample_cost_data: dict
     ):
         """Test POST /emfs/{id}/costs returns 404 for non-existent EMF."""
         response = test_client.post("/emfs/999/costs", json=sample_cost_data)
         assert response.status_code == 404
 
     def test_add_cost_invalid_data(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test POST /emfs/{id}/costs with invalid data returns 422."""
         # Create purpose and EMF first
@@ -56,7 +56,7 @@ class TestCostsAPI:
         assert response.status_code == 422
 
     def test_add_cost_missing_required_fields(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test POST /emfs/{id}/costs with missing required fields returns 422."""
         # Create purpose and EMF first
@@ -74,11 +74,11 @@ class TestCostsAPI:
         assert response.status_code == 422
 
     def test_update_cost(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test PUT /costs/{id} updates cost."""
         # Create purpose, EMF, and cost first
@@ -106,18 +106,18 @@ class TestCostsAPI:
         assert data["id"] == cost_id
 
     def test_update_cost_not_found(
-            self, test_client: TestClient, sample_cost_data: dict
+        self, test_client: TestClient, sample_cost_data: dict
     ):
         """Test PUT /costs/{id} returns 404 for non-existent cost."""
         response = test_client.put("/costs/999", json=sample_cost_data)
         assert response.status_code == 404
 
     def test_update_cost_invalid_data(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test PUT /costs/{id} with invalid data returns 422."""
         # Create purpose, EMF, and cost first
@@ -138,11 +138,11 @@ class TestCostsAPI:
         assert response.status_code == 422
 
     def test_delete_cost(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test DELETE /costs/{id} removes cost."""
         # Create purpose, EMF, and cost first
@@ -176,11 +176,11 @@ class TestCostsAPI:
         assert response.status_code == 404
 
     def test_cost_appears_in_purpose_details(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test that cost appears in purpose details after creation."""
         # Create purpose, EMF, and cost
@@ -208,11 +208,11 @@ class TestCostsAPI:
         assert emf["costs"][0]["cost"] == sample_cost_data["cost"]
 
     def test_multiple_costs_per_emf(
-            self,
-            test_client: TestClient,
-            sample_purpose_data: dict,
-            sample_emf_data: dict,
-            sample_cost_data: dict,
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_emf_data: dict,
+        sample_cost_data: dict,
     ):
         """Test adding multiple costs to a single EMF."""
         # Create purpose and EMF first
@@ -251,7 +251,7 @@ class TestCostsAPI:
         assert "EUR" in currencies
 
     def test_cost_validation_currency_enum(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test cost creation validates currency enum values."""
         # Create purpose and EMF first
@@ -276,7 +276,7 @@ class TestCostsAPI:
         assert response.status_code == 422
 
     def test_cost_validation_negative_amount(
-            self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test cost creation validates positive amounts."""
         # Create purpose and EMF first

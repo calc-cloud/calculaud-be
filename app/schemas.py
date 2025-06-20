@@ -1,15 +1,14 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import Annotated, List, Optional
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class StatusEnum(str, Enum):
-    PENDING = "Pending"
-    IN_PROGRESS = "In Progress"
-    REJECTED = "Rejected"
-    COMPLETED = "Completed"
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
 
 
 class CurrencyEnum(str, Enum):
@@ -19,17 +18,17 @@ class CurrencyEnum(str, Enum):
 
 
 class HierarchyTypeEnum(str, Enum):
-    UNIT = "unit"
-    CENTER = "center"
-    DEPARTMENT = "department"
-    DIVISION = "division"
+    UNIT = "UNIT"
+    CENTER = "CENTER"
+    ANAF = "ANAF"
+    TEAM = "TEAM"
 
 
 # Hierarchy schemas
 class HierarchyBase(BaseModel):
     type: HierarchyTypeEnum
     name: Annotated[str, Field(min_length=1, max_length=200)]
-    parent_id: Annotated[Optional[int], Field(default=None)]
+    parent_id: Annotated[int | None, Field(default=None)]
 
 
 class HierarchyCreate(HierarchyBase):
@@ -61,13 +60,13 @@ class Cost(CostBase):
 
 # EMF schemas
 class EMFBase(BaseModel):
-    emf_id: Annotated[str, Field(min_length=1, max_length=50)]
-    order_id: Annotated[Optional[str], Field(default=None, max_length=50)]
-    order_date: Annotated[Optional[date], Field(default=None)]
-    demand_id: Annotated[Optional[str], Field(default=None, max_length=50)]
-    demand_date: Annotated[Optional[date], Field(default=None)]
-    bikushit_id: Annotated[Optional[str], Field(default=None, max_length=50)]
-    bikushit_date: Annotated[Optional[date], Field(default=None)]
+    emf_id: Annotated[str, Field(min_length=1, max_length=255)]
+    order_id: Annotated[str | None, Field(default=None, max_length=255)]
+    order_creation_date: Annotated[date | None, Field(default=None)]
+    demand_id: Annotated[str | None, Field(default=None, max_length=255)]
+    demand_creation_date: Annotated[date | None, Field(default=None)]
+    bikushit_id: Annotated[str | None, Field(default=None, max_length=255)]
+    bikushit_creation_date: Annotated[date | None, Field(default=None)]
 
 
 class EMFCreate(EMFBase):
@@ -78,21 +77,21 @@ class EMF(EMFBase):
     id: int
     purpose_id: int
     creation_time: datetime
-    costs: Annotated[List[Cost], Field(default_factory=list)]
+    costs: Annotated[list[Cost], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)
 
 
 # Purpose schemas
 class PurposeBase(BaseModel):
-    hierarchy_id: int
-    excepted_delivery: date
-    comments: Annotated[Optional[str], Field(default=None, max_length=1000)]
+    hierarchy_id: Annotated[int | None, Field(default=None)]
+    excepted_delivery: Annotated[date | None, Field(default=None)]
+    comments: Annotated[str | None, Field(default=None, max_length=1000)]
     status: StatusEnum
-    supplier: Annotated[Optional[str], Field(default=None, max_length=200)]
-    content: Annotated[Optional[str], Field(default=None, max_length=2000)]
-    description: Annotated[Optional[str], Field(default=None, max_length=2000)]
-    service_type: Annotated[Optional[str], Field(default=None, max_length=100)]
+    supplier: Annotated[str | None, Field(default=None, max_length=200)]
+    content: Annotated[str | None, Field(default=None, max_length=2000)]
+    description: Annotated[str | None, Field(default=None, max_length=2000)]
+    service_type: Annotated[str | None, Field(default=None, max_length=100)]
 
 
 class PurposeCreate(PurposeBase):
@@ -110,7 +109,7 @@ class Purpose(PurposeBase):
 
 # Response schemas
 class PaginatedResponse(BaseModel):
-    items: List[Purpose]
+    items: list[Purpose]
     total: Annotated[int, Field(ge=0)]
     page: Annotated[int, Field(ge=1)]
     limit: Annotated[int, Field(ge=1, le=100)]
