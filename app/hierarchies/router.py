@@ -34,7 +34,7 @@ def get_hierarchies(
     hierarchies, total = service.get_hierarchies(
         db=db,
         pagination=pagination,
-        type_filter=type_filter,
+        type_filter=type_filter.value if type_filter else None,
         parent_id=parent_id,
         search=search,
         sort_by=sort_by,
