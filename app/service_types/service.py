@@ -1,6 +1,8 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.pagination import PaginationParams, paginate
+from app.service_types.exceptions import ServiceTypeAlreadyExists
 from app.service_types.models import ServiceType
 from app.service_types.schemas import ServiceTypeCreate, ServiceTypeUpdate
 
@@ -25,11 +27,17 @@ def get_service_types(
 
 def create_service_type(db: Session, service_type: ServiceTypeCreate) -> ServiceType:
     """Create a new service type."""
-    db_service_type = ServiceType(**service_type.model_dump())
-    db.add(db_service_type)
-    db.commit()
-    db.refresh(db_service_type)
-    return db_service_type
+    try:
+        db_service_type = ServiceType(**service_type.model_dump())
+        db.add(db_service_type)
+        db.commit()
+        db.refresh(db_service_type)
+        return db_service_type
+    except IntegrityError as e:
+        db.rollback()
+        if "UNIQUE constraint failed" in str(e) and "service_type" in str(e):
+            raise ServiceTypeAlreadyExists(f"Service type '{service_type.name}' already exists")
+        raise
 
 
 def patch_service_type(
@@ -42,13 +50,19 @@ def patch_service_type(
     if not db_service_type:
         return None
 
-    for field, value in service_type_update.model_dump(exclude_unset=True).items():
-        if value is not None:
-            setattr(db_service_type, field, value)
+    try:
+        for field, value in service_type_update.model_dump(exclude_unset=True).items():
+            if value is not None:
+                setattr(db_service_type, field, value)
 
-    db.commit()
-    db.refresh(db_service_type)
-    return db_service_type
+        db.commit()
+        db.refresh(db_service_type)
+        return db_service_type
+    except IntegrityError as e:
+        db.rollback()
+        if "UNIQUE constraint failed" in str(e) and "service_type" in str(e):
+            raise ServiceTypeAlreadyExists(f"Service type '{service_type_update.name}' already exists")
+        raise
 
 
 def delete_service_type(db: Session, service_type_id: int) -> bool:
