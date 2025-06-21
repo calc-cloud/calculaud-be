@@ -23,6 +23,12 @@ app.include_router(
 )
 
 
-@app.get("/")
-def root():
-    return {"message": settings.app_name, "version": settings.version}
+@app.get("/health")
+def health_check():
+    """Health check endpoint for deployment platforms like Railway."""
+    return {
+        "status": "healthy",
+        "app": settings.app_name,
+        "version": settings.version,
+        "environment": settings.environment,
+    }

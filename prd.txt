@@ -17,7 +17,7 @@ Data Models:
 1. Purpose
 - ID (Primary Key, auto-generated integer)
 - Hierarchy ID (Optional ForeignKey to Hierarchy, nullable)
-- Excepted Delivery: Date (nullable)
+- Expected Delivery: Date (nullable)
 - Last Modified: DateTime (auto-updated)
 - Comments: String (max 1000 chars, nullable)
 - Status: Enum (PENDING, IN_PROGRESS, REJECTED, COMPLETED)
@@ -71,7 +71,7 @@ API Endpoints:
   - Sortable by:
     - creation_time
     - last_modified
-    - excepted_delivery
+    - expected_delivery
 - POST: create a new purpose
 - GET /{id}: retrieve full purpose with nested EMFs and their costs
 - PUT /{id}: update purpose data
@@ -113,7 +113,7 @@ Request/Response Schema Examples:
 POST /purposes
 {
   "hierarchy_id": 1,
-  "excepted_delivery": "2024-12-31",
+  "expected_delivery": "2024-12-31",
   "comments": "Urgent procurement",
   "status": "PENDING",
   "supplier": "Tech Corp",
@@ -131,8 +131,8 @@ POST /purposes/1/emfs
   "demand_id": "DEM-001", 
   "demand_creation_date": "2024-01-10",
   "costs": [
-    {"currency": "ILS", "cost": 5000.00},
-    {"currency": "USD", "cost": 1500.00}
+    {"currency": "ILS", "amount": 5000.00},
+    {"currency": "USD", "amount": 1500.00}
   ]
 }
 
@@ -141,7 +141,7 @@ PUT /emfs/1
 {
   "order_id": "ORD-002",
   "costs": [
-    {"currency": "EUR", "cost": 1200.00}
+    {"currency": "EUR", "amount": 1200.00}
   ]
 }
 

@@ -37,7 +37,7 @@ class Purpose(Base):
         server_default=func.now(),
         server_onupdate=func.now(),
     )
-    excepted_delivery: Mapped[date | None] = mapped_column(Date, nullable=True)
+    expected_delivery: Mapped[date | None] = mapped_column(Date, nullable=True)
     hierarchy_id: Mapped[int | None] = mapped_column(
         ForeignKey("hierarchy.id"), nullable=True
     )

@@ -22,7 +22,7 @@ class Cost(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     emf_id: Mapped[int] = mapped_column(ForeignKey("emf.id"), nullable=False)
     currency: Mapped[CurrencyEnum] = mapped_column(Enum(CurrencyEnum), nullable=False)
-    cost: Mapped[float] = mapped_column(Float, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
 
     # Relationships
     emf: Mapped["EMF"] = relationship("EMF", back_populates="costs")

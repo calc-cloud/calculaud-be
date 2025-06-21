@@ -7,7 +7,7 @@ from .models import CurrencyEnum
 
 class CostBase(BaseModel):
     currency: CurrencyEnum
-    cost: Annotated[float, Field(ge=0)]
+    amount: Annotated[float, Field(ge=0)]
 
 
 class Cost(CostBase):

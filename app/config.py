@@ -13,13 +13,14 @@ class Settings(BaseSettings):
     app_name: Annotated[str, Field(default="Procurement Management System")]
     debug: Annotated[bool, Field(default=False)]
     version: Annotated[str, Field(default="1.0.0")]
+    environment: Annotated[str, Field(default="development")]
 
     # API
     api_v1_prefix: Annotated[str, Field(default="/api/v1")]
 
     # Pagination
     default_page_size: Annotated[int, Field(default=20)]
-    max_page_size: Annotated[int, Field(default=100)]
+    max_page_size: Annotated[int, Field(default=200)]
 
     model_config = SettingsConfigDict(env_file=find_dotenv())
 

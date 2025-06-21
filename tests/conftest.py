@@ -67,7 +67,7 @@ def sample_purpose_data(sample_hierarchy) -> dict:
     """Sample purpose data for creation with required fields."""
     return {
         "hierarchy_id": sample_hierarchy.id,
-        "excepted_delivery": "2024-12-31",
+        "expected_delivery": "2024-12-31",
         "comments": "Test comments",
         "status": "PENDING",
         "supplier": "Test Supplier",
@@ -89,7 +89,7 @@ def minimal_purpose_data() -> dict:
 def purpose_data_no_hierarchy() -> dict:
     """Purpose data without hierarchy_id."""
     return {
-        "excepted_delivery": "2024-12-31",
+        "expected_delivery": "2024-12-31",
         "status": "PENDING",
         "supplier": "Test Supplier",
         "content": "Test content",
@@ -98,7 +98,7 @@ def purpose_data_no_hierarchy() -> dict:
 
 @pytest.fixture
 def purpose_data_no_delivery(sample_hierarchy) -> dict:
-    """Purpose data without excepted_delivery."""
+    """Purpose data without expected_delivery."""
     return {
         "hierarchy_id": sample_hierarchy.id,
         "status": "PENDING",
@@ -112,7 +112,7 @@ def sample_purpose(db_session, sample_hierarchy) -> Purpose:
     """Create sample purpose with all fields."""
     purpose = Purpose(
         hierarchy_id=sample_hierarchy.id,
-        excepted_delivery=date(2024, 12, 31),
+        expected_delivery=date(2024, 12, 31),
         comments="Test comments",
         status="PENDING",
         supplier="Test Supplier",
@@ -149,7 +149,7 @@ def sample_emf_data() -> dict:
         "demand_creation_date": "2024-01-10",
         "bikushit_id": "BIK-001",
         "bikushit_creation_date": "2024-01-20",
-        "costs": [{"currency": "ILS", "cost": 1000.50}],
+        "costs": [{"currency": "ILS", "amount": 1000.50}],
     }
 
 
@@ -190,7 +190,7 @@ def sample_emf(db_session, sample_purpose) -> EMF:
 @pytest.fixture
 def sample_cost_data() -> dict:
     """Sample cost data for creation."""
-    return {"currency": "ILS", "cost": 1000.50}
+    return {"currency": "ILS", "amount": 1000.50}
 
 
 @pytest.fixture

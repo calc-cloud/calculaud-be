@@ -64,7 +64,7 @@ def upgrade() -> None:
             server_default=sa.text("(CURRENT_TIMESTAMP)"),
             nullable=False,
         ),
-        sa.Column("excepted_delivery", sa.Date(), nullable=True),
+        sa.Column("expected_delivery", sa.Date(), nullable=True),
         sa.Column("hierarchy_id", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(
             ["hierarchy_id"],
@@ -107,7 +107,7 @@ def upgrade() -> None:
             sa.Enum("SUPPORT_USD", "AVAILABLE_USD", "ILS", name="currencyenum"),
             nullable=False,
         ),
-        sa.Column("cost", sa.Float(), nullable=False),
+        sa.Column("amount", sa.Float(), nullable=False),
         sa.ForeignKeyConstraint(
             ["emf_id"],
             ["emf.id"],

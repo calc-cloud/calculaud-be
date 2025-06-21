@@ -19,11 +19,11 @@ class TestCostsAPI:
         # Test valid cost creation through EMF via purpose creation
         emf_data = {
             "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS", "cost": 1000.50}],
+            "costs": [{"currency": "ILS", "amount": 1000.50}],
         }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
@@ -33,7 +33,7 @@ class TestCostsAPI:
         emf = data["emfs"][0]
         assert len(emf["costs"]) == 1
         assert emf["costs"][0]["currency"] == "ILS"
-        assert emf["costs"][0]["cost"] == 1000.50
+        assert emf["costs"][0]["amount"] == 1000.50
 
     def test_invalid_cost_currency_in_emf(
         self, test_client: TestClient, sample_purpose_data: dict
@@ -42,11 +42,11 @@ class TestCostsAPI:
         # Try to create EMF with invalid currency via purpose creation
         emf_data = {
             "emf_id": "EMF-001",
-            "costs": [{"currency": "INVALID", "cost": 100.00}],
+            "costs": [{"currency": "INVALID", "amount": 100.00}],
         }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
@@ -59,11 +59,11 @@ class TestCostsAPI:
         # Try to create EMF with negative cost via purpose creation
         emf_data = {
             "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS", "cost": -100.00}],
+            "costs": [{"currency": "ILS", "amount": -100.00}],
         }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
@@ -80,7 +80,7 @@ class TestCostsAPI:
         }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
@@ -94,14 +94,14 @@ class TestCostsAPI:
         emf_data = {
             "emf_id": "EMF-MULTI",
             "costs": [
-                {"currency": "ILS", "cost": 1000.00},
-                {"currency": "SUPPORT_USD", "cost": 300.00},
-                {"currency": "AVAILABLE_USD", "cost": 250.00},
+                {"currency": "ILS", "amount": 1000.00},
+                {"currency": "SUPPORT_USD", "amount": 300.00},
+                {"currency": "AVAILABLE_USD", "amount": 250.00},
             ],
         }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
@@ -126,11 +126,11 @@ class TestCostsAPI:
         for currency in valid_currencies:
             emf_data = {
                 "emf_id": f"EMF-{currency}",
-                "costs": [{"currency": currency, "cost": 100.00}],
+                "costs": [{"currency": currency, "amount": 100.00}],
             }
             purpose_data = sample_purpose_data.copy()
             purpose_data["emfs"] = [emf_data]
-            
+
             response = test_client.post(
                 f"{settings.api_v1_prefix}/purposes", json=purpose_data
             )
@@ -141,17 +141,17 @@ class TestCostsAPI:
     ):
         """Test that zero cost amount is allowed."""
         # Test zero cost (should be valid) via purpose creation
-        emf_data = {"emf_id": "EMF-ZERO", "costs": [{"currency": "ILS", "cost": 0.00}]}
+        emf_data = {"emf_id": "EMF-ZERO", "costs": [{"currency": "ILS", "amount": 0.00}]}
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
         assert response.status_code == 201
         data = response.json()
         emf = data["emfs"][0]
-        assert emf["costs"][0]["cost"] == 0.00
+        assert emf["costs"][0]["amount"] == 0.00
 
     def test_costs_appear_in_purpose_details(
         self, test_client: TestClient, sample_purpose_data: dict
@@ -160,11 +160,11 @@ class TestCostsAPI:
         # Create purpose with EMF and costs
         emf_data = {
             "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS", "cost": 1000.50}],
+            "costs": [{"currency": "ILS", "amount": 1000.50}],
         }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
-        
+
         create_response = test_client.post(
             f"{settings.api_v1_prefix}/purposes", json=purpose_data
         )
@@ -182,4 +182,4 @@ class TestCostsAPI:
         emf = purpose_response_data["emfs"][0]
         assert len(emf["costs"]) == 1
         assert emf["costs"][0]["currency"] == "ILS"
-        assert emf["costs"][0]["cost"] == 1000.50
+        assert emf["costs"][0]["amount"] == 1000.50

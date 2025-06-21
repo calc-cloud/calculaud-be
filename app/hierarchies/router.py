@@ -1,3 +1,99 @@
-from fastapi import APIRouter
+from typing import Literal
+
+from fastapi import APIRouter, Depends, Query
+from fastapi import status as statuses
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.hierarchies import service
+from app.hierarchies.models import HierarchyTypeEnum
+from app.hierarchies.schemas import (
+    Hierarchy,
+    HierarchyCreate,
+    HierarchyTree,
+    HierarchyUpdate,
+)
+from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 
 router = APIRouter()
+
+
+@router.get("/", response_model=PaginatedResult[Hierarchy])
+def get_hierarchies(
+    pagination: PaginationParams = Depends(),
+    type_filter: HierarchyTypeEnum | None = Query(None, description="Filter by type"),
+    parent_id: int | None = Query(None, description="Filter by parent ID"),
+    search: str | None = Query(None, description="Search in name"),
+    sort_by: str = Query("name", description="Sort by field"),
+    sort_order: Literal["asc", "desc"] = Query(
+        "asc", description="Sort order: asc or desc"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get all hierarchies with filtering, searching, sorting, and pagination."""
+    hierarchies, total = service.get_hierarchies(
+        db=db,
+        pagination=pagination,
+        type_filter=type_filter,
+        parent_id=parent_id,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    return create_paginated_result(hierarchies, total, pagination)
+
+
+@router.get("/tree", response_model=list[HierarchyTree])
+def get_hierarchy_tree(
+    hierarchy_id: int | None = Query(
+        None, description="Get tree for specific hierarchy"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get hierarchy tree structure."""
+    return service.get_hierarchy_tree(db, hierarchy_id)
+
+
+@router.get("/{hierarchy_id}", response_model=Hierarchy)
+def get_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
+    """Get a specific hierarchy by ID."""
+    return service.get_hierarchy_by_id(db, hierarchy_id)
+
+
+@router.get("/{hierarchy_id}/children", response_model=list[Hierarchy])
+def get_hierarchy_children(
+    hierarchy_id: int,
+    limit: int = Query(
+        200, ge=1, le=1000, description="Maximum number of children to return"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get direct children of a hierarchy."""
+    service.get_hierarchy_by_id(db, hierarchy_id)  # Validate hierarchy exists
+    hierarchies, _ = service.get_hierarchies(
+        db=db,
+        pagination=PaginationParams(page=1, limit=limit),
+        parent_id=hierarchy_id,
+    )
+    return hierarchies
+
+
+@router.post("/", response_model=Hierarchy, status_code=statuses.HTTP_201_CREATED)
+def create_hierarchy(hierarchy_data: HierarchyCreate, db: Session = Depends(get_db)):
+    """Create a new hierarchy."""
+    return service.create_hierarchy(db, hierarchy_data)
+
+
+@router.patch("/{hierarchy_id}", response_model=Hierarchy)
+def update_hierarchy(
+    hierarchy_id: int, hierarchy_data: HierarchyUpdate, db: Session = Depends(get_db)
+):
+    """Update an existing hierarchy."""
+    return service.update_hierarchy(db, hierarchy_id, hierarchy_data)
+
+
+@router.delete("/{hierarchy_id}", status_code=statuses.HTTP_204_NO_CONTENT)
+def delete_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
+    """Delete a hierarchy."""
+    service.delete_hierarchy(db, hierarchy_id)

@@ -60,7 +60,7 @@ EMF operations are integrated into the purpose routes:
 
 - **Advanced Filtering**: Support filtering by hierarchy_id, emf_id, supplier, service_type, status
 - **Search**: Full-text search across description, content, and emf_id fields
-- **Sorting**: Support sorting by creation_time, last_modified, excepted_delivery
+- **Sorting**: Support sorting by creation_time, last_modified, expected_delivery
 - **Pagination**: Implement for large datasets
 - **Cascade Operations**: Proper deletion handling with cascading deletes
 

@@ -33,7 +33,7 @@ class TestEMFsAPI:
         assert "costs" in emf
         assert len(emf["costs"]) == 1
         assert emf["costs"][0]["currency"] == "ILS"
-        assert emf["costs"][0]["cost"] == 1000.50
+        assert emf["costs"][0]["amount"] == 1000.50
 
     def test_add_emf_to_nonexistent_purpose(
         self, test_client: TestClient, sample_emf_data: dict
@@ -211,9 +211,9 @@ class TestEMFsAPI:
             "emf_id": "EMF-MULTI",
             "order_id": "ORD-MULTI",
             "costs": [
-                {"currency": "ILS", "cost": 1000.00},
-                {"currency": "SUPPORT_USD", "cost": 300.00},
-                {"currency": "AVAILABLE_USD", "cost": 250.00},
+                {"currency": "ILS", "amount": 1000.00},
+                {"currency": "SUPPORT_USD", "amount": 300.00},
+                {"currency": "AVAILABLE_USD", "amount": 250.00},
             ],
         }
 

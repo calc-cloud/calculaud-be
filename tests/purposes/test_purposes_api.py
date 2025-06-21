@@ -10,7 +10,15 @@ class TestPurposesAPI:
         """Test GET /purposes returns empty list initially."""
         response = test_client.get(f"{settings.api_v1_prefix}/purposes")
         assert response.status_code == 200
-        assert response.json() == {"items": [], "total": 0, "page": 1, "limit": 20}
+        assert response.json() == {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "limit": 20,
+            "has_next": False,
+            "has_prev": False,
+            "pages": 0,
+        }
 
     def test_create_purpose(self, test_client: TestClient, sample_purpose_data: dict):
         """Test POST /purposes creates new purpose."""
@@ -198,35 +206,35 @@ class TestPurposesAPI:
         """Test GET /purposes with sorting."""
         # Create purposes with different dates
         data1 = sample_purpose_data.copy()
-        data1["excepted_delivery"] = "2024-01-01"
+        data1["expected_delivery"] = "2024-01-01"
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
 
         data2 = sample_purpose_data.copy()
-        data2["excepted_delivery"] = "2024-06-01"
+        data2["expected_delivery"] = "2024-06-01"
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
 
-        # Test sort by excepted_delivery ascending
+        # Test sort by expected_delivery ascending
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?sort_by=excepted_delivery&sort_order=asc"
+            f"{settings.api_v1_prefix}/purposes?sort_by=expected_delivery&sort_order=asc"
         )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2
         assert (
-            data["items"][0]["excepted_delivery"]
-            <= data["items"][1]["excepted_delivery"]
+            data["items"][0]["expected_delivery"]
+            <= data["items"][1]["expected_delivery"]
         )
 
-        # Test sort by excepted_delivery descending
+        # Test sort by expected_delivery descending
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?sort_by=excepted_delivery&sort_order=desc"
+            f"{settings.api_v1_prefix}/purposes?sort_by=expected_delivery&sort_order=desc"
         )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2
         assert (
-            data["items"][0]["excepted_delivery"]
-            >= data["items"][1]["excepted_delivery"]
+            data["items"][0]["expected_delivery"]
+            >= data["items"][1]["expected_delivery"]
         )
 
     def test_get_purposes_combined_filters(
@@ -238,13 +246,13 @@ class TestPurposesAPI:
             data = sample_purpose_data.copy()
             data["description"] = f"Project {i}"
             data["status"] = "PENDING" if i % 2 == 0 else "COMPLETED"
-            data["excepted_delivery"] = f"2024-0{i + 1}-01"
+            data["expected_delivery"] = f"2024-0{i + 1}-01"
             test_client.post(f"{settings.api_v1_prefix}/purposes", json=data)
 
         # Test combined filters
         response = test_client.get(
             f"{settings.api_v1_prefix}/purposes?status=PENDING&search=Project"
-            f"&sort_by=excepted_delivery&sort_order=desc&limit=10"
+            f"&sort_by=expected_delivery&sort_order=desc&limit=10"
         )
         assert response.status_code == 200
         data = response.json()

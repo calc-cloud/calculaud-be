@@ -1,6 +1,6 @@
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from sqlalchemy.orm import Query
 
 from .config import settings
@@ -28,15 +28,15 @@ class PaginatedResult(BaseModel, Generic[T]):
     page: int = Field(ge=1)
     limit: int = Field(ge=1)
 
-    @property
+    @computed_field
     def pages(self) -> int:
         return (self.total + self.limit - 1) // self.limit
 
-    @property
+    @computed_field
     def has_next(self) -> bool:
         return self.page < self.pages
 
-    @property
+    @computed_field
     def has_prev(self) -> bool:
         return self.page > 1
 
