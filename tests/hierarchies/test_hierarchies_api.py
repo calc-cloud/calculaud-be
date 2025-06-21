@@ -17,7 +17,7 @@ class TestHierarchiesAPI:
         assert data["limit"] == 20
 
     def test_create_hierarchy_root_node(
-        self, test_client: TestClient, sample_hierarchy_data: dict
+            self, test_client: TestClient, sample_hierarchy_data: dict
     ):
         """Test POST /hierarchies creates new root hierarchy node."""
         response = test_client.post(
@@ -32,7 +32,7 @@ class TestHierarchiesAPI:
         assert "id" in data
 
     def test_create_hierarchy_child_node(
-        self, test_client: TestClient, sample_hierarchy_data: dict
+            self, test_client: TestClient, sample_hierarchy_data: dict
     ):
         """Test POST /hierarchies creates child hierarchy node."""
         # Create parent node first
@@ -180,7 +180,8 @@ class TestHierarchiesAPI:
 
         # Verify child and grandchild paths are updated
         child_get_response = test_client.get(f"{settings.api_v1_prefix}/hierarchies/{child_id}")
-        grandchild_get_response = test_client.get(f"{settings.api_v1_prefix}/hierarchies/{grandchild_response.json()['id']}")
+        grandchild_get_response = test_client.get(
+            f"{settings.api_v1_prefix}/hierarchies/{grandchild_response.json()['id']}")
 
         assert child_get_response.json()["path"] == "New Root / Child Unit"
         assert grandchild_get_response.json()["path"] == "New Root / Child Unit / Grandchild Team"
@@ -262,7 +263,7 @@ class TestHierarchiesAPI:
         assert child2_node["path"] == "Main Center / Unit 2"
 
     def test_update_hierarchy(
-        self, test_client: TestClient, sample_hierarchy_data: dict
+            self, test_client: TestClient, sample_hierarchy_data: dict
     ):
         """Test PATCH /hierarchies/{id} updates hierarchy node."""
         # Create hierarchy first
@@ -325,7 +326,7 @@ class TestHierarchiesAPI:
         assert response.json()["path"] == "Center 2 / Mobile Unit"
 
     def test_delete_hierarchy_leaf_node(
-        self, test_client: TestClient, sample_hierarchy_data: dict
+            self, test_client: TestClient, sample_hierarchy_data: dict
     ):
         """Test DELETE /hierarchies/{id} deletes leaf node."""
         # Create hierarchy
@@ -396,7 +397,7 @@ class TestHierarchiesAPI:
         assert "circular" in response.json()["detail"].lower()
 
     def test_hierarchy_used_in_purposes(
-        self, test_client: TestClient, sample_purpose_data: dict
+            self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test hierarchy can be used in purposes."""
         # Create hierarchy
@@ -414,7 +415,7 @@ class TestHierarchiesAPI:
         assert purpose_response.status_code == 201
 
     def test_delete_hierarchy_used_in_purposes_fails(
-        self, test_client: TestClient, sample_purpose_data: dict
+            self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test DELETE /hierarchies/{id} fails when hierarchy is used in purposes."""
         # Create hierarchy
@@ -437,7 +438,7 @@ class TestHierarchiesAPI:
 
     def test_hierarchy_types_validation(self, test_client: TestClient):
         """Test hierarchy type validation."""
-        valid_types = ["UNIT", "CENTER", "ANAF", "TEAM"]
+        valid_types = ["UNIT", "CENTER", "ANAF", "MADOR", "TEAM"]
         for hierarchy_type in valid_types:
             data = {"type": hierarchy_type, "name": f"Test {hierarchy_type}"}
             response = test_client.post(
@@ -579,7 +580,7 @@ class TestHierarchiesAPI:
         response = test_client.get(f"{settings.api_v1_prefix}/hierarchies?type=CENTER")
         assert response.status_code == 200
         data = response.json()
-        
+
         # Check that only CENTER types are returned
         center_items = [item for item in data["items"] if item["type"] == "CENTER"]
         assert len(center_items) == 1

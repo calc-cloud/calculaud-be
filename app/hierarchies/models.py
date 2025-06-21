@@ -11,9 +11,14 @@ if TYPE_CHECKING:
 
 
 class HierarchyTypeEnum(PyEnum):
+    # IMPORTANT: The order of these enum values matters for hierarchy validation
+    # Higher level types should come first, lower level types should come after
+    # Valid hierarchy: UNIT -> CENTER -> ANAF -> MADOR -> TEAM
+    # A child type can only be assigned to a parent of a higher hierarchy level (not equal)
     UNIT = "UNIT"
     CENTER = "CENTER"
     ANAF = "ANAF"
+    MADOR = "MADOR"
     TEAM = "TEAM"
 
 
