@@ -1,8 +1,7 @@
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
-from sqlalchemy import func
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.orm import Query
 
 from .config import settings
 
@@ -43,21 +42,42 @@ class PaginatedResult(BaseModel, Generic[T]):
 
 
 def paginate(
-    db: Session, query: Query, pagination: PaginationParams
-) -> tuple[list, int]:
+    query: Query, pagination: PaginationParams
+) -> tuple[list[Any], int]:
     """
     Paginate a SQLAlchemy query.
 
     Args:
-        db: Database session
         query: SQLAlchemy query to paginate
         pagination: Pagination parameters
 
     Returns:
-        Tuple of (items, total_count)
+        Tuple of (items list, total_count)
     """
-    total = db.scalar(query.statement.with_only_columns(func.count()).order_by(None))
+    total = query.count()
 
     items = query.offset(pagination.offset).limit(pagination.limit).all()
 
-    return items, total or 0
+    return items, total
+
+
+def create_paginated_result(
+    items: list[T], total: int, pagination: PaginationParams
+) -> PaginatedResult[T]:
+    """
+    Create a PaginatedResult from items and pagination info.
+
+    Args:
+        items: List of items for current page
+        total: Total count of items
+        pagination: Pagination parameters
+
+    Returns:
+        PaginatedResult with items and metadata
+    """
+    return PaginatedResult(
+        items=items,
+        total=total,
+        page=pagination.page,
+        limit=pagination.limit,
+    )

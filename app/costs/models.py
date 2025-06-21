@@ -11,9 +11,9 @@ if TYPE_CHECKING:
 
 
 class CurrencyEnum(PyEnum):
+    SUPPORT_USD = "SUPPORT_USD"
+    AVAILABLE_USD = "AVAILABLE_USD"
     ILS = "ILS"
-    USD = "USD"
-    EUR = "EUR"
 
 
 class Cost(Base):

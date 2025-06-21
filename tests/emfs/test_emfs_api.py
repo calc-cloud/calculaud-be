@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from app.config import settings
+
 
 class TestEMFsAPI:
     """Test EMF API endpoints."""
@@ -9,12 +11,12 @@ class TestEMFsAPI:
     ):
         """Test POST /purposes/{id}/emfs adds EMF to purpose with costs."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Add EMF to purpose
         response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         assert response.status_code == 201
         data = response.json()
@@ -32,7 +34,7 @@ class TestEMFsAPI:
         self, test_client: TestClient, sample_emf_data: dict
     ):
         """Test POST /purposes/{id}/emfs returns 404 for non-existent purpose."""
-        response = test_client.post("/purposes/999/emfs", json=sample_emf_data)
+        response = test_client.post(f"{settings.api_v1_prefix}/purposes/999/emfs", json=sample_emf_data)
         assert response.status_code == 404
 
     def test_add_emf_invalid_data(
@@ -40,12 +42,12 @@ class TestEMFsAPI:
     ):
         """Test POST /purposes/{id}/emfs with invalid data returns 422."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Try to add EMF with invalid data
         invalid_data = {"invalid_field": "value"}
-        response = test_client.post(f"/purposes/{purpose_id}/emfs", json=invalid_data)
+        response = test_client.post(f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=invalid_data)
         assert response.status_code == 422
 
     def test_add_duplicate_emf_id(
@@ -53,15 +55,15 @@ class TestEMFsAPI:
     ):
         """Test POST /purposes/{id}/emfs with duplicate EMF ID returns 400."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Add EMF
-        test_client.post(f"/purposes/{purpose_id}/emfs", json=sample_emf_data)
+        test_client.post(f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data)
 
         # Try to add EMF with same EMF ID
         response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"].lower()
@@ -71,11 +73,11 @@ class TestEMFsAPI:
     ):
         """Test PUT /emfs/{id} updates EMF data."""
         # Create purpose and EMF first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         emf_id = emf_response.json()["id"]
 
@@ -84,7 +86,7 @@ class TestEMFsAPI:
         update_data["order_id"] = "ORD-002"
         update_data["demand_id"] = "DEM-002"
 
-        response = test_client.put(f"/emfs/{emf_id}", json=update_data)
+        response = test_client.put(f"{settings.api_v1_prefix}/emfs/{emf_id}", json=update_data)
         assert response.status_code == 200
         data = response.json()
         assert data["order_id"] == "ORD-002"
@@ -93,7 +95,7 @@ class TestEMFsAPI:
 
     def test_update_emf_not_found(self, test_client: TestClient, sample_emf_data: dict):
         """Test PUT /emfs/{id} returns 404 for non-existent EMF."""
-        response = test_client.put("/emfs/999", json=sample_emf_data)
+        response = test_client.put(f"{settings.api_v1_prefix}/emfs/999", json=sample_emf_data)
         assert response.status_code == 404
 
     def test_update_emf_invalid_data(
@@ -101,17 +103,17 @@ class TestEMFsAPI:
     ):
         """Test PUT /emfs/{id} with invalid data returns 422."""
         # Create purpose and EMF first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         emf_id = emf_response.json()["id"]
 
         # Try to update with invalid data
         invalid_data = {"order_creation_date": "invalid-date-format"}
-        response = test_client.put(f"/emfs/{emf_id}", json=invalid_data)
+        response = test_client.put(f"{settings.api_v1_prefix}/emfs/{emf_id}", json=invalid_data)
         assert response.status_code == 422
 
     def test_delete_emf(
@@ -119,27 +121,27 @@ class TestEMFsAPI:
     ):
         """Test DELETE /emfs/{id} deletes EMF."""
         # Create purpose and EMF first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         emf_id = emf_response.json()["id"]
 
         # Delete EMF
-        response = test_client.delete(f"/emfs/{emf_id}")
+        response = test_client.delete(f"{settings.api_v1_prefix}/emfs/{emf_id}")
         assert response.status_code == 204
 
         # Verify EMF is deleted by checking purpose details
-        purpose_response = test_client.get(f"/purposes/{purpose_id}")
+        purpose_response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
         purpose_data = purpose_response.json()
         emf_ids = [emf["id"] for emf in purpose_data["emfs"]]
         assert emf_id not in emf_ids
 
     def test_delete_emf_not_found(self, test_client: TestClient):
         """Test DELETE /emfs/{id} returns 404 for non-existent EMF."""
-        response = test_client.delete("/emfs/999")
+        response = test_client.delete(f"{settings.api_v1_prefix}/emfs/999")
         assert response.status_code == 404
 
     def test_delete_emf_cascades_to_costs(
@@ -150,27 +152,27 @@ class TestEMFsAPI:
     ):
         """Test DELETE /emfs/{id} cascades delete to associated costs."""
         # Create purpose and EMF with costs
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         emf_id = emf_response.json()["id"]
 
         # Verify EMF has costs before deletion
-        purpose_response = test_client.get(f"/purposes/{purpose_id}")
+        purpose_response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
         purpose_data = purpose_response.json()
         emf = next((e for e in purpose_data["emfs"] if e["id"] == emf_id), None)
         assert emf is not None
         assert len(emf["costs"]) == 1
 
         # Delete EMF
-        response = test_client.delete(f"/emfs/{emf_id}")
+        response = test_client.delete(f"{settings.api_v1_prefix}/emfs/{emf_id}")
         assert response.status_code == 204
 
         # Verify EMF and costs are deleted
-        purpose_response = test_client.get(f"/purposes/{purpose_id}")
+        purpose_response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
         purpose_data = purpose_response.json()
         emf_ids = [emf["id"] for emf in purpose_data["emfs"]]
         assert emf_id not in emf_ids
@@ -180,17 +182,17 @@ class TestEMFsAPI:
     ):
         """Test that EMF appears in purpose details after creation."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Add EMF to purpose
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         emf_id = emf_response.json()["id"]
 
         # Get purpose details
-        purpose_response = test_client.get(f"/purposes/{purpose_id}")
+        purpose_response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
         assert purpose_response.status_code == 200
         purpose_data = purpose_response.json()
 
@@ -204,7 +206,7 @@ class TestEMFsAPI:
     ):
         """Test adding multiple EMFs to a single purpose."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Add multiple EMFs
@@ -218,13 +220,13 @@ class TestEMFsAPI:
         emf_data_3["emf_id"] = "EMF-003"
 
         emf1_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=emf_data_1
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=emf_data_1
         )
         emf2_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=emf_data_2
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=emf_data_2
         )
         emf3_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=emf_data_3
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=emf_data_3
         )
 
         assert emf1_response.status_code == 201
@@ -232,7 +234,7 @@ class TestEMFsAPI:
         assert emf3_response.status_code == 201
 
         # Get purpose details
-        purpose_response = test_client.get(f"/purposes/{purpose_id}")
+        purpose_response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
         purpose_data = purpose_response.json()
 
         # Verify all EMFs are included
@@ -250,12 +252,12 @@ class TestEMFsAPI:
     ):
         """Test POST /purposes/{id}/emfs adds EMF without costs."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Add EMF to purpose without costs
         response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data_no_costs
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data_no_costs
         )
         assert response.status_code == 201
         data = response.json()
@@ -271,11 +273,11 @@ class TestEMFsAPI:
     ):
         """Test PUT /emfs/{id} updates EMF with new costs."""
         # Create purpose and EMF first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data_no_costs
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data_no_costs
         )
         emf_id = emf_response.json()["id"]
 
@@ -283,11 +285,11 @@ class TestEMFsAPI:
         update_data = {
             "costs": [
                 {"currency": "ILS", "cost": 500.00},
-                {"currency": "USD", "cost": 150.00},
+                {"currency": "SUPPORT_USD", "cost": 150.00},
             ]
         }
 
-        response = test_client.put(f"/emfs/{emf_id}", json=update_data)
+        response = test_client.put(f"{settings.api_v1_prefix}/emfs/{emf_id}", json=update_data)
         assert response.status_code == 200
         data = response.json()
         assert len(data["costs"]) == 2
@@ -295,29 +297,29 @@ class TestEMFsAPI:
         # Verify costs are included
         currencies = [cost["currency"] for cost in data["costs"]]
         assert "ILS" in currencies
-        assert "USD" in currencies
+        assert "SUPPORT_USD" in currencies
 
     def test_update_emf_replace_costs(
         self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):
         """Test PUT /emfs/{id} replaces existing costs."""
         # Create purpose and EMF with initial costs
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         emf_response = test_client.post(
-            f"/purposes/{purpose_id}/emfs", json=sample_emf_data
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=sample_emf_data
         )
         emf_id = emf_response.json()["id"]
 
         # Update EMF with different costs
-        update_data = {"costs": [{"currency": "EUR", "cost": 800.00}]}
+        update_data = {"costs": [{"currency": "AVAILABLE_USD", "cost": 800.00}]}
 
-        response = test_client.put(f"/emfs/{emf_id}", json=update_data)
+        response = test_client.put(f"{settings.api_v1_prefix}/emfs/{emf_id}", json=update_data)
         assert response.status_code == 200
         data = response.json()
         assert len(data["costs"]) == 1
-        assert data["costs"][0]["currency"] == "EUR"
+        assert data["costs"][0]["currency"] == "AVAILABLE_USD"
         assert data["costs"][0]["cost"] == 800.00
 
     def test_emf_with_multiple_costs(
@@ -325,7 +327,7 @@ class TestEMFsAPI:
     ):
         """Test creating EMF with multiple costs."""
         # Create purpose first
-        create_response = test_client.post("/purposes", json=sample_purpose_data)
+        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
         purpose_id = create_response.json()["id"]
 
         # Create EMF with multiple costs
@@ -334,12 +336,12 @@ class TestEMFsAPI:
             "order_id": "ORD-MULTI",
             "costs": [
                 {"currency": "ILS", "cost": 1000.00},
-                {"currency": "USD", "cost": 300.00},
-                {"currency": "EUR", "cost": 250.00},
+                {"currency": "SUPPORT_USD", "cost": 300.00},
+                {"currency": "AVAILABLE_USD", "cost": 250.00},
             ],
         }
 
-        response = test_client.post(f"/purposes/{purpose_id}/emfs", json=emf_data)
+        response = test_client.post(f"{settings.api_v1_prefix}/purposes/{purpose_id}/emfs", json=emf_data)
         assert response.status_code == 201
         data = response.json()
         assert len(data["costs"]) == 3
@@ -347,5 +349,5 @@ class TestEMFsAPI:
         # Verify all currencies are present
         currencies = [cost["currency"] for cost in data["costs"]]
         assert "ILS" in currencies
-        assert "USD" in currencies
-        assert "EUR" in currencies
+        assert "SUPPORT_USD" in currencies
+        assert "AVAILABLE_USD" in currencies

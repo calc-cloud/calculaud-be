@@ -104,7 +104,7 @@ def upgrade() -> None:
         sa.Column("emf_id", sa.Integer(), nullable=False),
         sa.Column(
             "currency",
-            sa.Enum("ILS", "USD", "EUR", name="currencyenum"),
+            sa.Enum("SUPPORT_USD", "AVAILABLE_USD", "ILS", name="currencyenum"),
             nullable=False,
         ),
         sa.Column("cost", sa.Float(), nullable=False),

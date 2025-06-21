@@ -29,10 +29,3 @@ class Purpose(PurposeBase):
     emfs: Annotated[list[EMF], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class PaginatedResponse(BaseModel):
-    items: list[Purpose]
-    total: Annotated[int, Field(ge=0)]
-    page: Annotated[int, Field(ge=1)]
-    limit: Annotated[int, Field(ge=1, le=100)]

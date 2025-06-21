@@ -18,7 +18,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def test_db() -> Generator:
     """Create test database for each test."""
     Base.metadata.create_all(bind=engine)
