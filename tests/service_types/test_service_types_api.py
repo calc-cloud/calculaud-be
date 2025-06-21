@@ -165,6 +165,132 @@ class TestServiceTypesAPI:
         assert data["has_next"] is False
         assert data["has_prev"] is True
 
+    def test_get_service_types_with_search(self, test_client: TestClient):
+        """Test GET /service-types with search functionality."""
+        # Create service types with different names
+        service_types = [
+            "Software Development",
+            "Hardware Procurement",
+            "Consulting Services",
+            "Training Services",
+            "Maintenance Services",
+            "Web Development",
+            "Mobile Development",
+        ]
+        
+        for name in service_types:
+            test_client.post(
+                f"{settings.api_v1_prefix}/service-types", json={"name": name}
+            )
+
+        # Test search for "software"
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=software")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert "software" in data["items"][0]["name"].lower()
+
+        # Test search for "services"
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=services")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 3
+        names = [item["name"].lower() for item in data["items"]]
+        assert all("services" in name for name in names)
+
+        # Test search for "development"
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=development")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 3
+        names = [item["name"].lower() for item in data["items"]]
+        assert all("development" in name for name in names)
+
+        # Test search with no results
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=nonexistent")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 0
+        assert data["total"] == 0
+
+    def test_get_service_types_search_case_insensitive(self, test_client: TestClient):
+        """Test GET /service-types search is case-insensitive."""
+        # Create service types
+        service_types = [
+            "Software Development",
+            "HARDWARE PROCUREMENT",
+            "consulting services",
+            "Training Services",
+        ]
+        
+        for name in service_types:
+            test_client.post(
+                f"{settings.api_v1_prefix}/service-types", json={"name": name}
+            )
+
+        # Test uppercase search
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=SOFTWARE")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert "software" in data["items"][0]["name"].lower()
+
+        # Test lowercase search
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=hardware")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert "hardware" in data["items"][0]["name"].lower()
+
+        # Test mixed case search
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=CoNsUlTiNg")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert "consulting" in data["items"][0]["name"].lower()
+
+    def test_get_service_types_search_with_pagination(self, test_client: TestClient):
+        """Test GET /service-types with search and pagination combined."""
+        # Create service types
+        service_types = [
+            "Software Development",
+            "Software Testing",
+            "Software Maintenance",
+            "Software Consulting",
+            "Software Training",
+        ]
+        
+        for name in service_types:
+            test_client.post(
+                f"{settings.api_v1_prefix}/service-types", json={"name": name}
+            )
+
+        # Test search with pagination
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=software&page=1&limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 2
+        assert data["total"] == 5
+        assert data["page"] == 1
+        assert data["limit"] == 2
+        assert data["has_next"] is True
+
+        # Test second page
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=software&page=2&limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 2
+        assert data["page"] == 2
+        assert data["has_next"] is True
+
+        # Test third page
+        response = test_client.get(f"{settings.api_v1_prefix}/service-types?search=software&page=3&limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["page"] == 3
+        assert data["has_next"] is False
+
     def test_create_duplicate_service_type(self, test_client: TestClient):
         """Test creating a service type with duplicate name returns error."""
         service_type_data = {"name": "Duplicate Service"}

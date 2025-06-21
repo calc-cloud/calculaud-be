@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,10 +13,11 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResult[ServiceType])
 def get_service_types(
     pagination: PaginationParams = Depends(),
+    search: str | None = Query(None, description="Search service types by name (case-insensitive)"),
     db: Session = Depends(get_db),
 ):
-    """Get all service types with pagination."""
-    service_types, total = service.get_service_types(db=db, pagination=pagination)
+    """Get all service types with pagination and optional search."""
+    service_types, total = service.get_service_types(db=db, pagination=pagination, search=search)
     return create_paginated_result(service_types, total, pagination)
 
 

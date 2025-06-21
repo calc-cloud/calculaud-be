@@ -13,15 +13,28 @@ def get_service_type(db: Session, service_type_id: int) -> ServiceType | None:
 
 
 def get_service_types(
-    db: Session, pagination: PaginationParams
+    db: Session, pagination: PaginationParams, search: str | None = None
 ) -> tuple[list[ServiceType], int]:
     """
-    Get service types with pagination.
+    Get service types with pagination and optional search.
+
+    Args:
+        db: Database session
+        pagination: Pagination parameters
+        search: Optional search term for service type name (case-insensitive)
 
     Returns:
         Tuple of (service_types list, total count)
     """
-    query = db.query(ServiceType).order_by(ServiceType.name)
+    query = db.query(ServiceType)
+    
+    # Apply search filter if provided
+    if search:
+        query = query.filter(ServiceType.name.ilike(f"%{search}%"))
+    
+    # Apply ordering
+    query = query.order_by(ServiceType.name)
+    
     return paginate(query, pagination)
 
 
