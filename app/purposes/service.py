@@ -24,8 +24,8 @@ def get_purposes(
     db: Session,
     pagination: PaginationParams,
     hierarchy_id: int | None = None,
-    supplier: str | None = None,
-    service_type: str | None = None,
+    supplier_id: int | None = None,
+    service_type_id: int | None = None,
     status: StatusEnum | None = None,
     search: str | None = None,
     sort_by: str = "creation_time",
@@ -43,10 +43,13 @@ def get_purposes(
     filters = []
     if hierarchy_id is not None:
         filters.append(Purpose.hierarchy_id == hierarchy_id)
-    if supplier:
-        filters.append(Purpose.supplier.ilike(f"%{supplier}%"))
-    if service_type:
-        filters.append(Purpose.service_type.ilike(f"%{service_type}%"))
+
+    if service_type_id is not None:
+        filters.append(Purpose.service_type_id == service_type_id)
+
+    if supplier_id is not None:
+        filters.append(Purpose.supplier_id == supplier_id)
+
     if status:
         filters.append(Purpose.status == status)
 
@@ -58,7 +61,6 @@ def get_purposes(
         search_filter = or_(
             Purpose.description.ilike(f"%{search}%"),
             Purpose.content.ilike(f"%{search}%"),
-            Purpose.supplier.ilike(f"%{search}%"),
         )
         query = query.filter(search_filter)
 

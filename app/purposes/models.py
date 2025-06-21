@@ -10,6 +10,8 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.emfs.models import EMF
     from app.hierarchies.models import Hierarchy
+    from app.suppliers.models import Supplier
+    from app.service_types.models import ServiceType
 
 
 class StatusEnum(PyEnum):
@@ -24,10 +26,8 @@ class Purpose(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True, autoincrement=True
     )
-    service_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     content: Mapped[str | None] = mapped_column(String(2000), nullable=True)
-    supplier: Mapped[str | None] = mapped_column(String(255), nullable=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False)
     comments: Mapped[str | None] = mapped_column(String(1000), nullable=True)
@@ -41,11 +41,29 @@ class Purpose(Base):
     hierarchy_id: Mapped[int | None] = mapped_column(
         ForeignKey("hierarchy.id"), nullable=True
     )
+    supplier_id: Mapped[int | None] = mapped_column(
+        ForeignKey("supplier.id"), nullable=True
+    )
+    service_type_id: Mapped[int | None] = mapped_column(
+        ForeignKey("service_type.id"), nullable=True
+    )
 
     # Relationships
     hierarchy: Mapped["Hierarchy"] = relationship(
         "Hierarchy", back_populates="purposes"
     )
+    _supplier: Mapped["Supplier"] = relationship("Supplier")
+    _service_type: Mapped["ServiceType"] = relationship("ServiceType")
     emfs: Mapped[list["EMF"]] = relationship(
         "EMF", back_populates="purpose", cascade="all, delete-orphan"
     )
+
+    @property
+    def supplier(self) -> str | None:
+        """Return the supplier name if available."""
+        return self._supplier.name if self._supplier else None
+
+    @property
+    def service_type(self) -> str | None:
+        """Return the service_type name if available."""
+        return self._service_type.name if self._service_type else None

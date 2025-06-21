@@ -142,15 +142,25 @@ class TestPurposesAPI:
         self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test GET /purposes with filtering."""
+        # Create suppliers first
+        supplier_a = test_client.post(
+            f"{settings.api_v1_prefix}/suppliers", json={"name": "Supplier A"}
+        )
+        supplier_b = test_client.post(
+            f"{settings.api_v1_prefix}/suppliers", json={"name": "Supplier B"}
+        )
+        supplier_a_id = supplier_a.json()["id"]
+        supplier_b_id = supplier_b.json()["id"]
+
         # Create purposes with different attributes
         data1 = sample_purpose_data.copy()
         data1["status"] = "PENDING"
-        data1["supplier"] = "Supplier A"
+        data1["supplier_id"] = supplier_a_id
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
 
         data2 = sample_purpose_data.copy()
         data2["status"] = "COMPLETED"
-        data2["supplier"] = "Supplier B"
+        data2["supplier_id"] = supplier_b_id
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
 
         # Test status filter
@@ -162,7 +172,7 @@ class TestPurposesAPI:
 
         # Test supplier filter
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?supplier=Supplier B"
+            f"{settings.api_v1_prefix}/purposes?supplier_id={supplier_b_id}"
         )
         assert response.status_code == 200
         data = response.json()
