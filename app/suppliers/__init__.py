@@ -1,1 +1,1 @@
-# Suppliers module 
+# Suppliers module

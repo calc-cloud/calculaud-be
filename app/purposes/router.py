@@ -20,9 +20,8 @@ def get_purposes(
     supplier_id: int | None = Query(None, description="Filter by supplier ID"),
     service_type_id: int | None = Query(None, description="Filter by service type ID"),
     status: StatusEnum | None = Query(None, description="Filter by status"),
-    search: str | None = Query(
-        None, description="Search in description, content, and supplier"
-    ),
+    search: str
+    | None = Query(None, description="Search in description, content, and supplier"),
     sort_by: str = Query("creation_time", description="Sort by field"),
     sort_order: Literal["asc", "desc"] = Query(
         "desc", description="Sort order: asc or desc"

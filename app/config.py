@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     default_page_size: Annotated[int, Field(default=20)]
     max_page_size: Annotated[int, Field(default=200)]
 
+    # AWS S3 Configuration
+    aws_access_key_id: Annotated[str, Field(default="")]
+    aws_secret_access_key: Annotated[str, Field(default="")]
+    aws_region: Annotated[str, Field(default="us-east-1")]
+    s3_bucket_name: Annotated[str, Field(default="calcloud-files")]
+    s3_key_prefix: Annotated[str, Field(default="files/")]
+
     model_config = SettingsConfigDict(env_file=find_dotenv())
 
 

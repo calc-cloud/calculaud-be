@@ -141,7 +141,10 @@ class TestCostsAPI:
     ):
         """Test that zero cost amount is allowed."""
         # Test zero cost (should be valid) via purpose creation
-        emf_data = {"emf_id": "EMF-ZERO", "costs": [{"currency": "ILS", "amount": 0.00}]}
+        emf_data = {
+            "emf_id": "EMF-ZERO",
+            "costs": [{"currency": "ILS", "amount": 0.00}],
+        }
         purpose_data = sample_purpose_data.copy()
         purpose_data["emfs"] = [emf_data]
 

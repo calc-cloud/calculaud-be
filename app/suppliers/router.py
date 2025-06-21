@@ -13,11 +13,14 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResult[Supplier])
 def get_suppliers(
     pagination: PaginationParams = Depends(),
-    search: str | None = Query(None, description="Search suppliers by name (case-insensitive)"),
+    search: str
+    | None = Query(None, description="Search suppliers by name (case-insensitive)"),
     db: Session = Depends(get_db),
 ):
     """Get all suppliers with pagination and optional search."""
-    suppliers, total = service.get_suppliers(db=db, pagination=pagination, search=search)
+    suppliers, total = service.get_suppliers(
+        db=db, pagination=pagination, search=search
+    )
     return create_paginated_result(suppliers, total, pagination)
 
 
@@ -38,9 +41,7 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
     try:
         return service.create_supplier(db, supplier)
     except SupplierAlreadyExists as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{supplier_id}", response_model=Supplier)
@@ -51,18 +52,14 @@ def patch_supplier(
 ):
     """Patch an existing supplier."""
     try:
-        patched_supplier = service.patch_supplier(
-            db, supplier_id, supplier_update
-        )
+        patched_supplier = service.patch_supplier(db, supplier_id, supplier_update)
         if not patched_supplier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found"
             )
         return patched_supplier
     except SupplierAlreadyExists as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -71,4 +68,4 @@ def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
     if not service.delete_supplier(db, supplier_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found"
-        ) 
+        )
