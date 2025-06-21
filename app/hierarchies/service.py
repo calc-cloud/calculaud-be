@@ -7,6 +7,28 @@ from app.hierarchies.schemas import HierarchyCreate, HierarchyUpdate
 from app.pagination import PaginationParams, paginate
 
 
+def _calculate_path(db: Session, parent_id: int | None, name: str) -> str:
+    """Calculate the full path for a hierarchy based on its parent."""
+    if parent_id is None:
+        return name
+    
+    parent = db.query(Hierarchy).filter(Hierarchy.id == parent_id).first()
+    if not parent:
+        return name
+    
+    return f"{parent.path} / {name}" if parent.path else name
+
+
+def _update_children_paths(db: Session, hierarchy_id: int, new_path: str) -> None:
+    """Recursively update paths for all children of a hierarchy."""
+    children = db.query(Hierarchy).filter(Hierarchy.parent_id == hierarchy_id).all()
+    
+    for child in children:
+        child.path = f"{new_path} / {child.name}"
+        db.add(child)
+        _update_children_paths(db, child.id, child.path)
+
+
 def get_hierarchies(
     db: Session,
     pagination: PaginationParams,
@@ -59,18 +81,19 @@ def get_hierarchy_tree(db: Session, hierarchy_id: int | None = None) -> list[Hie
         hierarchy = get_hierarchy_by_id(db, hierarchy_id)
         return _build_hierarchy_tree(db, hierarchy.id)
     else:
-        # Get all root hierarchies (parent_id is None)
+        # Get all root hierarchies (parent_id is None) with their children
         root_hierarchies = (
             db.query(Hierarchy)
             .filter(Hierarchy.parent_id.is_(None))
             .options(selectinload(Hierarchy.children))
             .all()
         )
-        result = []
+        
+        # Build complete tree for each root
         for root in root_hierarchies:
-            tree = _build_hierarchy_tree(db, root.id)
-            result.extend(tree)
-        return result
+            root.children = _build_hierarchy_tree(db, root.id)
+        
+        return root_hierarchies
 
 
 def _build_hierarchy_tree(db: Session, parent_id: int) -> list[Hierarchy]:
@@ -119,7 +142,10 @@ def create_hierarchy(db: Session, hierarchy_data: HierarchyCreate) -> Hierarchy:
             detail=f"Hierarchy with name '{hierarchy_data.name}' already exists under the same parent",
         )
 
-    hierarchy = Hierarchy(**hierarchy_data.model_dump())
+    # Calculate path
+    path = _calculate_path(db, hierarchy_data.parent_id, hierarchy_data.name)
+    
+    hierarchy = Hierarchy(**hierarchy_data.model_dump(), path=path)
     db.add(hierarchy)
     db.commit()
     db.refresh(hierarchy)
@@ -185,6 +211,16 @@ def update_hierarchy(
     for field, value in update_data.items():
         setattr(hierarchy, field, value)
 
+    # Recalculate path if parent_id or name changed
+    if "parent_id" in update_data or "name" in update_data:
+        new_name = update_data.get("name", hierarchy.name)
+        new_parent_id = update_data.get("parent_id", hierarchy.parent_id)
+        new_path = _calculate_path(db, new_parent_id, new_name)
+        hierarchy.path = new_path
+        
+        # Update paths for all children
+        _update_children_paths(db, hierarchy_id, new_path)
+
     db.commit()
     db.refresh(hierarchy)
     return hierarchy
@@ -198,10 +234,11 @@ def delete_hierarchy(db: Session, hierarchy_id: int) -> None:
     children_count = (
         db.query(Hierarchy).filter(Hierarchy.parent_id == hierarchy_id).count()
     )
+
     if children_count > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete hierarchy that has children. Delete children first or reassign them.",
+            detail=f"Cannot delete hierarchy with {children_count} children. Please delete children first.",
         )
 
     # Check if hierarchy has associated purposes
@@ -213,7 +250,7 @@ def delete_hierarchy(db: Session, hierarchy_id: int) -> None:
     if purposes_count > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete hierarchy that has associated purposes. Reassign purposes first.",
+            detail=f"Cannot delete hierarchy with {purposes_count} associated purposes. Reassign purposes first.",
         )
 
     db.delete(hierarchy)
@@ -224,16 +261,19 @@ def _would_create_circular_reference(
     db: Session, hierarchy_id: int, new_parent_id: int
 ) -> bool:
     """Check if setting new_parent_id as parent would create a circular reference."""
-    # Walk up the tree from new_parent_id to see if we encounter hierarchy_id
-    current_id = new_parent_id
-    visited = set()
+    current_parent_id = new_parent_id
+    visited = {hierarchy_id}
 
-    while current_id and current_id not in visited:
-        if current_id == hierarchy_id:
+    while current_parent_id:
+        if current_parent_id in visited:
             return True
-        visited.add(current_id)
+        visited.add(current_parent_id)
 
-        parent = db.query(Hierarchy).filter(Hierarchy.id == current_id).first()
-        current_id = parent.parent_id if parent else None
+        parent = (
+            db.query(Hierarchy).filter(Hierarchy.id == current_parent_id).first()
+        )
+        if not parent:
+            break
+        current_parent_id = parent.parent_id
 
     return False

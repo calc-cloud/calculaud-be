@@ -55,7 +55,7 @@ def test_client(test_db) -> TestClient:
 @pytest.fixture
 def sample_hierarchy(db_session) -> Hierarchy:
     """Create sample hierarchy."""
-    hierarchy = Hierarchy(type="UNIT", name="Test Unit")
+    hierarchy = Hierarchy(type="UNIT", name="Test Unit", path="Test Unit")
     db_session.add(hierarchy)
     db_session.commit()
     db_session.refresh(hierarchy)

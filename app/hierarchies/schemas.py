@@ -23,6 +23,7 @@ class HierarchyUpdate(BaseModel):
 
 class Hierarchy(HierarchyBase):
     id: int
+    path: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -38,6 +39,7 @@ class HierarchyTree(BaseModel):
     type: HierarchyTypeEnum
     name: str
     parent_id: Annotated[int | None, Field(default=None)]
+    path: str
     children: Annotated[list["HierarchyTree"], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)
