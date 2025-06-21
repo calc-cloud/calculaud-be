@@ -41,9 +41,7 @@ class PaginatedResult(BaseModel, Generic[T]):
         return self.page > 1
 
 
-def paginate(
-    query: Query, pagination: PaginationParams
-) -> tuple[list[Any], int]:
+def paginate(query: Query, pagination: PaginationParams) -> tuple[list[Any], int]:
     """
     Paginate a SQLAlchemy query.
 

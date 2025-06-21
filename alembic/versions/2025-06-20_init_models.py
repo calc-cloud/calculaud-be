@@ -96,7 +96,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_emf_emf_id"), "emf", ["emf_id"], unique=True)
+    op.create_index(op.f("ix_emf_emf_id"), "emf", ["emf_id"])
     op.create_index(op.f("ix_emf_id"), "emf", ["id"], unique=False)
     op.create_table(
         "cost",

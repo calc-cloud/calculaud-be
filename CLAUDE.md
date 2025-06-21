@@ -44,10 +44,17 @@ The system has four main entities with relationships:
 The API follows RESTful patterns with nested resources:
 
 - `/purposes` - Main resource with full CRUD, filtering, search, and pagination
-- `/emfs` - Nested under purposes, manages procurement forms
-- `/costs` - Nested under EMFs, manages financial data
+  - EMF operations are handled through purpose routes (create, update, delete EMFs via purpose PATCH)
+- `/costs` - Managed through EMFs within purposes
 - `/hierarchies` - Manages organizational structure
 - `/files` - Optional file upload functionality
+
+### EMF Operations
+
+EMF operations are integrated into the purpose routes:
+- **Create EMF**: Include EMFs in `POST /purposes` or add via `PATCH /purposes/{id}`
+- **Update EMF**: Use `PATCH /purposes/{id}` with updated EMF data
+- **Delete EMF**: Use `PATCH /purposes/{id}` without the EMF (exclude from EMFs list)
 
 ## Key Features to Implement
 

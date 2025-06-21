@@ -14,7 +14,9 @@ class TestPurposesAPI:
 
     def test_create_purpose(self, test_client: TestClient, sample_purpose_data: dict):
         """Test POST /purposes creates new purpose."""
-        response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
         assert response.status_code == 201
         data = response.json()
         assert data["hierarchy_id"] == sample_purpose_data["hierarchy_id"]
@@ -26,7 +28,9 @@ class TestPurposesAPI:
     def test_create_purpose_invalid_data(self, test_client: TestClient):
         """Test POST /purposes with invalid data returns 422."""
         invalid_data = {"description": "Missing required fields"}
-        response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=invalid_data)
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=invalid_data
+        )
         assert response.status_code == 422
 
     def test_get_purpose_by_id(
@@ -34,7 +38,9 @@ class TestPurposesAPI:
     ):
         """Test GET /purposes/{id} returns purpose with EMFs and costs."""
         # Create purpose first
-        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
         purpose_id = create_response.json()["id"]
 
         # Get purpose by ID
@@ -54,7 +60,9 @@ class TestPurposesAPI:
     def test_patch_purpose(self, test_client: TestClient, sample_purpose_data: dict):
         """Test PATCH /purposes/{id} patches purpose."""
         # Create purpose first
-        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
         purpose_id = create_response.json()["id"]
 
         # Patch purpose
@@ -62,7 +70,9 @@ class TestPurposesAPI:
         patch_data["description"] = "Patched description"
         patch_data["status"] = "IN_PROGRESS"
 
-        response = test_client.patch(f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=patch_data)
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=patch_data
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["description"] == "Patched description"
@@ -73,13 +83,17 @@ class TestPurposesAPI:
         self, test_client: TestClient, sample_purpose_data: dict
     ):
         """Test PATCH /purposes/{id} returns 404 for non-existent purpose."""
-        response = test_client.patch(f"{settings.api_v1_prefix}/purposes/999", json=sample_purpose_data)
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/999", json=sample_purpose_data
+        )
         assert response.status_code == 404
 
     def test_delete_purpose(self, test_client: TestClient, sample_purpose_data: dict):
         """Test DELETE /purposes/{id} deletes purpose."""
         # Create purpose first
-        create_response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data)
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
         purpose_id = create_response.json()["id"]
 
         # Delete purpose
@@ -87,7 +101,9 @@ class TestPurposesAPI:
         assert response.status_code == 204
 
         # Verify purpose is deleted
-        get_response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
+        get_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
         assert get_response.status_code == 404
 
     def test_delete_purpose_not_found(self, test_client: TestClient):
@@ -137,7 +153,9 @@ class TestPurposesAPI:
         assert data["items"][0]["status"] == "PENDING"
 
         # Test supplier filter
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?supplier=Supplier B")
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes?supplier=Supplier B"
+        )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
@@ -166,7 +184,9 @@ class TestPurposesAPI:
         assert "software" in data["items"][0]["description"].lower()
 
         # Test search in content
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=computers")
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes?search=computers"
+        )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
@@ -186,7 +206,9 @@ class TestPurposesAPI:
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
 
         # Test sort by excepted_delivery ascending
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?sort_by=excepted_delivery&sort_order=asc")
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes?sort_by=excepted_delivery&sort_order=asc"
+        )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 2
@@ -221,7 +243,8 @@ class TestPurposesAPI:
 
         # Test combined filters
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?status=PENDING&search=Project&sort_by=excepted_delivery&sort_order=desc&limit=10"
+            f"{settings.api_v1_prefix}/purposes?status=PENDING&search=Project"
+            f"&sort_by=excepted_delivery&sort_order=desc&limit=10"
         )
         assert response.status_code == 200
         data = response.json()

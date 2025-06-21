@@ -15,9 +15,7 @@ class EMF(Base):
     __tablename__ = "emf"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    emf_id: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False, index=True
-    )
+    emf_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     purpose_id: Mapped[int] = mapped_column(ForeignKey("purpose.id"), nullable=False)
     creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

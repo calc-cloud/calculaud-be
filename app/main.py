@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 
 from .config import settings
-from .emfs.router import router as emfs_router
 from .hierarchies.router import router as hierarchies_router
 from .purposes.router import router as purposes_router
 
@@ -22,8 +21,6 @@ app.include_router(
 app.include_router(
     purposes_router, prefix=f"{settings.api_v1_prefix}/purposes", tags=["purposes"]
 )
-
-app.include_router(emfs_router, prefix=settings.api_v1_prefix, tags=["emfs"])
 
 
 @app.get("/")

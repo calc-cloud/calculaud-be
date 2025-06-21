@@ -3,9 +3,11 @@ from typing import Literal
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.costs.models import Cost
+from app.emfs.models import EMF
 from app.pagination import PaginationParams, paginate
 from app.purposes.models import Purpose, StatusEnum
-from app.purposes.schemas import PurposeCreate
+from app.purposes.schemas import PurposeCreate, PurposeUpdate
 
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
@@ -31,7 +33,7 @@ def get_purposes(
 ) -> tuple[list[Purpose], int]:
     """
     Get purposes with filtering, searching, sorting, and pagination.
-    
+
     Returns:
         Tuple of (purposes list, total count)
     """
@@ -72,24 +74,86 @@ def get_purposes(
 
 
 def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
-    """Create a new purpose."""
-    db_purpose = Purpose(**purpose.model_dump())
+    """Create a new purpose with EMFs."""
+    purpose_data = purpose.model_dump(exclude={"emfs"})
+    db_purpose = Purpose(**purpose_data)
     db.add(db_purpose)
+    db.flush()
+
+    # Create EMFs if provided
+    for emf_data in purpose.emfs:
+        emf_dict = emf_data.model_dump(exclude={"costs"})
+        db_emf = EMF(**emf_dict, purpose_id=db_purpose.id)
+        db.add(db_emf)
+        db.flush()
+
+        # Create costs for this EMF if provided
+        for cost_data in emf_data.costs:
+            db_cost = Cost(**cost_data.model_dump(), emf_id=db_emf.id)
+            db.add(db_cost)
+
     db.commit()
     db.refresh(db_purpose)
     return db_purpose
 
 
 def patch_purpose(
-    db: Session, purpose_id: int, purpose_update: dict
+    db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
     db_purpose = db.query(Purpose).filter(Purpose.id == purpose_id).first()
     if not db_purpose:
         return None
+    # Update basic fields
 
-    for field, value in purpose_update.items():
+    for field, value in purpose_update.model_dump(
+        exclude_unset=True, exclude={"emfs"}
+    ).items():
         setattr(db_purpose, field, value)
+
+    # Handle EMFs separately
+    if purpose_update.emfs is not None:
+        existing_emfs = {emf.emf_id: emf for emf in db_purpose.emfs}
+        updated_emfs = []
+
+        # Loop through new patch EMFs
+        for emf_data in purpose_update.emfs:
+            emf_id = emf_data.emf_id
+
+            if emf_id in existing_emfs:
+                # Update existing EMF
+                existing_emf = existing_emfs[emf_id]
+                emf_dict = emf_data.model_dump(exclude={"costs"})
+                for field, value in emf_dict.items():
+                    if value is not None:
+                        setattr(existing_emf, field, value)
+
+                # Update costs if provided
+                if emf_data.costs is not None:
+                    # Clear existing costs and create new ones
+                    db.query(Cost).filter(Cost.emf_id == existing_emf.id).delete()
+                    for cost_data in emf_data.costs:
+                        db_cost = Cost(**cost_data.model_dump(), emf_id=existing_emf.id)
+                        db.add(db_cost)
+
+                updated_emfs.append(existing_emf)
+            else:
+                # Create new EMF
+                emf_dict = emf_data.model_dump(exclude={"costs"})
+                db_emf = EMF(**emf_dict, purpose_id=db_purpose.id)
+                db.add(db_emf)
+                db.flush()
+
+                # Create costs for new EMF if provided
+                if emf_data.costs:
+                    for cost_data in emf_data.costs:
+                        db_cost = Cost(**cost_data.model_dump(), emf_id=db_emf.id)
+                        db.add(db_cost)
+
+                updated_emfs.append(db_emf)
+
+        # Set the updated EMFs list to the purpose
+        db_purpose.emfs = updated_emfs
 
     db.commit()
     db.refresh(db_purpose)

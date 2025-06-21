@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
 
@@ -32,7 +32,10 @@ class Purpose(Base):
     status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False)
     comments: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     last_modified: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), server_onupdate=func.now()
+        DateTime,
+        onupdate=datetime.now(UTC),
+        server_default=func.now(),
+        server_onupdate=func.now(),
     )
     excepted_delivery: Mapped[date | None] = mapped_column(Date, nullable=True)
     hierarchy_id: Mapped[int | None] = mapped_column(
@@ -43,4 +46,6 @@ class Purpose(Base):
     hierarchy: Mapped["Hierarchy"] = relationship(
         "Hierarchy", back_populates="purposes"
     )
-    emfs: Mapped[list["EMF"]] = relationship("EMF", back_populates="purpose")
+    emfs: Mapped[list["EMF"]] = relationship(
+        "EMF", back_populates="purpose", cascade="all, delete-orphan"
+    )
