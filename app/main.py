@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .hierarchies.router import router as hierarchies_router
@@ -11,6 +12,15 @@ app = FastAPI(
     description="Backend API for managing procurement purposes, EMFs, costs, hierarchies, service types, and suppliers",
     version=settings.version,
     debug=settings.debug,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
