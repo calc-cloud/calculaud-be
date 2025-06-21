@@ -17,8 +17,8 @@ router = APIRouter()
 def get_purposes(
     pagination: PaginationParams = Depends(),
     hierarchy_id: int | None = Query(None, description="Filter by hierarchy ID"),
-    supplier: str | None = Query(None, description="Filter by supplier"),
-    service_type: str | None = Query(None, description="Filter by service type"),
+    supplier_id: int | None = Query(None, description="Filter by supplier ID"),
+    service_type_id: int | None = Query(None, description="Filter by service type ID"),
     status: StatusEnum | None = Query(None, description="Filter by status"),
     search: str | None = Query(
         None, description="Search in description, content, and supplier"
@@ -34,8 +34,8 @@ def get_purposes(
         db=db,
         pagination=pagination,
         hierarchy_id=hierarchy_id,
-        supplier=supplier,
-        service_type=service_type,
+        supplier_id=supplier_id,
+        service_type_id=service_type_id,
         status=status,
         search=search,
         sort_by=sort_by,
