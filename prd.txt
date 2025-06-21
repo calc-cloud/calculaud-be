@@ -51,7 +51,7 @@ Note: Costs are managed directly through EMF operations, not as separate endpoin
 4. Hierarchy (Organizational Structure)
 - ID (Primary Key, auto-generated integer)
 - Parent ID: Optional FK to Hierarchy (self-referencing, nullable)
-- Type: Enum (UNIT, CENTER, ANAF, TEAM)
+- Type: Enum (UNIT, CENTER, ANAF, MADOR, TEAM)
 - Name: String (max 200 chars, required)
 
 API Endpoints:

@@ -28,7 +28,7 @@ def upgrade() -> None:
         sa.Column("parent_id", sa.Integer(), nullable=True),
         sa.Column(
             "type",
-            sa.Enum("UNIT", "CENTER", "ANAF", "TEAM", name="hierarchytypeenum"),
+            sa.Enum("UNIT", "CENTER", "ANAF", "MADOR", "TEAM", name="hierarchytypeenum"),
             nullable=False,
         ),
         sa.Column("name", sa.String(length=255), nullable=False),
