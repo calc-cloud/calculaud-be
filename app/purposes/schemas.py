@@ -9,12 +9,30 @@ from app.files.schemas import FileAttachment
 from app.hierarchies.schemas import Hierarchy
 
 
+class PurposeContentBase(BaseModel):
+    service_id: int
+    quantity: Annotated[int, Field(ge=1)]
+
+
+class PurposeContentCreate(PurposeContentBase):
+    pass
+
+
+class PurposeContentUpdate(PurposeContentBase):
+    pass
+
+
+class PurposeContent(PurposeContentBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PurposeBase(BaseModel):
     expected_delivery: Annotated[date | None, Field(default=None)]
     comments: Annotated[str | None, Field(default=None, max_length=1000)]
     status: Annotated[StatusEnum, Field(default=StatusEnum.IN_PROGRESS)]
     supplier_id: int | None = None
-    content: Annotated[str | None, Field(default=None, max_length=2000)]
     description: Annotated[str | None, Field(default=None, max_length=2000)]
     service_type_id: int | None = None
 
@@ -23,6 +41,7 @@ class PurposeCreate(PurposeBase):
     hierarchy_id: Annotated[int | None, Field(default=None)]
     emfs: Annotated[list[EMFCreate], Field(default_factory=list)]
     file_attachment_ids: Annotated[list[int], Field(default_factory=list)]
+    contents: Annotated[list[PurposeContentCreate], Field(default_factory=list)]
 
 
 class PurposeUpdate(BaseModel):
@@ -32,10 +51,10 @@ class PurposeUpdate(BaseModel):
     status: Annotated[StatusEnum | None, Field(default=None)]
     supplier_id: int | None = None
     service_type_id: int | None = None
-    content: Annotated[str | None, Field(default=None, max_length=2000)]
     description: Annotated[str | None, Field(default=None, max_length=2000)]
     emfs: Annotated[list[EMFUpdate] | None, Field(default=None)]
     file_attachment_ids: Annotated[list[int] | None, Field(default=None)]
+    contents: Annotated[list[PurposeContentUpdate] | None, Field(default=None)]
 
 
 class Purpose(PurposeBase):
@@ -49,5 +68,6 @@ class Purpose(PurposeBase):
 
     emfs: Annotated[list[EMF], Field(default_factory=list)]
     file_attachments: Annotated[list[FileAttachment], Field(default_factory=list)]
+    contents: Annotated[list[PurposeContent], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)

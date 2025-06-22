@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import EMF, Cost, Hierarchy, Purpose
+from app import EMF, Cost, Hierarchy, Purpose, Service, ServiceType
 from app.database import Base, get_db
 from app.main import app
 
@@ -70,10 +70,8 @@ def sample_purpose_data(sample_hierarchy) -> dict:
         "expected_delivery": "2024-12-31",
         "comments": "Test comments",
         "status": "IN_PROGRESS",
-        "supplier": "Test Supplier",
-        "content": "Test content",
         "description": "Test description",
-        "service_type": "Consulting",
+        "contents": [],  # Empty contents for basic test data
     }
 
 
@@ -91,8 +89,8 @@ def purpose_data_no_hierarchy() -> dict:
     return {
         "expected_delivery": "2024-12-31",
         "status": "IN_PROGRESS",
-        "supplier": "Test Supplier",
-        "content": "Test content",
+        "description": "Test description",
+        "contents": [],
     }
 
 
@@ -102,8 +100,8 @@ def purpose_data_no_delivery(sample_hierarchy) -> dict:
     return {
         "hierarchy_id": sample_hierarchy.id,
         "status": "IN_PROGRESS",
-        "supplier": "Test Supplier",
-        "content": "Test content",
+        "description": "Test description",
+        "contents": [],
     }
 
 
@@ -115,10 +113,7 @@ def sample_purpose(db_session, sample_hierarchy) -> Purpose:
         expected_delivery=date(2024, 12, 31),
         comments="Test comments",
         status="IN_PROGRESS",
-        supplier="Test Supplier",
-        content="Test content",
         description="Test description",
-        service_type="Consulting",
     )
     db_session.add(purpose)
     db_session.commit()
@@ -207,3 +202,36 @@ def sample_cost(db_session, sample_emf) -> Cost:
 def sample_hierarchy_data() -> dict:
     """Sample hierarchy data for creation."""
     return {"type": "CENTER", "name": "Test Center", "parent_id": None}
+
+
+@pytest.fixture
+def sample_service_type(db_session) -> ServiceType:
+    """Create sample service type."""
+    service_type = ServiceType(name="Test Service Type")
+    db_session.add(service_type)
+    db_session.commit()
+    db_session.refresh(service_type)
+    return service_type
+
+
+@pytest.fixture
+def sample_service(db_session, sample_service_type) -> Service:
+    """Create sample service."""
+    service = Service(name="Test Service", service_type_id=sample_service_type.id)
+    db_session.add(service)
+    db_session.commit()
+    db_session.refresh(service)
+    return service
+
+
+@pytest.fixture
+def sample_purpose_data_with_contents(sample_hierarchy, sample_service) -> dict:
+    """Sample purpose data with contents for testing."""
+    return {
+        "hierarchy_id": sample_hierarchy.id,
+        "expected_delivery": "2024-12-31",
+        "comments": "Test comments",
+        "status": "IN_PROGRESS",
+        "description": "Test description",
+        "contents": [{"service_id": sample_service.id, "quantity": 2}],
+    }

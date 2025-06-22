@@ -15,7 +15,7 @@ class Service(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True, autoincrement=True
     )
-    name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     service_type_id: Mapped[int] = mapped_column(
         ForeignKey("service_type.id", ondelete="CASCADE"), nullable=False, index=True
     )

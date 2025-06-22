@@ -180,12 +180,10 @@ class TestPurposesAPI:
         # Create purposes with different descriptions
         data1 = sample_purpose_data.copy()
         data1["description"] = "Software development project"
-        data1["content"] = "Building web application"
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
 
         data2 = sample_purpose_data.copy()
-        data2["description"] = "Hardware procurement"
-        data2["content"] = "Buying computers"
+        data2["description"] = "Hardware procurement for buying computers"
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
 
         # Test search in description
@@ -195,14 +193,14 @@ class TestPurposesAPI:
         assert len(data["items"]) == 1
         assert "software" in data["items"][0]["description"].lower()
 
-        # Test search in content
+        # Test search in description for computers
         response = test_client.get(
             f"{settings.api_v1_prefix}/purposes?search=computers"
         )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
-        assert "computers" in data["items"][0]["content"].lower()
+        assert "computers" in data["items"][0]["description"].lower()
 
     def test_get_purposes_with_emf_id_search(
         self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
@@ -391,3 +389,230 @@ class TestPurposesAPI:
         data = response.json()
         assert len(data["items"]) == 1
         assert data["items"][0]["description"] == "Purpose for some"
+
+
+class TestPurposeContentAPI:
+    """Test Purpose Content functionality."""
+
+    def test_create_purpose_with_contents(
+        self, test_client: TestClient, sample_purpose_data_with_contents: dict
+    ):
+        """Test creating a purpose with contents."""
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data["contents"]) == 1
+        assert (
+            data["contents"][0]["service_id"]
+            == sample_purpose_data_with_contents["contents"][0]["service_id"]
+        )
+        assert (
+            data["contents"][0]["quantity"]
+            == sample_purpose_data_with_contents["contents"][0]["quantity"]
+        )
+
+    def test_create_purpose_with_invalid_service_id(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test creating a purpose with invalid service_id returns 400."""
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["contents"] = [{"service_id": 999, "quantity": 2}]
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert response.status_code == 400
+        assert "Service with ID 999 does not exist" in response.json()["detail"]
+
+    def test_create_purpose_with_zero_quantity(
+        self, test_client: TestClient, sample_purpose_data: dict, sample_service
+    ):
+        """Test creating a purpose with zero quantity returns 422."""
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["contents"] = [{"service_id": sample_service.id, "quantity": 0}]
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert response.status_code == 422
+
+    def test_create_purpose_with_negative_quantity(
+        self, test_client: TestClient, sample_purpose_data: dict, sample_service
+    ):
+        """Test creating a purpose with negative quantity returns 422."""
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["contents"] = [{"service_id": sample_service.id, "quantity": -1}]
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert response.status_code == 422
+
+    def test_create_purpose_with_duplicate_service(
+        self, test_client: TestClient, sample_purpose_data: dict, sample_service
+    ):
+        """Test creating a purpose with duplicate service in contents fails."""
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["contents"] = [
+            {"service_id": sample_service.id, "quantity": 2},
+            {"service_id": sample_service.id, "quantity": 3},
+        ]
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        # This should fail due to unique constraint
+        assert response.status_code == 400
+        assert "already included in this purpose" in response.json()["detail"]
+
+    def test_update_purpose_contents(
+        self,
+        test_client: TestClient,
+        sample_purpose_data_with_contents: dict,
+        sample_service,
+    ):
+        """Test updating purpose contents."""
+        # Create purpose with contents
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Update with new contents
+        update_data = {"contents": [{"service_id": sample_service.id, "quantity": 5}]}
+
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["contents"]) == 1
+        assert data["contents"][0]["quantity"] == 5
+
+    def test_update_purpose_contents_empty(
+        self, test_client: TestClient, sample_purpose_data_with_contents: dict
+    ):
+        """Test updating purpose with empty contents."""
+        # Create purpose with contents
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Update with empty contents
+        update_data = {"contents": []}
+
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["contents"]) == 0
+
+    def test_update_purpose_contents_invalid_service_id(
+        self, test_client: TestClient, sample_purpose_data_with_contents: dict
+    ):
+        """Test updating purpose with invalid service_id returns 400."""
+        # Create purpose with contents
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Update with invalid service_id
+        update_data = {"contents": [{"service_id": 999, "quantity": 2}]}
+
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
+        )
+        assert response.status_code == 400
+        assert "Service with ID 999 does not exist" in response.json()["detail"]
+
+    def test_cascade_delete_purpose_contents(
+        self, test_client: TestClient, sample_purpose_data_with_contents: dict
+    ):
+        """Test that purpose contents are deleted when purpose is deleted."""
+        # Create purpose with contents
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Verify purpose exists with contents
+        get_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert get_response.status_code == 200
+        assert len(get_response.json()["contents"]) == 1
+
+        # Delete purpose
+        delete_response = test_client.delete(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert delete_response.status_code == 204
+
+        # Verify purpose is deleted
+        get_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert get_response.status_code == 404
+
+    def test_multiple_services_in_purpose_contents(
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        sample_service,
+        sample_service_type,
+    ):
+        """Test creating purpose with multiple different services."""
+        # Create additional service
+        service2_response = test_client.post(
+            f"{settings.api_v1_prefix}/services",
+            json={"name": "Service 2", "service_type_id": sample_service_type.id},
+        )
+        service2_id = service2_response.json()["id"]
+
+        # Create purpose with multiple services
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["contents"] = [
+            {"service_id": sample_service.id, "quantity": 2},
+            {"service_id": service2_id, "quantity": 3},
+        ]
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        # This should succeed with multiple different services
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data["contents"]) == 2
+
+        # Verify both services are included
+        service_ids = [content["service_id"] for content in data["contents"]]
+        assert sample_service.id in service_ids
+        assert service2_id in service_ids
+
+    def test_get_purpose_with_contents_includes_service_info(
+        self, test_client: TestClient, sample_purpose_data_with_contents: dict
+    ):
+        """Test that getting a purpose includes full content information."""
+        # Create purpose with contents
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Get purpose and verify contents structure
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "contents" in data
+        assert len(data["contents"]) == 1
+        content = data["contents"][0]
+        assert "id" in content
+        assert "service_id" in content
+        assert "quantity" in content
+        assert content["quantity"] == 2

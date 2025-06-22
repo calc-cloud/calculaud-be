@@ -2,7 +2,16 @@ from datetime import UTC, date, datetime
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -12,6 +21,7 @@ if TYPE_CHECKING:
     from app.files.models import FileAttachment
     from app.hierarchies.models import Hierarchy
     from app.service_types.models import ServiceType
+    from app.services.models import Service
     from app.suppliers.models import Supplier
 
 
@@ -29,7 +39,6 @@ class Purpose(Base):
     description: Mapped[str | None] = mapped_column(
         String(2000), nullable=True, index=True
     )
-    content: Mapped[str | None] = mapped_column(String(2000), nullable=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     status: Mapped[StatusEnum] = mapped_column(
         Enum(StatusEnum), nullable=False, index=True
@@ -64,6 +73,9 @@ class Purpose(Base):
     file_attachments: Mapped[list["FileAttachment"]] = relationship(
         "FileAttachment", back_populates="purpose", cascade="all, delete-orphan"
     )
+    contents: Mapped[list["PurposeContent"]] = relationship(
+        "PurposeContent", back_populates="purpose", cascade="all, delete-orphan"
+    )
 
     @property
     def supplier(self) -> str | None:
@@ -74,3 +86,27 @@ class Purpose(Base):
     def service_type(self) -> str | None:
         """Return the service_type name if available."""
         return self._service_type.name if self._service_type else None
+
+
+class PurposeContent(Base):
+    __tablename__ = "purpose_content"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    purpose_id: Mapped[int] = mapped_column(
+        ForeignKey("purpose.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    service_id: Mapped[int] = mapped_column(
+        ForeignKey("service.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Relationships
+    purpose: Mapped["Purpose"] = relationship(back_populates="contents")
+    service: Mapped["Service"] = relationship()
+
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint("purpose_id", "service_id", name="uq_purpose_service"),
+    )

@@ -1,9 +1,3 @@
-class ServiceNotFound(Exception):
-    """Raised when a service is not found."""
-
-    pass
-
-
 class ServiceAlreadyExists(Exception):
     """Raised when trying to create a service that already exists."""
 

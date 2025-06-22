@@ -33,7 +33,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_hierarchy_id'), 'hierarchy', ['id'], unique=False)
     op.create_table('service_type',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('name', sa.String(length=255), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_service_type_id'), 'service_type', ['id'], unique=False)

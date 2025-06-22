@@ -1,6 +1,7 @@
 from typing import Literal
 
 from sqlalchemy import and_, desc, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.costs.models import Cost
@@ -8,15 +9,21 @@ from app.emfs.models import EMF
 from app.files import service as file_service
 from app.hierarchies.models import Hierarchy
 from app.pagination import PaginationParams, paginate
-from app.purposes.models import Purpose, StatusEnum
+from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
+from app.purposes.models import Purpose, PurposeContent, StatusEnum
 from app.purposes.schemas import PurposeCreate, PurposeUpdate
+from app.services.models import Service
 
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
     """Get a single purpose by ID."""
     return (
         db.query(Purpose)
-        .options(joinedload(Purpose.emfs), joinedload(Purpose.file_attachments))
+        .options(
+            joinedload(Purpose.emfs),
+            joinedload(Purpose.file_attachments),
+            joinedload(Purpose.contents),
+        )
         .filter(Purpose.id == purpose_id)
         .first()
     )
@@ -40,7 +47,9 @@ def get_purposes(
         Tuple of (purposes list, total count)
     """
     query = db.query(Purpose).options(
-        joinedload(Purpose.emfs), joinedload(Purpose.file_attachments)
+        joinedload(Purpose.emfs),
+        joinedload(Purpose.file_attachments),
+        joinedload(Purpose.contents),
     )
 
     # Apply filters
@@ -77,8 +86,12 @@ def get_purposes(
     if search:
         search_filter = or_(
             Purpose.description.ilike(f"%{search}%"),
-            Purpose.content.ilike(f"%{search}%"),
             Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
+            Purpose.emfs.any(EMF.purpose_id.ilike(f"%{search}%")),
+            Purpose.emfs.any(EMF.order_id.ilike(f"%{search}%")),
+            Purpose.emfs.any(EMF.demand_id.ilike(f"%{search}%")),
+            Purpose.emfs.any(EMF.bikushit_id.ilike(f"%{search}%")),
+            Purpose.contents.any(PurposeContent.service.ilike(f"%{search}%")),
         )
         query = query.filter(search_filter)
 
@@ -94,11 +107,35 @@ def get_purposes(
 
 
 def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
-    """Create a new purpose with EMFs and link files."""
-    purpose_data = purpose.model_dump(exclude={"emfs", "file_attachment_ids"})
+    """Create a new purpose with EMFs, contents, and link files."""
+    purpose_data = purpose.model_dump(
+        exclude={"emfs", "file_attachment_ids", "contents"}
+    )
     db_purpose = Purpose(**purpose_data)
     db.add(db_purpose)
     db.flush()
+
+    # Create purpose contents if provided
+    for content_data in purpose.contents:
+        # Validate that service exists
+        service = (
+            db.query(Service).filter(Service.id == content_data.service_id).first()
+        )
+        if not service:
+            raise ServiceNotFound(content_data.service_id)
+
+        try:
+            db_content = PurposeContent(
+                purpose_id=db_purpose.id,
+                service_id=content_data.service_id,
+                quantity=content_data.quantity,
+            )
+            db.add(db_content)
+            db.flush()  # Flush to catch unique constraint violations early
+        except IntegrityError as e:
+            if "UNIQUE constraint failed" in str(e) and "purpose_content" in str(e):
+                raise DuplicateServiceInPurpose(content_data.service_id)
+            raise
 
     # Create EMFs if provided
     for emf_data in purpose.emfs:
@@ -146,7 +183,7 @@ def patch_purpose(
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
-        exclude_unset=True, exclude={"emfs", "file_attachment_ids"}
+        exclude_unset=True, exclude={"emfs", "file_attachment_ids", "contents"}
     ).items():
         setattr(db_purpose, field, value)
 
@@ -193,6 +230,35 @@ def patch_purpose(
 
         # Set the updated EMFs list to the purpose
         db_purpose.emfs = updated_emfs
+
+    # Handle contents separately - replace all contents
+    if purpose_update.contents is not None:
+        # Delete existing contents
+        db.query(PurposeContent).filter(
+            PurposeContent.purpose_id == db_purpose.id
+        ).delete()
+
+        # Create new contents
+        for content_data in purpose_update.contents:
+            # Validate that service exists
+            service = (
+                db.query(Service).filter(Service.id == content_data.service_id).first()
+            )
+            if not service:
+                raise ServiceNotFound(content_data.service_id)
+
+            try:
+                db_content = PurposeContent(
+                    purpose_id=db_purpose.id,
+                    service_id=content_data.service_id,
+                    quantity=content_data.quantity,
+                )
+                db.add(db_content)
+                db.flush()  # Flush to catch unique constraint violations early
+            except IntegrityError as e:
+                if "UNIQUE constraint failed" in str(e) and "purpose_content" in str(e):
+                    raise DuplicateServiceInPurpose(content_data.service_id)
+                raise
 
     db.commit()
     db.refresh(db_purpose)

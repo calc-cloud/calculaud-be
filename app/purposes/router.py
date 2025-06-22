@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.purposes import service
+from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
 from app.purposes.models import StatusEnum
 from app.purposes.schemas import Purpose, PurposeCreate, PurposeUpdate
 
@@ -28,9 +29,7 @@ def get_purposes(
     status: list[StatusEnum] | None = Query(
         None, description="Filter by status(es)", multiple=True
     ),
-    search: str | None = Query(
-        None, description="Search in description, content, and emf_id"
-    ),
+    search: str | None = Query(None, description="Search in description and emf_id"),
     sort_by: str = Query("creation_time", description="Sort by field"),
     sort_order: Literal["asc", "desc"] = Query(
         "desc", description="Sort order: asc or desc"
@@ -67,7 +66,10 @@ def get_purpose(purpose_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=Purpose, status_code=statuses.HTTP_201_CREATED)
 def create_purpose(purpose: PurposeCreate, db: Session = Depends(get_db)):
     """Create a new purpose."""
-    return service.create_purpose(db, purpose)
+    try:
+        return service.create_purpose(db, purpose)
+    except (ServiceNotFound, DuplicateServiceInPurpose) as e:
+        raise HTTPException(status_code=statuses.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{purpose_id}", response_model=Purpose)
@@ -75,12 +77,15 @@ def patch_purpose(
     purpose_id: int, purpose_update: PurposeUpdate, db: Session = Depends(get_db)
 ):
     """Patch an existing purpose."""
-    patched_purpose = service.patch_purpose(db, purpose_id, purpose_update)
-    if not patched_purpose:
-        raise HTTPException(
-            status_code=statuses.HTTP_404_NOT_FOUND, detail="Purpose not found"
-        )
-    return patched_purpose
+    try:
+        patched_purpose = service.patch_purpose(db, purpose_id, purpose_update)
+        if not patched_purpose:
+            raise HTTPException(
+                status_code=statuses.HTTP_404_NOT_FOUND, detail="Purpose not found"
+            )
+        return patched_purpose
+    except (ServiceNotFound, DuplicateServiceInPurpose) as e:
+        raise HTTPException(status_code=statuses.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{purpose_id}", status_code=statuses.HTTP_204_NO_CONTENT)
