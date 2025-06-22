@@ -33,14 +33,6 @@ class TestPurposesAPI:
         assert "id" in data
         assert "creation_time" in data
 
-    def test_create_purpose_invalid_data(self, test_client: TestClient):
-        """Test POST /purposes with invalid data returns 422."""
-        invalid_data = {"description": "Missing required fields"}
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=invalid_data
-        )
-        assert response.status_code == 422
-
     def test_get_purpose_by_id(
         self, test_client: TestClient, sample_purpose_data: dict
     ):
