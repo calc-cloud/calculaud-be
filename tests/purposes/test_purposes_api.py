@@ -154,7 +154,7 @@ class TestPurposesAPI:
 
         # Create purposes with different attributes
         data1 = sample_purpose_data.copy()
-        data1["status"] = "PENDING"
+        data1["status"] = "IN_PROGRESS"
         data1["supplier_id"] = supplier_a_id
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
 
@@ -164,11 +164,13 @@ class TestPurposesAPI:
         test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
 
         # Test status filter
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?status=PENDING")
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes?status=IN_PROGRESS"
+        )
         assert response.status_code == 200
         data = response.json()
         assert len(data["items"]) == 1
-        assert data["items"][0]["status"] == "PENDING"
+        assert data["items"][0]["status"] == "IN_PROGRESS"
 
         # Test supplier filter
         response = test_client.get(
@@ -302,20 +304,20 @@ class TestPurposesAPI:
         for i in range(3):
             data = sample_purpose_data.copy()
             data["description"] = f"Project {i}"
-            data["status"] = "PENDING" if i % 2 == 0 else "COMPLETED"
+            data["status"] = "IN_PROGRESS" if i % 2 == 0 else "COMPLETED"
             data["expected_delivery"] = f"2024-0{i + 1}-01"
             test_client.post(f"{settings.api_v1_prefix}/purposes", json=data)
 
         # Test combined filters
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?status=PENDING&search=Project"
+            f"{settings.api_v1_prefix}/purposes?status=IN_PROGRESS&search=Project"
             f"&sort_by=expected_delivery&sort_order=desc&limit=10"
         )
         assert response.status_code == 200
         data = response.json()
-        assert len(data["items"]) == 2  # Only pending projects
+        assert len(data["items"]) == 2  # Only 'IN_PROGRESS' projects
         for item in data["items"]:
-            assert item["status"] == "PENDING"
+            assert item["status"] == "IN_PROGRESS"
             assert "Project" in item["description"]
 
     def test_get_purposes_with_hierarchy_path_filtering(

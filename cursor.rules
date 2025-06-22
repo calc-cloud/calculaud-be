@@ -78,7 +78,7 @@ field: Annotated[str, Field(min_length=1, max_length=100)]
 - Support filtering, searching, sorting, and pagination
 
 ### Status Management
-- Purpose status: `PENDING`, `IN_PROGRESS`, `COMPLETED`
+- Purpose status: `IN_PROGRESS`, `COMPLETED`
 - Hierarchy types: `UNIT`, `CENTER`, `ANAF`, `TEAM`
 - Currency types: `SUPPORT_USD`, `AVAILABLE_USD`, `ILS`
 

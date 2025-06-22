@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class StatusEnum(PyEnum):
-    PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
 

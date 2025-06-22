@@ -12,7 +12,7 @@ from app.hierarchies.schemas import Hierarchy
 class PurposeBase(BaseModel):
     expected_delivery: Annotated[date | None, Field(default=None)]
     comments: Annotated[str | None, Field(default=None, max_length=1000)]
-    status: StatusEnum
+    status: Annotated[StatusEnum, Field(default=StatusEnum.IN_PROGRESS)]
     supplier_id: int | None = None
     content: Annotated[str | None, Field(default=None, max_length=2000)]
     description: Annotated[str | None, Field(default=None, max_length=2000)]
