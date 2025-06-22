@@ -17,7 +17,9 @@ class EMF(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     emf_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     purpose_id: Mapped[int] = mapped_column(ForeignKey("purpose.id"), nullable=False)
-    creation_date: Mapped[date] = mapped_column(Date, server_default=func.current_date())
+    creation_date: Mapped[date] = mapped_column(
+        Date, server_default=func.current_date()
+    )
 
     order_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     order_creation_date: Mapped[date | None] = mapped_column(Date, nullable=True)
