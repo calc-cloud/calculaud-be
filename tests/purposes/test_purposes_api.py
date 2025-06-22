@@ -270,3 +270,67 @@ class TestPurposesAPI:
         for item in data["items"]:
             assert item["status"] == "PENDING"
             assert "Project" in item["description"]
+
+    def test_get_purposes_with_hierarchy_path_filtering(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test GET /purposes with hierarchy path filtering."""
+        # Create hierarchy tree: raphael -> raphael/lustig -> raphael/lustig/some
+        hierarchy_raphael = test_client.post(
+            f"{settings.api_v1_prefix}/hierarchies",
+            json={"type": "UNIT", "name": "raphael", "path": "raphael"}
+        )
+        hierarchy_lustig = test_client.post(
+            f"{settings.api_v1_prefix}/hierarchies",
+            json={"type": "CENTER", "name": "lustig", "path": "raphael/lustig", "parent_id": hierarchy_raphael.json()["id"]}
+        )
+        hierarchy_some = test_client.post(
+            f"{settings.api_v1_prefix}/hierarchies",
+            json={"type": "ANAF", "name": "some", "path": "raphael/lustig/some", "parent_id": hierarchy_lustig.json()["id"]}
+        )
+        
+        raphael_id = hierarchy_raphael.json()["id"]
+        lustig_id = hierarchy_lustig.json()["id"]
+        some_id = hierarchy_some.json()["id"]
+
+        # Create purposes for each hierarchy level
+        purpose_raphael = sample_purpose_data.copy()
+        purpose_raphael["hierarchy_id"] = raphael_id
+        purpose_raphael["description"] = "Purpose for raphael"
+        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_raphael)
+
+        purpose_lustig = sample_purpose_data.copy()
+        purpose_lustig["hierarchy_id"] = lustig_id
+        purpose_lustig["description"] = "Purpose for lustig"
+        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_lustig)
+
+        purpose_some = sample_purpose_data.copy()
+        purpose_some["hierarchy_id"] = some_id
+        purpose_some["description"] = "Purpose for some"
+        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_some)
+
+        # Test filtering by raphael hierarchy_id - should return all 3 purposes
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?hierarchy_id={raphael_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 3
+        descriptions = [item["description"] for item in data["items"]]
+        assert "Purpose for raphael" in descriptions
+        assert "Purpose for lustig" in descriptions
+        assert "Purpose for some" in descriptions
+
+        # Test filtering by lustig hierarchy_id - should return 2 purposes (lustig and some)
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?hierarchy_id={lustig_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 2
+        descriptions = [item["description"] for item in data["items"]]
+        assert "Purpose for lustig" in descriptions
+        assert "Purpose for some" in descriptions
+
+        # Test filtering by some hierarchy_id - should return only 1 purpose (some)
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?hierarchy_id={some_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["description"] == "Purpose for some"

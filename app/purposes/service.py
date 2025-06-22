@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.costs.models import Cost
 from app.emfs.models import EMF
+from app.hierarchies.models import Hierarchy
 from app.pagination import PaginationParams, paginate
 from app.purposes.models import Purpose, StatusEnum
 from app.purposes.schemas import PurposeCreate, PurposeUpdate
@@ -42,7 +43,17 @@ def get_purposes(
     # Apply filters
     filters = []
     if hierarchy_id is not None:
-        filters.append(Purpose.hierarchy_id == hierarchy_id)
+        # Get the hierarchy to find its path
+        hierarchy = db.query(Hierarchy).filter(Hierarchy.id == hierarchy_id).first()
+        if hierarchy:
+            # Join with Hierarchy table to filter by path
+            query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
+            # Find all purposes whose hierarchy path starts with the given hierarchy path
+            # This will include the hierarchy itself and all its descendants
+            filters.append(Hierarchy.path.like(f"{hierarchy.path}%"))
+        else:
+            # If hierarchy not found, return empty result
+            filters.append(Purpose.id == -1)  # This will never match
 
     if service_type_id is not None:
         filters.append(Purpose.service_type_id == service_type_id)
