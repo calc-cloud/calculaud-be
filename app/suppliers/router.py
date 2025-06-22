@@ -13,8 +13,9 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResult[Supplier])
 def get_suppliers(
     pagination: PaginationParams = Depends(),
-    search: str
-    | None = Query(None, description="Search suppliers by name (case-insensitive)"),
+    search: str | None = Query(
+        None, description="Search suppliers by name (case-insensitive)"
+    ),
     db: Session = Depends(get_db),
 ):
     """Get all suppliers with pagination and optional search."""
