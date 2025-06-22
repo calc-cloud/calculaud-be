@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ServiceTypeBase(BaseModel):
-    name: Annotated[str, Field(min_length=1, max_length=100)]
+    name: Annotated[str, Field(min_length=1, max_length=255)]
 
 
 class ServiceTypeCreate(ServiceTypeBase):
@@ -12,7 +12,7 @@ class ServiceTypeCreate(ServiceTypeBase):
 
 
 class ServiceTypeUpdate(BaseModel):
-    name: Annotated[str | None, Field(default=None, min_length=1, max_length=100)]
+    name: Annotated[str | None, Field(default=None, min_length=1, max_length=255)]
 
 
 class ServiceType(ServiceTypeBase):

@@ -16,7 +16,7 @@ class ServiceType(Base):
         Integer, primary_key=True, index=True, autoincrement=True
     )
     name: Mapped[str] = mapped_column(
-        String(100), nullable=False, unique=True, index=True
+        String(255), nullable=False, unique=True, index=True
     )
 
     # Relationships

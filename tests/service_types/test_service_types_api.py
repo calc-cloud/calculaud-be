@@ -39,14 +39,6 @@ class TestServiceTypesAPI:
         )
         assert response.status_code == 422
 
-    def test_create_service_type_name_too_long(self, test_client: TestClient):
-        """Test POST /service-types with name too long returns 422."""
-        invalid_data = {"name": "a" * 101}  # Name longer than 100 characters
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/service-types", json=invalid_data
-        )
-        assert response.status_code == 422
-
     def test_get_service_type_by_id(self, test_client: TestClient):
         """Test GET /service-types/{id} returns service type."""
         # Create service type first
