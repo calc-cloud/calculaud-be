@@ -30,6 +30,7 @@ class EMFUpdate(BaseModel):
     bikushit_id: Annotated[str | None, Field(default=None, max_length=255)]
     bikushit_creation_date: Annotated[date | None, Field(default=None)]
     costs: Annotated[list[CostBase] | None, Field(default=None)]
+    creation_time: Annotated[datetime | None, Field(default=None)]
 
 
 class EMF(EMFBase):
