@@ -11,18 +11,18 @@ def _calculate_path(db: Session, parent_id: int | None, name: str) -> str:
     """Calculate the full path for a hierarchy based on its parent."""
     if parent_id is None:
         return name
-    
+
     parent = db.query(Hierarchy).filter(Hierarchy.id == parent_id).first()
     if not parent:
         return name
-    
+
     return f"{parent.path} / {name}" if parent.path else name
 
 
 def _update_children_paths(db: Session, hierarchy_id: int, new_path: str) -> None:
     """Recursively update paths for all children of a hierarchy."""
     children = db.query(Hierarchy).filter(Hierarchy.parent_id == hierarchy_id).all()
-    
+
     for child in children:
         child.path = f"{new_path} / {child.name}"
         db.add(child)
@@ -88,11 +88,11 @@ def get_hierarchy_tree(db: Session, hierarchy_id: int | None = None) -> list[Hie
             .options(selectinload(Hierarchy.children))
             .all()
         )
-        
+
         # Build complete tree for each root
         for root in root_hierarchies:
             root.children = _build_hierarchy_tree(db, root.id)
-        
+
         return root_hierarchies
 
 
@@ -144,7 +144,7 @@ def create_hierarchy(db: Session, hierarchy_data: HierarchyCreate) -> Hierarchy:
 
     # Calculate path
     path = _calculate_path(db, hierarchy_data.parent_id, hierarchy_data.name)
-    
+
     hierarchy = Hierarchy(**hierarchy_data.model_dump(), path=path)
     db.add(hierarchy)
     db.commit()
@@ -217,7 +217,7 @@ def update_hierarchy(
         new_parent_id = update_data.get("parent_id", hierarchy.parent_id)
         new_path = _calculate_path(db, new_parent_id, new_name)
         hierarchy.path = new_path
-        
+
         # Update paths for all children
         _update_children_paths(db, hierarchy_id, new_path)
 
@@ -269,9 +269,7 @@ def _would_create_circular_reference(
             return True
         visited.add(current_parent_id)
 
-        parent = (
-            db.query(Hierarchy).filter(Hierarchy.id == current_parent_id).first()
-        )
+        parent = db.query(Hierarchy).filter(Hierarchy.id == current_parent_id).first()
         if not parent:
             break
         current_parent_id = parent.parent_id

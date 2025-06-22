@@ -18,4 +18,4 @@ class SupplierUpdate(BaseModel):
 class Supplier(SupplierBase):
     id: int
 
-    model_config = ConfigDict(from_attributes=True) 
+    model_config = ConfigDict(from_attributes=True)

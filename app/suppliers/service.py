@@ -27,14 +27,14 @@ def get_suppliers(
         Tuple of (suppliers list, total count)
     """
     query = db.query(Supplier)
-    
+
     # Apply search filter if provided
     if search:
         query = query.filter(Supplier.name.ilike(f"%{search}%"))
-    
+
     # Apply ordering
     query = query.order_by(Supplier.name)
-    
+
     return paginate(query, pagination)
 
 
@@ -47,7 +47,6 @@ def create_supplier(db: Session, supplier: SupplierCreate) -> Supplier:
         db.refresh(db_supplier)
         return db_supplier
     except IntegrityError as e:
-        db.rollback()
         if "UNIQUE constraint failed" in str(e) and "supplier" in str(e):
             raise SupplierAlreadyExists(f"Supplier '{supplier.name}' already exists")
         raise
@@ -57,9 +56,7 @@ def patch_supplier(
     db: Session, supplier_id: int, supplier_update: SupplierUpdate
 ) -> Supplier | None:
     """Patch an existing supplier."""
-    db_supplier = (
-        db.query(Supplier).filter(Supplier.id == supplier_id).first()
-    )
+    db_supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not db_supplier:
         return None
 
@@ -72,20 +69,19 @@ def patch_supplier(
         db.refresh(db_supplier)
         return db_supplier
     except IntegrityError as e:
-        db.rollback()
         if "UNIQUE constraint failed" in str(e) and "supplier" in str(e):
-            raise SupplierAlreadyExists(f"Supplier '{supplier_update.name}' already exists")
+            raise SupplierAlreadyExists(
+                f"Supplier '{supplier_update.name}' already exists"
+            )
         raise
 
 
 def delete_supplier(db: Session, supplier_id: int) -> bool:
     """Delete a supplier. Returns True if deleted, False if not found."""
-    db_supplier = (
-        db.query(Supplier).filter(Supplier.id == supplier_id).first()
-    )
+    db_supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not db_supplier:
         return False
 
     db.delete(db_supplier)
     db.commit()
-    return True 
+    return True

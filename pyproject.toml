@@ -1,0 +1,7 @@
+[tool.black]
+exclude = "alembic/"
+
+[tool.isort]
+profile = "black"
+skip_glob = ["alembic/*"]
+

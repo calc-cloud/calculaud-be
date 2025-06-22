@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .files.router import router as files_router
 from .hierarchies.router import router as hierarchies_router
 from .purposes.router import router as purposes_router
 from .service_types.router import router as service_types_router
@@ -44,6 +45,12 @@ app.include_router(
     suppliers_router,
     prefix=f"{settings.api_v1_prefix}/suppliers",
     tags=["suppliers"],
+)
+
+app.include_router(
+    files_router,
+    prefix=f"{settings.api_v1_prefix}/files",
+    tags=["files"],
 )
 
 

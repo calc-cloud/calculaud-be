@@ -46,9 +46,8 @@ def get_hierarchies(
 
 @router.get("/tree", response_model=list[HierarchyTree])
 def get_hierarchy_tree(
-    hierarchy_id: int | None = Query(
-        None, description="Get tree for specific hierarchy"
-    ),
+    hierarchy_id: int
+    | None = Query(None, description="Get tree for specific hierarchy"),
     db: Session = Depends(get_db),
 ):
     """Get hierarchy tree structure."""
