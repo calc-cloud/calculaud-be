@@ -27,10 +27,10 @@ class Purpose(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True, autoincrement=True
     )
-    description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
-    content: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    description: Mapped[str | None] = mapped_column(String(2000), nullable=True, index=True)
+    content: Mapped[str | None] = mapped_column(String(2000), nullable=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False)
+    status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False, index=True)
     comments: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     last_modified: Mapped[datetime] = mapped_column(
         DateTime,
@@ -40,13 +40,13 @@ class Purpose(Base):
     )
     expected_delivery: Mapped[date | None] = mapped_column(Date, nullable=True)
     hierarchy_id: Mapped[int | None] = mapped_column(
-        ForeignKey("hierarchy.id"), nullable=True
+        ForeignKey("hierarchy.id"), nullable=True, index=True
     )
     supplier_id: Mapped[int | None] = mapped_column(
-        ForeignKey("supplier.id"), nullable=True
+        ForeignKey("supplier.id"), nullable=True, index=True
     )
     service_type_id: Mapped[int | None] = mapped_column(
-        ForeignKey("service_type.id"), nullable=True
+        ForeignKey("service_type.id"), nullable=True, index=True
     )
 
     # Relationships
