@@ -14,6 +14,7 @@ class EMFBase(BaseModel):
     demand_creation_date: Annotated[date | None, Field(default=None)]
     bikushit_id: Annotated[str | None, Field(default=None, max_length=255)]
     bikushit_creation_date: Annotated[date | None, Field(default=None)]
+    creation_time: Annotated[datetime | None, Field(default=None)]
 
 
 class EMFCreate(EMFBase):
@@ -34,7 +35,6 @@ class EMFUpdate(BaseModel):
 class EMF(EMFBase):
     id: int
     purpose_id: int
-    creation_time: datetime
     costs: Annotated[list[Cost], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)

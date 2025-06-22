@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.costs.models import Cost
 from app.emfs.models import EMF
 from app.files import service as file_service
+from app.hierarchies.models import Hierarchy
 from app.pagination import PaginationParams, paginate
 from app.purposes.models import Purpose, StatusEnum
 from app.purposes.schemas import PurposeCreate, PurposeUpdate
@@ -22,15 +23,15 @@ def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
 
 
 def get_purposes(
-    db: Session,
-    pagination: PaginationParams,
-    hierarchy_id: int | None = None,
-    supplier_id: int | None = None,
-    service_type_id: int | None = None,
-    status: StatusEnum | None = None,
-    search: str | None = None,
-    sort_by: str = "creation_time",
-    sort_order: Literal["asc", "desc"] = "desc",
+        db: Session,
+        pagination: PaginationParams,
+        hierarchy_id: list[int] | None = None,
+        supplier_id: list[int] | None = None,
+        service_type_id: list[int] | None = None,
+        status: list[StatusEnum] | None = None,
+        search: str | None = None,
+        sort_by: str = "creation_time",
+        sort_order: Literal["asc", "desc"] = "desc",
 ) -> tuple[list[Purpose], int]:
     """
     Get purposes with filtering, searching, sorting, and pagination.
@@ -44,17 +45,30 @@ def get_purposes(
 
     # Apply filters
     filters = []
-    if hierarchy_id is not None:
-        filters.append(Purpose.hierarchy_id == hierarchy_id)
+    if hierarchy_id is not None and hierarchy_id:
+        # Get the hierarchies to find their paths
+        hierarchies = db.query(Hierarchy).filter(Hierarchy.id.in_(hierarchy_id)).all()
+        if hierarchies:
+            # Join with Hierarchy table to filter by path
+            query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
+            # Find all purposes whose hierarchy path starts with any of the given hierarchy paths
+            # This will include the hierarchies themselves and all their descendants
+            hierarchy_filters = []
+            for hierarchy in hierarchies:
+                hierarchy_filters.append(Hierarchy.path.like(f"{hierarchy.path}%"))
+            filters.append(or_(*hierarchy_filters))
+        else:
+            # If no hierarchies found, return empty result
+            filters.append(Purpose.id == -1)  # This will never match
 
-    if service_type_id is not None:
-        filters.append(Purpose.service_type_id == service_type_id)
+    if service_type_id is not None and service_type_id:
+        filters.append(Purpose.service_type_id.in_(service_type_id))
 
-    if supplier_id is not None:
-        filters.append(Purpose.supplier_id == supplier_id)
+    if supplier_id is not None and supplier_id:
+        filters.append(Purpose.supplier_id.in_(supplier_id))
 
-    if status:
-        filters.append(Purpose.status == status)
+    if status is not None and status:
+        filters.append(Purpose.status.in_(status))
 
     if filters:
         query = query.filter(and_(*filters))
@@ -64,6 +78,7 @@ def get_purposes(
         search_filter = or_(
             Purpose.description.ilike(f"%{search}%"),
             Purpose.content.ilike(f"%{search}%"),
+            Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
         )
         query = query.filter(search_filter)
 
@@ -109,7 +124,7 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
 
 
 def patch_purpose(
-    db: Session, purpose_id: int, purpose_update: PurposeUpdate
+        db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
     db_purpose = db.query(Purpose).filter(Purpose.id == purpose_id).first()
@@ -131,7 +146,7 @@ def patch_purpose(
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
-        exclude_unset=True, exclude={"emfs", "file_attachment_ids"}
+            exclude_unset=True, exclude={"emfs", "file_attachment_ids"}
     ).items():
         setattr(db_purpose, field, value)
 
