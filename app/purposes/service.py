@@ -14,19 +14,166 @@ from app.purposes.models import Purpose, PurposeContent, StatusEnum
 from app.purposes.schemas import PurposeCreate, PurposeUpdate
 from app.services.models import Service
 
+# Constants
+EMPTY_RESULT_FILTER = -1  # Filter that never matches to return empty results
+
+
+def _get_base_purpose_query(db: Session):
+    """Get base purpose query with all necessary joins."""
+    return db.query(Purpose).options(
+        joinedload(Purpose.emfs),
+        joinedload(Purpose.file_attachments),
+        joinedload(Purpose.contents),
+    )
+
+
+def _validate_service_exists(db: Session, service_id: int) -> None:
+    """Validate that a service exists, raise ServiceNotFound if not."""
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise ServiceNotFound(service_id)
+
+
+def _create_purpose_content(
+    db: Session, purpose_id: int, content_data
+) -> PurposeContent:
+    """Create a purpose content entry with validation and error handling."""
+    _validate_service_exists(db, content_data.service_id)
+
+    try:
+        db_content = PurposeContent(
+            purpose_id=purpose_id,
+            service_id=content_data.service_id,
+            quantity=content_data.quantity,
+        )
+        db.add(db_content)
+        db.flush()  # Flush to catch unique constraint violations early
+        return db_content
+    except IntegrityError as e:
+        if "UNIQUE constraint failed" in str(e) and "purpose_content" in str(e):
+            raise DuplicateServiceInPurpose(content_data.service_id)
+        raise
+
+
+def _create_emf_with_costs(db: Session, purpose_id: int, emf_data) -> EMF:
+    """Create an EMF with its associated costs."""
+    emf_dict = emf_data.model_dump(exclude={"costs"})
+    db_emf = EMF(**emf_dict, purpose_id=purpose_id)
+    db.add(db_emf)
+    db.flush()
+
+    # Create costs for this EMF if provided
+    for cost_data in emf_data.costs:
+        db_cost = Cost(**cost_data.model_dump(), emf_id=db_emf.id)
+        db.add(db_cost)
+
+    return db_emf
+
+
+def _update_existing_emf(db: Session, existing_emf: EMF, emf_data) -> None:
+    """Update an existing EMF with new data."""
+    emf_dict = emf_data.model_dump(exclude={"costs"})
+    for field, value in emf_dict.items():
+        if value is not None:
+            setattr(existing_emf, field, value)
+
+    # Update costs if provided
+    if emf_data.costs is not None:
+        # Clear existing costs and create new ones
+        db.query(Cost).filter(Cost.emf_id == existing_emf.id).delete()
+        for cost_data in emf_data.costs:
+            db_cost = Cost(**cost_data.model_dump(), emf_id=existing_emf.id)
+            db.add(db_cost)
+
+
+def _build_hierarchy_filter(db: Session, hierarchy_id: list[int]):
+    """Build hierarchy filter for purpose queries."""
+    hierarchies = db.query(Hierarchy).filter(Hierarchy.id.in_(hierarchy_id)).all()
+    if hierarchies:
+        hierarchy_filters = []
+        for hierarchy in hierarchies:
+            hierarchy_filters.append(Hierarchy.path.like(f"{hierarchy.path}%"))
+        return or_(*hierarchy_filters)
+    else:
+        # If no hierarchies found, return empty result
+        return Purpose.id == EMPTY_RESULT_FILTER
+
+
+def _build_basic_filters(
+    service_type_id: list[int] | None,
+    supplier_id: list[int] | None,
+    status: list[StatusEnum] | None,
+) -> list:
+    """Build basic filters for purpose queries."""
+    filters = []
+
+    if service_type_id is not None and service_type_id:
+        filters.append(Purpose.service_type_id.in_(service_type_id))
+
+    if supplier_id is not None and supplier_id:
+        filters.append(Purpose.supplier_id.in_(supplier_id))
+
+    if status is not None and status:
+        filters.append(Purpose.status.in_(status))
+
+    return filters
+
+
+def _build_search_filter(search: str):
+    """Build search filter for purpose queries."""
+    return or_(
+        Purpose.description.ilike(f"%{search}%"),
+        Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
+        Purpose.emfs.any(EMF.purpose_id.ilike(f"%{search}%")),
+        Purpose.emfs.any(EMF.order_id.ilike(f"%{search}%")),
+        Purpose.emfs.any(EMF.demand_id.ilike(f"%{search}%")),
+        Purpose.emfs.any(EMF.bikushit_id.ilike(f"%{search}%")),
+        Purpose.contents.any(
+            PurposeContent.service.has(Service.name.ilike(f"%{search}%"))
+        ),
+    )
+
+
+def _handle_file_attachments(
+    db: Session, db_purpose: Purpose, file_attachment_ids: list[int]
+) -> None:
+    """Handle file attachment updates for a purpose."""
+    # Unlink files not in the new list
+    current_file_ids = {f.id for f in db_purpose.file_attachments}
+    new_file_ids = set(file_attachment_ids)
+    files_to_unlink = current_file_ids - new_file_ids
+    for file in files_to_unlink:
+        file_service.delete_file(db, file)
+    # Link new files
+    file_service.link_files_to_purpose(db, file_attachment_ids, db_purpose.id)
+
+
+def _process_emfs(db: Session, db_purpose: Purpose, emfs_data) -> None:
+    """Process EMFs for purpose update."""
+    existing_emfs = {emf.emf_id: emf for emf in db_purpose.emfs}
+    updated_emfs = []
+
+    # Loop through new patch EMFs
+    for emf_data in emfs_data:
+        emf_id = emf_data.emf_id
+
+        if emf_id in existing_emfs:
+            # Update existing EMF
+            existing_emf = existing_emfs[emf_id]
+            _update_existing_emf(db, existing_emf, emf_data)
+            updated_emfs.append(existing_emf)
+        else:
+            # Create new EMF
+            db_emf = _create_emf_with_costs(db, db_purpose.id, emf_data)
+            updated_emfs.append(db_emf)
+
+    # Set the updated EMFs list to the purpose
+    db_purpose.emfs = updated_emfs
+
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
     """Get a single purpose by ID."""
-    return (
-        db.query(Purpose)
-        .options(
-            joinedload(Purpose.emfs),
-            joinedload(Purpose.file_attachments),
-            joinedload(Purpose.contents),
-        )
-        .filter(Purpose.id == purpose_id)
-        .first()
-    )
+    return _get_base_purpose_query(db).filter(Purpose.id == purpose_id).first()
 
 
 def get_purposes(
@@ -46,53 +193,26 @@ def get_purposes(
     Returns:
         Tuple of (purposes list, total count)
     """
-    query = db.query(Purpose).options(
-        joinedload(Purpose.emfs),
-        joinedload(Purpose.file_attachments),
-        joinedload(Purpose.contents),
-    )
+    query = _get_base_purpose_query(db)
 
     # Apply filters
     filters = []
     if hierarchy_id is not None and hierarchy_id:
-        # Get the hierarchies to find their paths
-        hierarchies = db.query(Hierarchy).filter(Hierarchy.id.in_(hierarchy_id)).all()
-        if hierarchies:
-            # Join with Hierarchy table to filter by path
-            query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
-            # Find all purposes whose hierarchy path starts with any of the given hierarchy paths
-            # This will include the hierarchies themselves and all their descendants
-            hierarchy_filters = []
-            for hierarchy in hierarchies:
-                hierarchy_filters.append(Hierarchy.path.like(f"{hierarchy.path}%"))
-            filters.append(or_(*hierarchy_filters))
-        else:
-            # If no hierarchies found, return empty result
-            filters.append(Purpose.id == -1)  # This will never match
+        # Join with Hierarchy table to filter by path
+        query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
+        hierarchy_filter = _build_hierarchy_filter(db, hierarchy_id)
+        filters.append(hierarchy_filter)
 
-    if service_type_id is not None and service_type_id:
-        filters.append(Purpose.service_type_id.in_(service_type_id))
-
-    if supplier_id is not None and supplier_id:
-        filters.append(Purpose.supplier_id.in_(supplier_id))
-
-    if status is not None and status:
-        filters.append(Purpose.status.in_(status))
+    # Add basic filters
+    basic_filters = _build_basic_filters(service_type_id, supplier_id, status)
+    filters.extend(basic_filters)
 
     if filters:
         query = query.filter(and_(*filters))
 
     # Apply search
     if search:
-        search_filter = or_(
-            Purpose.description.ilike(f"%{search}%"),
-            Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
-            Purpose.emfs.any(EMF.purpose_id.ilike(f"%{search}%")),
-            Purpose.emfs.any(EMF.order_id.ilike(f"%{search}%")),
-            Purpose.emfs.any(EMF.demand_id.ilike(f"%{search}%")),
-            Purpose.emfs.any(EMF.bikushit_id.ilike(f"%{search}%")),
-            Purpose.contents.any(PurposeContent.service.ilike(f"%{search}%")),
-        )
+        search_filter = _build_search_filter(search)
         query = query.filter(search_filter)
 
     # Apply sorting
@@ -117,37 +237,11 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
 
     # Create purpose contents if provided
     for content_data in purpose.contents:
-        # Validate that service exists
-        service = (
-            db.query(Service).filter(Service.id == content_data.service_id).first()
-        )
-        if not service:
-            raise ServiceNotFound(content_data.service_id)
-
-        try:
-            db_content = PurposeContent(
-                purpose_id=db_purpose.id,
-                service_id=content_data.service_id,
-                quantity=content_data.quantity,
-            )
-            db.add(db_content)
-            db.flush()  # Flush to catch unique constraint violations early
-        except IntegrityError as e:
-            if "UNIQUE constraint failed" in str(e) and "purpose_content" in str(e):
-                raise DuplicateServiceInPurpose(content_data.service_id)
-            raise
+        _create_purpose_content(db, db_purpose.id, content_data)
 
     # Create EMFs if provided
     for emf_data in purpose.emfs:
-        emf_dict = emf_data.model_dump(exclude={"costs"})
-        db_emf = EMF(**emf_dict, purpose_id=db_purpose.id)
-        db.add(db_emf)
-        db.flush()
-
-        # Create costs for this EMF if provided
-        for cost_data in emf_data.costs:
-            db_cost = Cost(**cost_data.model_dump(), emf_id=db_emf.id)
-            db.add(db_cost)
+        _create_emf_with_costs(db, db_purpose.id, emf_data)
 
     # Link files to purpose if provided
     if purpose.file_attachment_ids:
@@ -170,16 +264,7 @@ def patch_purpose(
 
     # Handle file attachments first
     if purpose_update.file_attachment_ids is not None:
-        # Unlink files not in the new list
-        current_file_ids = {f.id for f in db_purpose.file_attachments}
-        new_file_ids = set(purpose_update.file_attachment_ids)
-        files_to_unlink = current_file_ids - new_file_ids
-        for file in files_to_unlink:
-            file_service.delete_file(db, file)
-        # Link new files
-        file_service.link_files_to_purpose(
-            db, purpose_update.file_attachment_ids, db_purpose.id
-        )
+        _handle_file_attachments(db, db_purpose, purpose_update.file_attachment_ids)
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
@@ -189,47 +274,7 @@ def patch_purpose(
 
     # Handle EMFs separately
     if purpose_update.emfs is not None:
-        existing_emfs = {emf.emf_id: emf for emf in db_purpose.emfs}
-        updated_emfs = []
-
-        # Loop through new patch EMFs
-        for emf_data in purpose_update.emfs:
-            emf_id = emf_data.emf_id
-
-            if emf_id in existing_emfs:
-                # Update existing EMF
-                existing_emf = existing_emfs[emf_id]
-                emf_dict = emf_data.model_dump(exclude={"costs"})
-                for field, value in emf_dict.items():
-                    if value is not None:
-                        setattr(existing_emf, field, value)
-
-                # Update costs if provided
-                if emf_data.costs is not None:
-                    # Clear existing costs and create new ones
-                    db.query(Cost).filter(Cost.emf_id == existing_emf.id).delete()
-                    for cost_data in emf_data.costs:
-                        db_cost = Cost(**cost_data.model_dump(), emf_id=existing_emf.id)
-                        db.add(db_cost)
-
-                updated_emfs.append(existing_emf)
-            else:
-                # Create new EMF
-                emf_dict = emf_data.model_dump(exclude={"costs"})
-                db_emf = EMF(**emf_dict, purpose_id=db_purpose.id)
-                db.add(db_emf)
-                db.flush()
-
-                # Create costs for new EMF if provided
-                if emf_data.costs:
-                    for cost_data in emf_data.costs:
-                        db_cost = Cost(**cost_data.model_dump(), emf_id=db_emf.id)
-                        db.add(db_cost)
-
-                updated_emfs.append(db_emf)
-
-        # Set the updated EMFs list to the purpose
-        db_purpose.emfs = updated_emfs
+        _process_emfs(db, db_purpose, purpose_update.emfs)
 
     # Handle contents separately - replace all contents
     if purpose_update.contents is not None:
@@ -240,25 +285,7 @@ def patch_purpose(
 
         # Create new contents
         for content_data in purpose_update.contents:
-            # Validate that service exists
-            service = (
-                db.query(Service).filter(Service.id == content_data.service_id).first()
-            )
-            if not service:
-                raise ServiceNotFound(content_data.service_id)
-
-            try:
-                db_content = PurposeContent(
-                    purpose_id=db_purpose.id,
-                    service_id=content_data.service_id,
-                    quantity=content_data.quantity,
-                )
-                db.add(db_content)
-                db.flush()  # Flush to catch unique constraint violations early
-            except IntegrityError as e:
-                if "UNIQUE constraint failed" in str(e) and "purpose_content" in str(e):
-                    raise DuplicateServiceInPurpose(content_data.service_id)
-                raise
+            _create_purpose_content(db, db_purpose.id, content_data)
 
     db.commit()
     db.refresh(db_purpose)
