@@ -210,6 +210,49 @@ class TestPurposesAPI:
         assert len(data["items"]) == 1
         assert "computers" in data["items"][0]["content"].lower()
 
+    def test_get_purposes_with_emf_id_search(
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+    ):
+        """Test GET /purposes with emf_id search functionality."""
+        # Create purpose with EMFs
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["emfs"] = [
+            sample_emf_data.copy(),
+            {**sample_emf_data, "emf_id": "EMF-002", "costs": [{"currency": "ILS", "amount": 2000.00}]}
+        ]
+        
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert create_response.status_code == 201
+
+        # Test search by emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-001")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == create_response.json()["id"]
+
+        # Test search by different emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-002")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == create_response.json()["id"]
+
+        # Test search by partial emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == create_response.json()["id"]
+
+        # Test search by non-existent emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-999")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 0
+
     def test_get_purposes_with_sorting(
         self, test_client: TestClient, sample_purpose_data: dict
     ):
@@ -270,3 +313,67 @@ class TestPurposesAPI:
         for item in data["items"]:
             assert item["status"] == "PENDING"
             assert "Project" in item["description"]
+
+    def test_get_purposes_with_hierarchy_path_filtering(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test GET /purposes with hierarchy path filtering."""
+        # Create hierarchy tree: raphael -> raphael/lustig -> raphael/lustig/some
+        hierarchy_raphael = test_client.post(
+            f"{settings.api_v1_prefix}/hierarchies",
+            json={"type": "UNIT", "name": "raphael", "path": "raphael"}
+        )
+        hierarchy_lustig = test_client.post(
+            f"{settings.api_v1_prefix}/hierarchies",
+            json={"type": "CENTER", "name": "lustig", "path": "raphael/lustig", "parent_id": hierarchy_raphael.json()["id"]}
+        )
+        hierarchy_some = test_client.post(
+            f"{settings.api_v1_prefix}/hierarchies",
+            json={"type": "ANAF", "name": "some", "path": "raphael/lustig/some", "parent_id": hierarchy_lustig.json()["id"]}
+        )
+        
+        raphael_id = hierarchy_raphael.json()["id"]
+        lustig_id = hierarchy_lustig.json()["id"]
+        some_id = hierarchy_some.json()["id"]
+
+        # Create purposes for each hierarchy level
+        purpose_raphael = sample_purpose_data.copy()
+        purpose_raphael["hierarchy_id"] = raphael_id
+        purpose_raphael["description"] = "Purpose for raphael"
+        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_raphael)
+
+        purpose_lustig = sample_purpose_data.copy()
+        purpose_lustig["hierarchy_id"] = lustig_id
+        purpose_lustig["description"] = "Purpose for lustig"
+        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_lustig)
+
+        purpose_some = sample_purpose_data.copy()
+        purpose_some["hierarchy_id"] = some_id
+        purpose_some["description"] = "Purpose for some"
+        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_some)
+
+        # Test filtering by raphael hierarchy_id - should return all 3 purposes
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?hierarchy_id={raphael_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 3
+        descriptions = [item["description"] for item in data["items"]]
+        assert "Purpose for raphael" in descriptions
+        assert "Purpose for lustig" in descriptions
+        assert "Purpose for some" in descriptions
+
+        # Test filtering by lustig hierarchy_id - should return 2 purposes (lustig and some)
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?hierarchy_id={lustig_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 2
+        descriptions = [item["description"] for item in data["items"]]
+        assert "Purpose for lustig" in descriptions
+        assert "Purpose for some" in descriptions
+
+        # Test filtering by some hierarchy_id - should return only 1 purpose (some)
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?hierarchy_id={some_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["description"] == "Purpose for some"
