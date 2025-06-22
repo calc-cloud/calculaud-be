@@ -13,8 +13,9 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResult[ServiceType])
 def get_service_types(
     pagination: PaginationParams = Depends(),
-    search: str
-    | None = Query(None, description="Search service types by name (case-insensitive)"),
+    search: str | None = Query(
+        None, description="Search service types by name (case-insensitive)"
+    ),
     db: Session = Depends(get_db),
 ):
     """Get all service types with pagination and optional search."""
