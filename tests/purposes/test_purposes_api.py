@@ -27,7 +27,7 @@ class TestPurposesAPI:
         )
         assert response.status_code == 201
         data = response.json()
-        assert data["hierarchy_id"] == sample_purpose_data["hierarchy_id"]
+        assert data["hierarchy"]["id"] == sample_purpose_data["hierarchy_id"]
         assert data["description"] == sample_purpose_data["description"]
         assert data["status"] == sample_purpose_data["status"]
         assert "id" in data
