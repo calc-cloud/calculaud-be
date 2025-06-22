@@ -16,10 +16,10 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResult[Purpose])
 def get_purposes(
     pagination: PaginationParams = Depends(),
-    hierarchy_id: int | None = Query(None, description="Filter by hierarchy ID"),
-    supplier_id: int | None = Query(None, description="Filter by supplier ID"),
-    service_type_id: int | None = Query(None, description="Filter by service type ID"),
-    status: StatusEnum | None = Query(None, description="Filter by status"),
+    hierarchy_id: list[int] | None = Query(None, description="Filter by hierarchy ID(s)", multiple=True),
+    supplier_id: list[int] | None = Query(None, description="Filter by supplier ID(s)", multiple=True),
+    service_type_id: list[int] | None = Query(None, description="Filter by service type ID(s)", multiple=True),
+    status: list[StatusEnum] | None = Query(None, description="Filter by status(es)", multiple=True),
     search: str | None = Query(
         None, description="Search in description, content, and supplier"
     ),
