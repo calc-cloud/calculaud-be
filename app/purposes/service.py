@@ -23,15 +23,15 @@ def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
 
 
 def get_purposes(
-        db: Session,
-        pagination: PaginationParams,
-        hierarchy_id: list[int] | None = None,
-        supplier_id: list[int] | None = None,
-        service_type_id: list[int] | None = None,
-        status: list[StatusEnum] | None = None,
-        search: str | None = None,
-        sort_by: str = "creation_time",
-        sort_order: Literal["asc", "desc"] = "desc",
+    db: Session,
+    pagination: PaginationParams,
+    hierarchy_id: list[int] | None = None,
+    supplier_id: list[int] | None = None,
+    service_type_id: list[int] | None = None,
+    status: list[StatusEnum] | None = None,
+    search: str | None = None,
+    sort_by: str = "creation_time",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> tuple[list[Purpose], int]:
     """
     Get purposes with filtering, searching, sorting, and pagination.
@@ -124,7 +124,7 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
 
 
 def patch_purpose(
-        db: Session, purpose_id: int, purpose_update: PurposeUpdate
+    db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
     db_purpose = db.query(Purpose).filter(Purpose.id == purpose_id).first()
@@ -146,7 +146,7 @@ def patch_purpose(
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
-            exclude_unset=True, exclude={"emfs", "file_attachment_ids"}
+        exclude_unset=True, exclude={"emfs", "file_attachment_ids"}
     ).items():
         setattr(db_purpose, field, value)
 

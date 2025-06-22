@@ -1,5 +1,5 @@
 [tool.black]
-exclude = "alembic/"
+exclude = "alembic/|.venv/"
 
 [tool.isort]
 profile = "black"

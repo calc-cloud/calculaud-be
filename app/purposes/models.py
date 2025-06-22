@@ -27,10 +27,14 @@ class Purpose(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True, autoincrement=True
     )
-    description: Mapped[str | None] = mapped_column(String(2000), nullable=True, index=True)
+    description: Mapped[str | None] = mapped_column(
+        String(2000), nullable=True, index=True
+    )
     content: Mapped[str | None] = mapped_column(String(2000), nullable=True, index=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False, index=True)
+    status: Mapped[StatusEnum] = mapped_column(
+        Enum(StatusEnum), nullable=False, index=True
+    )
     comments: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     last_modified: Mapped[datetime] = mapped_column(
         DateTime,
