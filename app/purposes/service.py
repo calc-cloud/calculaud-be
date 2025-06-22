@@ -23,7 +23,9 @@ def _get_base_purpose_query(db: Session):
     return db.query(Purpose).options(
         joinedload(Purpose.emfs),
         joinedload(Purpose.file_attachments),
-        joinedload(Purpose.contents),
+        joinedload(Purpose.contents)
+        .joinedload(PurposeContent.service)
+        .joinedload(Service.service_type),
     )
 
 
@@ -257,7 +259,7 @@ def patch_purpose(
     db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
-    db_purpose = db.query(Purpose).filter(Purpose.id == purpose_id).first()
+    db_purpose = _get_base_purpose_query(db).filter(Purpose.id == purpose_id).first()
     if not db_purpose:
         return None
 

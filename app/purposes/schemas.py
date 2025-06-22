@@ -24,6 +24,8 @@ class PurposeContentUpdate(PurposeContentBase):
 
 class PurposeContent(PurposeContentBase):
     id: int
+    service_name: str
+    service_type: str
 
     model_config = ConfigDict(from_attributes=True)
 

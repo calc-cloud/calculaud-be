@@ -106,6 +106,20 @@ class PurposeContent(Base):
     purpose: Mapped["Purpose"] = relationship(back_populates="contents")
     service: Mapped["Service"] = relationship()
 
+    @property
+    def service_name(self) -> str:
+        """Return the service name."""
+        return self.service.name if self.service else ""
+
+    @property
+    def service_type(self) -> str:
+        """Return the service type name."""
+        return (
+            self.service.service_type.name
+            if self.service and self.service.service_type
+            else ""
+        )
+
     # Constraints
     __table_args__ = (
         UniqueConstraint("purpose_id", "service_id", name="uq_purpose_service"),
