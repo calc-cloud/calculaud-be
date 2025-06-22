@@ -124,7 +124,6 @@ def _build_search_filter(search: str):
     return or_(
         Purpose.description.ilike(f"%{search}%"),
         Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
-        Purpose.emfs.any(EMF.purpose_id.ilike(f"%{search}%")),
         Purpose.emfs.any(EMF.order_id.ilike(f"%{search}%")),
         Purpose.emfs.any(EMF.demand_id.ilike(f"%{search}%")),
         Purpose.emfs.any(EMF.bikushit_id.ilike(f"%{search}%")),
