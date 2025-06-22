@@ -21,7 +21,7 @@ def get_purposes(
     service_type_id: list[int] | None = Query(None, description="Filter by service type ID(s)", multiple=True),
     status: list[StatusEnum] | None = Query(None, description="Filter by status(es)", multiple=True),
     search: str | None = Query(
-        None, description="Search in description, content, and supplier"
+        None, description="Search in description, content, and emf_id"
     ),
     sort_by: str = Query("creation_time", description="Sort by field"),
     sort_order: Literal["asc", "desc"] = Query(

@@ -210,6 +210,49 @@ class TestPurposesAPI:
         assert len(data["items"]) == 1
         assert "computers" in data["items"][0]["content"].lower()
 
+    def test_get_purposes_with_emf_id_search(
+        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+    ):
+        """Test GET /purposes with emf_id search functionality."""
+        # Create purpose with EMFs
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["emfs"] = [
+            sample_emf_data.copy(),
+            {**sample_emf_data, "emf_id": "EMF-002", "costs": [{"currency": "ILS", "amount": 2000.00}]}
+        ]
+        
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert create_response.status_code == 201
+
+        # Test search by emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-001")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == create_response.json()["id"]
+
+        # Test search by different emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-002")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == create_response.json()["id"]
+
+        # Test search by partial emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == create_response.json()["id"]
+
+        # Test search by non-existent emf_id
+        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-999")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 0
+
     def test_get_purposes_with_sorting(
         self, test_client: TestClient, sample_purpose_data: dict
     ):

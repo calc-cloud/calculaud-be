@@ -75,6 +75,7 @@ def get_purposes(
         search_filter = or_(
             Purpose.description.ilike(f"%{search}%"),
             Purpose.content.ilike(f"%{search}%"),
+            Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
         )
         query = query.filter(search_filter)
 
