@@ -20,7 +20,7 @@ Data Models:
 - Expected Delivery: Date (nullable)
 - Last Modified: DateTime (auto-updated)
 - Comments: String (max 1000 chars, nullable)
-- Status: Enum (PENDING, IN_PROGRESS, REJECTED, COMPLETED)
+- Status: Enum (IN_PROGRESS, COMPLETED)
 - Creation Time: DateTime (auto-generated)
 - Supplier: String (max 200 chars, nullable)
 - EMFs: List of EMF objects (One-to-Many relationship)
@@ -115,7 +115,7 @@ POST /purposes
   "hierarchy_id": 1,
   "expected_delivery": "2024-12-31",
   "comments": "Urgent procurement",
-  "status": "PENDING",
+  "status": "IN_PROGRESS",
   "supplier": "Tech Corp",
   "content": "Software licenses",
   "description": "Annual software license renewal",

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Generator
 
 import pytest
@@ -69,7 +69,7 @@ def sample_purpose_data(sample_hierarchy) -> dict:
         "hierarchy_id": sample_hierarchy.id,
         "expected_delivery": "2024-12-31",
         "comments": "Test comments",
-        "status": "PENDING",
+        "status": "IN_PROGRESS",
         "supplier": "Test Supplier",
         "content": "Test content",
         "description": "Test description",
@@ -81,7 +81,7 @@ def sample_purpose_data(sample_hierarchy) -> dict:
 def minimal_purpose_data() -> dict:
     """Minimal purpose data with nullable fields as None."""
     return {
-        "status": "PENDING",
+        "status": "IN_PROGRESS",
     }
 
 
@@ -90,7 +90,7 @@ def purpose_data_no_hierarchy() -> dict:
     """Purpose data without hierarchy_id."""
     return {
         "expected_delivery": "2024-12-31",
-        "status": "PENDING",
+        "status": "IN_PROGRESS",
         "supplier": "Test Supplier",
         "content": "Test content",
     }
@@ -101,7 +101,7 @@ def purpose_data_no_delivery(sample_hierarchy) -> dict:
     """Purpose data without expected_delivery."""
     return {
         "hierarchy_id": sample_hierarchy.id,
-        "status": "PENDING",
+        "status": "IN_PROGRESS",
         "supplier": "Test Supplier",
         "content": "Test content",
     }
@@ -114,7 +114,7 @@ def sample_purpose(db_session, sample_hierarchy) -> Purpose:
         hierarchy_id=sample_hierarchy.id,
         expected_delivery=date(2024, 12, 31),
         comments="Test comments",
-        status="PENDING",
+        status="IN_PROGRESS",
         supplier="Test Supplier",
         content="Test content",
         description="Test description",
@@ -130,7 +130,7 @@ def sample_purpose(db_session, sample_hierarchy) -> Purpose:
 def minimal_purpose(db_session) -> Purpose:
     """Create minimal purpose with only required fields."""
     purpose = Purpose(
-        status="PENDING",
+        status="IN_PROGRESS",
     )
     db_session.add(purpose)
     db_session.commit()

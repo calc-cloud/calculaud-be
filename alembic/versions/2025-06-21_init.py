@@ -50,7 +50,7 @@ def upgrade() -> None:
     sa.Column('description', sa.String(length=2000), nullable=True),
     sa.Column('content', sa.String(length=2000), nullable=True),
     sa.Column('creation_time', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'IN_PROGRESS', 'COMPLETED', name='statusenum'), nullable=False),
+    sa.Column('status', sa.Enum('IN_PROGRESS', 'COMPLETED', name='statusenum'), nullable=False),
     sa.Column('comments', sa.String(length=1000), nullable=True),
     sa.Column('last_modified', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('expected_delivery', sa.Date(), nullable=True),
