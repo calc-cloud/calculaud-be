@@ -173,7 +173,7 @@ def sample_emf(db_session, sample_purpose) -> EMF:
     emf = EMF(
         emf_id="EMF-001",
         purpose_id=sample_purpose.id,
-        creation_time=datetime.now(),
+        creation_date=date.today(),
         order_id="ORD-001",
         order_creation_date=date(2024, 1, 15),
         demand_id="DEM-001",

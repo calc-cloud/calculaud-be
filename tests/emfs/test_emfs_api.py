@@ -29,7 +29,7 @@ class TestEMFsAPI:
         assert emf["purpose_id"] == purpose_id
         assert emf["order_id"] == sample_emf_data["order_id"]
         assert "id" in emf
-        assert "creation_time" in emf
+        assert "creation_date" in emf
         assert "costs" in emf
         assert len(emf["costs"]) == 1
         assert emf["costs"][0]["currency"] == "ILS"
