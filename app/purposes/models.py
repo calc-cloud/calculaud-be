@@ -9,9 +9,10 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.emfs.models import EMF
+    from app.files.models import FileAttachment
     from app.hierarchies.models import Hierarchy
-    from app.suppliers.models import Supplier
     from app.service_types.models import ServiceType
+    from app.suppliers.models import Supplier
 
 
 class StatusEnum(PyEnum):
@@ -56,6 +57,9 @@ class Purpose(Base):
     _service_type: Mapped["ServiceType"] = relationship("ServiceType")
     emfs: Mapped[list["EMF"]] = relationship(
         "EMF", back_populates="purpose", cascade="all, delete-orphan"
+    )
+    file_attachments: Mapped[list["FileAttachment"]] = relationship(
+        "FileAttachment", back_populates="purpose", cascade="all, delete-orphan"
     )
 
     @property

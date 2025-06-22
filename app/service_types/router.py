@@ -13,11 +13,14 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResult[ServiceType])
 def get_service_types(
     pagination: PaginationParams = Depends(),
-    search: str | None = Query(None, description="Search service types by name (case-insensitive)"),
+    search: str
+    | None = Query(None, description="Search service types by name (case-insensitive)"),
     db: Session = Depends(get_db),
 ):
     """Get all service types with pagination and optional search."""
-    service_types, total = service.get_service_types(db=db, pagination=pagination, search=search)
+    service_types, total = service.get_service_types(
+        db=db, pagination=pagination, search=search
+    )
     return create_paginated_result(service_types, total, pagination)
 
 
@@ -38,9 +41,7 @@ def create_service_type(service_type: ServiceTypeCreate, db: Session = Depends(g
     try:
         return service.create_service_type(db, service_type)
     except ServiceTypeAlreadyExists as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{service_type_id}", response_model=ServiceType)
@@ -60,9 +61,7 @@ def patch_service_type(
             )
         return patched_service_type
     except ServiceTypeAlreadyExists as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{service_type_id}", status_code=status.HTTP_204_NO_CONTENT)

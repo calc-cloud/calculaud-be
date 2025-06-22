@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app import StatusEnum
 from app.emfs.schemas import EMF, EMFCreate, EMFUpdate
+from app.files.schemas import FileAttachment
 from app.hierarchies.schemas import Hierarchy
 
 
@@ -21,6 +22,7 @@ class PurposeBase(BaseModel):
 class PurposeCreate(PurposeBase):
     hierarchy_id: Annotated[int | None, Field(default=None)]
     emfs: Annotated[list[EMFCreate], Field(default_factory=list)]
+    file_attachment_ids: Annotated[list[int], Field(default_factory=list)]
 
 
 class PurposeUpdate(BaseModel):
@@ -33,6 +35,7 @@ class PurposeUpdate(BaseModel):
     content: Annotated[str | None, Field(default=None, max_length=2000)]
     description: Annotated[str | None, Field(default=None, max_length=2000)]
     emfs: Annotated[list[EMFUpdate] | None, Field(default=None)]
+    file_attachment_ids: Annotated[list[int] | None, Field(default=None)]
 
 
 class Purpose(PurposeBase):
@@ -45,5 +48,6 @@ class Purpose(PurposeBase):
     hierarchy: Hierarchy | None = None
 
     emfs: Annotated[list[EMF], Field(default_factory=list)]
+    file_attachments: Annotated[list[FileAttachment], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)

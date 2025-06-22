@@ -27,14 +27,14 @@ def get_service_types(
         Tuple of (service_types list, total count)
     """
     query = db.query(ServiceType)
-    
+
     # Apply search filter if provided
     if search:
         query = query.filter(ServiceType.name.ilike(f"%{search}%"))
-    
+
     # Apply ordering
     query = query.order_by(ServiceType.name)
-    
+
     return paginate(query, pagination)
 
 
@@ -47,9 +47,10 @@ def create_service_type(db: Session, service_type: ServiceTypeCreate) -> Service
         db.refresh(db_service_type)
         return db_service_type
     except IntegrityError as e:
-        db.rollback()
         if "UNIQUE constraint failed" in str(e) and "service_type" in str(e):
-            raise ServiceTypeAlreadyExists(f"Service type '{service_type.name}' already exists")
+            raise ServiceTypeAlreadyExists(
+                f"Service type '{service_type.name}' already exists"
+            )
         raise
 
 
@@ -72,9 +73,10 @@ def patch_service_type(
         db.refresh(db_service_type)
         return db_service_type
     except IntegrityError as e:
-        db.rollback()
         if "UNIQUE constraint failed" in str(e) and "service_type" in str(e):
-            raise ServiceTypeAlreadyExists(f"Service type '{service_type_update.name}' already exists")
+            raise ServiceTypeAlreadyExists(
+                f"Service type '{service_type_update.name}' already exists"
+            )
         raise
 
 
