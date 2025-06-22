@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app import Service
 
 
 class ServiceType(Base):
@@ -12,4 +17,9 @@ class ServiceType(Base):
     )
     name: Mapped[str] = mapped_column(
         String(100), nullable=False, unique=True, index=True
+    )
+
+    # Relationships
+    services: Mapped[list["Service"]] = relationship(
+        back_populates="service_type", cascade="all, delete-orphan"
     )
