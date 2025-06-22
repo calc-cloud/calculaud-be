@@ -33,7 +33,9 @@ class Hierarchy(Base):
         Enum(HierarchyTypeEnum), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    path: Mapped[str] = mapped_column(String(1000), nullable=False, default="", index=True)
+    path: Mapped[str] = mapped_column(
+        String(1000), nullable=False, default="", index=True
+    )
 
     # Self-referencing relationship
     parent: Mapped["Hierarchy"] = relationship(
