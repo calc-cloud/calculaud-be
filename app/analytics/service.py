@@ -259,6 +259,7 @@ class AnalyticsService:
                 path=row.path,
                 type=row.type,
                 count=int(subtree_count),
+                parent_id=row.parent_id,
             )
             items.append(hierarchy_item)
 
