@@ -3,6 +3,7 @@ from typing import Literal
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.common.hierarchy_utils import build_hierarchy_filter
 from app.costs.models import Cost
 from app.emfs.models import EMF
 from app.files import service as file_service
@@ -12,9 +13,6 @@ from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
 from app.purposes.models import Purpose, PurposeContent, StatusEnum
 from app.purposes.schemas import PurposeContentBase, PurposeCreate, PurposeUpdate
 from app.services.models import Service
-
-# Constants
-EMPTY_RESULT_FILTER = -1  # Filter that never matches to return empty results
 
 
 def _get_base_purpose_query(db: Session):
@@ -93,19 +91,6 @@ def _update_existing_emf(db: Session, existing_emf: EMF, emf_data) -> None:
         for cost_data in emf_data.costs:
             db_cost = Cost(**cost_data.model_dump(), emf_id=existing_emf.id)
             db.add(db_cost)
-
-
-def _build_hierarchy_filter(db: Session, hierarchy_id: list[int]):
-    """Build hierarchy filter for purpose queries."""
-    hierarchies = db.query(Hierarchy).filter(Hierarchy.id.in_(hierarchy_id)).all()
-    if hierarchies:
-        hierarchy_filters = []
-        for hierarchy in hierarchies:
-            hierarchy_filters.append(Hierarchy.path.like(f"{hierarchy.path}%"))
-        return or_(*hierarchy_filters)
-    else:
-        # If no hierarchies found, return empty result
-        return Purpose.id == EMPTY_RESULT_FILTER
 
 
 def _build_basic_filters(
@@ -208,7 +193,7 @@ def get_purposes(
     if hierarchy_id is not None and hierarchy_id:
         # Join with Hierarchy table to filter by path
         query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
-        hierarchy_filter = _build_hierarchy_filter(db, hierarchy_id)
+        hierarchy_filter = build_hierarchy_filter(db, hierarchy_id, Purpose)
         filters.append(hierarchy_filter)
 
     # Add basic filters

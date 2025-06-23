@@ -1,11 +1,13 @@
 from sqlalchemy import and_
-from sqlalchemy.orm import Query
+from sqlalchemy.orm import Query, Session
 
 from app.analytics.schemas import FilterParams
-from app.purposes.models import Purpose
+from app.common.hierarchy_utils import build_hierarchy_filter
+from app.hierarchies.models import Hierarchy
+from app.purposes.models import Purpose, PurposeContent
 
 
-def apply_filters(query: Query, filters: FilterParams) -> Query:
+def apply_filters(query: Query, filters: FilterParams, db: Session = None) -> Query:
     """Apply universal filters to any query that includes Purpose."""
 
     conditions = []
@@ -17,9 +19,12 @@ def apply_filters(query: Query, filters: FilterParams) -> Query:
     if filters.end_date:
         conditions.append(Purpose.creation_time <= filters.end_date)
 
-    # Hierarchy filter
+    # Recursive hierarchy filter - requires join with Hierarchy table
     if filters.hierarchy_ids:
-        conditions.append(Purpose.hierarchy_id.in_(filters.hierarchy_ids))
+        # Join with Hierarchy table to access path for recursive filtering
+        query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
+        hierarchy_filter = build_hierarchy_filter(db, filters.hierarchy_ids, Purpose)
+        conditions.append(hierarchy_filter)
 
     # Status filter
     if filters.status:
@@ -35,18 +40,9 @@ def apply_filters(query: Query, filters: FilterParams) -> Query:
 
     # Service filter (requires join with PurposeContent) - but only add join if not already present
     if filters.service_ids:
-        from app.purposes.models import PurposeContent
-
-        # Check if PurposeContent is already in the FROM clause of the query
-        # If not, add the join
-        try:
-            # Try to add the join - SQLAlchemy will handle duplicate joins
-            query = query.join(
-                PurposeContent, Purpose.id == PurposeContent.purpose_id, isouter=False
-            )
-        except Exception:
-            # If join already exists, continue
-            pass
+        query = query.join(
+            PurposeContent, Purpose.id == PurposeContent.purpose_id, isouter=False
+        )
         conditions.append(PurposeContent.service_id.in_(filters.service_ids))
 
     # Apply all conditions

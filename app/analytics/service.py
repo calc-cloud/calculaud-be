@@ -12,6 +12,7 @@ from app.analytics.schemas import (
     TimeSeriesDataset,
     TimeSeriesResponse,
 )
+from app.common.hierarchy_utils import build_hierarchy_filter
 from app.config import settings
 from app.costs.models import Cost, CurrencyEnum
 from app.emfs.models import EMF
@@ -52,7 +53,6 @@ class AnalyticsService:
         """Get total quantities for each service."""
 
         # Build query conditions manually for better control
-        from sqlalchemy import and_
 
         # Base query with joins
         query = (
@@ -64,35 +64,7 @@ class AnalyticsService:
             .join(Service, PurposeContent.service_id == Service.id)
         )
 
-        # Apply filters manually
-        conditions = []
-
-        # Date range filter
-        if filters.start_date:
-            conditions.append(Purpose.creation_time >= filters.start_date)
-        if filters.end_date:
-            conditions.append(Purpose.creation_time <= filters.end_date)
-
-        # Purpose-level filters
-        if filters.hierarchy_ids:
-            conditions.append(Purpose.hierarchy_id.in_(filters.hierarchy_ids))
-        if filters.status:
-            conditions.append(Purpose.status.in_(filters.status))
-        if filters.supplier_ids:
-            conditions.append(Purpose.supplier_id.in_(filters.supplier_ids))
-
-        # Service filters
-        if filters.service_ids:
-            conditions.append(Service.id.in_(filters.service_ids))
-
-        # Service type filter - join with ServiceType table
-        if filters.service_type_ids:
-            query = query.join(ServiceType, Service.service_type_id == ServiceType.id)
-            conditions.append(ServiceType.id.in_(filters.service_type_ids))
-
-        # Apply all conditions
-        if conditions:
-            query = query.filter(and_(*conditions))
+        query = apply_filters(query, filters, self.db)
 
         # Group by service
         query = query.group_by(Service.id, Service.name).order_by(Service.name)
@@ -117,7 +89,7 @@ class AnalyticsService:
         )
 
         # Apply filters
-        query = apply_filters(query, filters)
+        query = apply_filters(query, filters, self.db)
 
         # Group by service type
         query = query.group_by(ServiceType.id, ServiceType.name).order_by(
@@ -159,7 +131,7 @@ class AnalyticsService:
         )
 
         # Apply filters
-        query = apply_filters(query, filters)
+        query = apply_filters(query, filters, self.db)
 
         # Group by time period and currency
         query = query.group_by(date_trunc, Cost.currency).order_by(date_trunc)
@@ -208,7 +180,9 @@ class AnalyticsService:
         else:
             target_level = hierarchy_params.level
             if hierarchy_params.parent_id:
-                parent_condition = Hierarchy.parent_id == hierarchy_params.parent_id
+                parent_condition = build_hierarchy_filter(
+                    self.db, [hierarchy_params.parent_id], Purpose
+                )
             else:
                 parent_condition = Hierarchy.parent_id.is_(None)
 
@@ -221,7 +195,7 @@ class AnalyticsService:
         )
 
         # Apply filters
-        query = apply_filters(query, filters)
+        query = apply_filters(query, filters, self.db)
 
         # Group by hierarchy
         query = query.group_by(Hierarchy.id, Hierarchy.name).order_by(Hierarchy.name)
