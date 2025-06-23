@@ -176,6 +176,8 @@ class AnalyticsService:
     ) -> HierarchyDistributionResponse:
         """Get distribution of purposes by hierarchy with drill-down support."""
 
+        target_level = None
+
         # Apply hierarchy conditions according to requirements
         if hierarchy_params.parent_id is not None and hierarchy_params.level is not None:
             # Get children of parent (recursively) at specified level

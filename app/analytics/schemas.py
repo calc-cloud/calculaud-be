@@ -65,7 +65,7 @@ class HierarchyDistributionResponse(BaseModel):
 
     labels: list[str]
     data: list[int]
-    level: HierarchyTypeEnum
+    level: HierarchyTypeEnum | None = None
     parent_name: str | None = None
 
 
