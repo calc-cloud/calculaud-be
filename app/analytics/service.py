@@ -223,10 +223,10 @@ class AnalyticsService:
         # Base query to get hierarchy nodes
         conditions = [hierarchy_condition]
         if filters.hierarchy_ids:
-            conditions.append(build_hierarchy_filter(self.db, hierarchy_params.hierarchy_ids, Hierarchy))
+            conditions.append(build_hierarchy_filter(self.db, filters.hierarchy_ids, Hierarchy))
 
         hierarchy_query = (
-            select(Hierarchy.id, Hierarchy.name, Hierarchy.path, Hierarchy.type)
+            select(Hierarchy.id, Hierarchy.name, Hierarchy.path, Hierarchy.type, Hierarchy.parent_id)
             .select_from(Hierarchy)
             .where(and_(*conditions))
             .order_by(Hierarchy.name)
