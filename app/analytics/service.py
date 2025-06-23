@@ -88,6 +88,9 @@ class AnalyticsService:
             .join(ServiceType, Purpose.service_type_id == ServiceType.id)
         )
 
+        if filters.service_ids:
+            query = query.filter(PurposeContent.service_id.in_(filters.service_ids))
+
         # Apply filters
         query = apply_filters(query, filters, self.db)
 
