@@ -64,7 +64,7 @@ class AnalyticsService:
             .join(Service, PurposeContent.service_id == Service.id)
         )
 
-        if filters.service_type:
+        if filters.service_ids:
             query = query.filter(PurposeContent.service_id.in_(filters.service_ids))
             filters.service_ids = None
 
