@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     s3_bucket_name: Annotated[str, Field(default="calcloud-files")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
 
+    # Currency Configuration
+    usd_to_ils_rate: Annotated[float, Field(default=3.7)]
+
     model_config = SettingsConfigDict(env_file=find_dotenv())
 
 

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .analytics.router import router as analytics_router
 from .config import settings
 from .files.router import router as files_router
 from .hierarchies.router import router as hierarchies_router
@@ -59,6 +60,12 @@ app.include_router(
     files_router,
     prefix=f"{settings.api_v1_prefix}/files",
     tags=["files"],
+)
+
+app.include_router(
+    analytics_router,
+    prefix=f"{settings.api_v1_prefix}/analytics",
+    tags=["analytics"],
 )
 
 
