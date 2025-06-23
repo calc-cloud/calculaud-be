@@ -176,38 +176,110 @@ class AnalyticsService:
     ) -> HierarchyDistributionResponse:
         """Get distribution of purposes by hierarchy with drill-down support."""
 
-        # Determine which hierarchy level to show
-        if hierarchy_params.level is None:
-            # Show top level (UNIT)
-            target_level = HierarchyTypeEnum.UNIT
-            parent_condition = Hierarchy.parent_id.is_(None)
-        else:
+        # Apply hierarchy conditions according to requirements
+        if hierarchy_params.parent_id is not None and hierarchy_params.level is not None:
+            # Get children of parent (recursively) at specified level
             target_level = hierarchy_params.level
-            if hierarchy_params.parent_id:
-                parent_condition = build_hierarchy_filter(
-                    self.db, [hierarchy_params.parent_id], Purpose
+            
+            # Get parent hierarchy to use its path
+            parent_hierarchy = self.db.get(Hierarchy, hierarchy_params.parent_id)
+            if not parent_hierarchy:
+                return HierarchyDistributionResponse(
+                    labels=[], data=[], level=target_level, parent_name=None
                 )
+            
+            # Get all descendants of parent that are at the target level
+            descendants_query = (
+                select(Hierarchy.id)
+                .select_from(Hierarchy)
+                .filter(
+                    Hierarchy.type == target_level,
+                    Hierarchy.path.like(f"{parent_hierarchy.path}%")
+                )
+            )
+            descendant_ids = [row.id for row in self.db.execute(descendants_query).all()]
+            
+            if not descendant_ids:
+                return HierarchyDistributionResponse(
+                    labels=[], data=[], level=target_level, parent_name=parent_hierarchy.name
+                )
+            
+            hierarchy_condition = Hierarchy.id.in_(descendant_ids)
+            
+        elif hierarchy_params.parent_id is not None and hierarchy_params.level is None:
+            # Get all direct children of parent
+            children_query = select(Hierarchy).filter(
+                Hierarchy.parent_id == hierarchy_params.parent_id
+            )
+            children = self.db.execute(children_query).scalars().all()
+            
+            if not children:
+                parent_name = None
+                if hierarchy_params.parent_id:
+                    parent = self.db.get(Hierarchy, hierarchy_params.parent_id)
+                    parent_name = parent.name if parent else None
+                return HierarchyDistributionResponse(
+                    labels=[], data=[], level=HierarchyTypeEnum.UNIT, parent_name=parent_name
+                )
+            
+            target_level = children[0].type
+            hierarchy_condition = Hierarchy.parent_id == hierarchy_params.parent_id
+            
+        else:
+            # parent_id is None - get all hierarchies of specified level (or UNIT if None)
+            if hierarchy_params.level is not None:
+                target_level = hierarchy_params.level
             else:
-                parent_condition = Hierarchy.parent_id.is_(None)
+                target_level = HierarchyTypeEnum.UNIT
+            hierarchy_condition = Hierarchy.type == target_level
 
-        # Base query
-        query = (
-            select(Hierarchy.name, func.count(Purpose.id).label("purpose_count"))
+        # Base query to get hierarchy nodes
+        hierarchy_query = (
+            select(Hierarchy.id, Hierarchy.name)
             .select_from(Hierarchy)
-            .join(Purpose, Hierarchy.id == Purpose.hierarchy_id, isouter=True)
-            .filter(Hierarchy.type == target_level, parent_condition)
+            .filter(hierarchy_condition)
+            .order_by(Hierarchy.name)
         )
 
-        # Apply filters
-        query = apply_filters(query, filters, self.db)
+        hierarchy_result = self.db.execute(hierarchy_query).all()
 
-        # Group by hierarchy
-        query = query.group_by(Hierarchy.id, Hierarchy.name).order_by(Hierarchy.name)
-
-        result = self.db.execute(query).all()
-
-        labels = [row.name for row in result]
-        data = [int(row.purpose_count) for row in result]
+        # For each hierarchy node, count purposes in its entire subtree
+        labels = []
+        data = []
+        
+        for row in hierarchy_result:
+            labels.append(row.name)
+            
+            # Count purposes in this hierarchy's subtree (including direct purposes)
+            subtree_filter = build_hierarchy_filter(self.db, [row.id], Purpose)
+            
+            subtree_query = (
+                select(func.count(Purpose.id))
+                .select_from(Purpose)
+                .filter(subtree_filter)
+            )
+            
+            # Apply the same filters to subtree count manually
+            from sqlalchemy import and_
+            conditions = []
+            if filters.start_date:
+                conditions.append(Purpose.creation_time >= filters.start_date)
+            if filters.end_date:
+                conditions.append(Purpose.creation_time <= filters.end_date)
+            if filters.status:
+                conditions.append(Purpose.status.in_(filters.status))
+            if filters.supplier_ids:
+                conditions.append(Purpose.supplier_id.in_(filters.supplier_ids))
+            if filters.service_type_ids:
+                conditions.append(Purpose.service_type_id.in_(filters.service_type_ids))
+            
+            if conditions:
+                filtered_query = subtree_query.filter(and_(*conditions))
+            else:
+                filtered_query = subtree_query
+            
+            subtree_count = self.db.execute(filtered_query).scalar() or 0
+            data.append(int(subtree_count))
 
         # Get parent name if drilling down
         parent_name = None
