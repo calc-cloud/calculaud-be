@@ -1,7 +1,15 @@
-from fastapi import HTTPException, status
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, selectinload
 
+from app.hierarchies.exceptions import (
+    CircularReferenceError,
+    DuplicateHierarchyName,
+    HierarchyHasChildren,
+    HierarchyHasPurposes,
+    HierarchyNotFound,
+    ParentHierarchyNotFound,
+    SelfParentError,
+)
 from app.hierarchies.models import Hierarchy
 from app.hierarchies.schemas import HierarchyCreate, HierarchyUpdate
 from app.pagination import PaginationParams, paginate
@@ -67,10 +75,7 @@ def get_hierarchy_by_id(db: Session, hierarchy_id: int) -> Hierarchy:
     """Get a hierarchy by ID."""
     hierarchy = db.query(Hierarchy).filter(Hierarchy.id == hierarchy_id).first()
     if not hierarchy:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Hierarchy with id {hierarchy_id} not found",
-        )
+        raise HierarchyNotFound(hierarchy_id)
     return hierarchy
 
 
@@ -119,10 +124,7 @@ def create_hierarchy(db: Session, hierarchy_data: HierarchyCreate) -> Hierarchy:
             db.query(Hierarchy).filter(Hierarchy.id == hierarchy_data.parent_id).first()
         )
         if not parent:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Parent hierarchy with id {hierarchy_data.parent_id} not found",
-            )
+            raise ParentHierarchyNotFound(hierarchy_data.parent_id)
 
     # Check for duplicate name within the same parent
     existing = (
@@ -137,10 +139,7 @@ def create_hierarchy(db: Session, hierarchy_data: HierarchyCreate) -> Hierarchy:
     )
 
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Hierarchy with name '{hierarchy_data.name}' already exists under the same parent",
-        )
+        raise DuplicateHierarchyName(hierarchy_data.name)
 
     # Calculate path
     path = _calculate_path(db, hierarchy_data.parent_id, hierarchy_data.name)
@@ -165,26 +164,17 @@ def update_hierarchy(
     if "parent_id" in update_data and update_data["parent_id"]:
         # Check for circular reference
         if update_data["parent_id"] == hierarchy_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A hierarchy cannot be its own parent",
-            )
+            raise SelfParentError()
 
         # Check if the new parent would create a circular reference
         if _would_create_circular_reference(db, hierarchy_id, update_data["parent_id"]):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This parent assignment would create a circular reference",
-            )
+            raise CircularReferenceError()
 
         parent = (
             db.query(Hierarchy).filter(Hierarchy.id == update_data["parent_id"]).first()
         )
         if not parent:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Parent hierarchy with id {update_data['parent_id']} not found",
-            )
+            raise ParentHierarchyNotFound(update_data["parent_id"])
 
     # Check for duplicate name if name is being updated
     if "name" in update_data:
@@ -202,10 +192,7 @@ def update_hierarchy(
         )
 
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Hierarchy with name '{update_data['name']}' already exists under the same parent",
-            )
+            raise DuplicateHierarchyName(update_data["name"])
 
     # Apply updates
     for field, value in update_data.items():
@@ -236,10 +223,7 @@ def delete_hierarchy(db: Session, hierarchy_id: int) -> None:
     )
 
     if children_count > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot delete hierarchy with {children_count} children. Please delete children first.",
-        )
+        raise HierarchyHasChildren(children_count)
 
     # Check if hierarchy has associated purposes
     from app.purposes.models import Purpose
@@ -248,10 +232,7 @@ def delete_hierarchy(db: Session, hierarchy_id: int) -> None:
         db.query(Purpose).filter(Purpose.hierarchy_id == hierarchy_id).count()
     )
     if purposes_count > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot delete hierarchy with {purposes_count} associated purposes. Reassign purposes first.",
-        )
+        raise HierarchyHasPurposes(purposes_count)
 
     db.delete(hierarchy)
     db.commit()

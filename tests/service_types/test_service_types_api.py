@@ -88,7 +88,7 @@ class TestServiceTypesAPI:
             f"{settings.api_v1_prefix}/service-types/999", json=patch_data
         )
         assert response.status_code == 404
-        assert response.json()["detail"] == "Service type not found"
+        assert response.json()["detail"] == "Service type with ID 999 not found"
 
     def test_delete_service_type(self, test_client: TestClient):
         """Test DELETE /service-types/{id} deletes service type."""
@@ -114,7 +114,7 @@ class TestServiceTypesAPI:
         """Test DELETE /service-types/{id} returns 404 for non-existent service type."""
         response = test_client.delete(f"{settings.api_v1_prefix}/service-types/999")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Service type not found"
+        assert response.json()["detail"] == "Service type with ID 999 not found"
 
     def test_get_service_types_with_pagination(self, test_client: TestClient):
         """Test GET /service-types with pagination parameters."""
@@ -327,7 +327,7 @@ class TestServiceTypesAPI:
         response2 = test_client.post(
             f"{settings.api_v1_prefix}/service-types", json=service_type_data
         )
-        assert response2.status_code == 400  # Should fail due to unique constraint
+        assert response2.status_code == 409  # Should fail due to unique constraint
 
     def test_service_type_validation_empty_name(self, test_client: TestClient):
         """Test service type validation with empty name."""

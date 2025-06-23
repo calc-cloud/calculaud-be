@@ -129,7 +129,7 @@ class TestServicesAPI:
             f"{settings.api_v1_prefix}/services/999", json=patch_data
         )
         assert response.status_code == 404
-        assert response.json()["detail"] == "Service not found"
+        assert response.json()["detail"] == "Service with ID 999 not found"
 
     def test_delete_service(self, test_client: TestClient):
         """Test DELETE /services/{id} deletes service."""
@@ -160,7 +160,7 @@ class TestServicesAPI:
         """Test DELETE /services/{id} returns 404 for non-existent service."""
         response = test_client.delete(f"{settings.api_v1_prefix}/services/999")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Service not found"
+        assert response.json()["detail"] == "Service with ID 999 not found"
 
     def test_get_services_with_pagination(self, test_client: TestClient):
         """Test GET /services with pagination parameters."""

@@ -1,8 +1,7 @@
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.pagination import PaginationParams, paginate
-from app.suppliers.exceptions import SupplierAlreadyExists
+from app.suppliers.exceptions import SupplierAlreadyExists, SupplierNotFound
 from app.suppliers.models import Supplier
 from app.suppliers.schemas import SupplierCreate, SupplierUpdate
 
@@ -40,48 +39,55 @@ def get_suppliers(
 
 def create_supplier(db: Session, supplier: SupplierCreate) -> Supplier:
     """Create a new supplier."""
-    try:
-        db_supplier = Supplier(**supplier.model_dump())
-        db.add(db_supplier)
-        db.commit()
-        db.refresh(db_supplier)
-        return db_supplier
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e) and "supplier" in str(e):
-            raise SupplierAlreadyExists(f"Supplier '{supplier.name}' already exists")
-        raise
+    # Check if supplier with this name already exists
+    existing = db.query(Supplier).filter(Supplier.name == supplier.name).first()
+    if existing:
+        raise SupplierAlreadyExists(f"Supplier '{supplier.name}' already exists")
+
+    db_supplier = Supplier(**supplier.model_dump())
+    db.add(db_supplier)
+    db.commit()
+    db.refresh(db_supplier)
+    return db_supplier
 
 
 def patch_supplier(
     db: Session, supplier_id: int, supplier_update: SupplierUpdate
-) -> Supplier | None:
+) -> Supplier:
     """Patch an existing supplier."""
     db_supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not db_supplier:
-        return None
+        raise SupplierNotFound(f"Supplier with ID {supplier_id} not found")
 
-    try:
-        for field, value in supplier_update.model_dump(exclude_unset=True).items():
-            if value is not None:
-                setattr(db_supplier, field, value)
+    update_data = supplier_update.model_dump(exclude_unset=True)
 
-        db.commit()
-        db.refresh(db_supplier)
-        return db_supplier
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e) and "supplier" in str(e):
+    # Check for name conflicts if name is being updated
+    if "name" in update_data and update_data["name"] is not None:
+        existing = (
+            db.query(Supplier)
+            .filter(Supplier.name == update_data["name"])
+            .filter(Supplier.id != supplier_id)
+            .first()
+        )
+        if existing:
             raise SupplierAlreadyExists(
-                f"Supplier '{supplier_update.name}' already exists"
+                f"Supplier '{update_data['name']}' already exists"
             )
-        raise
+
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(db_supplier, field, value)
+
+    db.commit()
+    db.refresh(db_supplier)
+    return db_supplier
 
 
-def delete_supplier(db: Session, supplier_id: int) -> bool:
-    """Delete a supplier. Returns True if deleted, False if not found."""
+def delete_supplier(db: Session, supplier_id: int) -> None:
+    """Delete a supplier."""
     db_supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not db_supplier:
-        return False
+        raise SupplierNotFound(f"Supplier with ID {supplier_id} not found")
 
     db.delete(db_supplier)
     db.commit()
-    return True

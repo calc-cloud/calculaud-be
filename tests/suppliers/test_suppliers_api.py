@@ -93,7 +93,7 @@ class TestSuppliersAPI:
             f"{settings.api_v1_prefix}/suppliers/999", json=patch_data
         )
         assert response.status_code == 404
-        assert response.json()["detail"] == "Supplier not found"
+        assert response.json()["detail"] == "Supplier with ID 999 not found"
 
     def test_delete_supplier(self, test_client: TestClient):
         """Test DELETE /suppliers/{id} deletes supplier."""
@@ -119,7 +119,7 @@ class TestSuppliersAPI:
         """Test DELETE /suppliers/{id} returns 404 for non-existent supplier."""
         response = test_client.delete(f"{settings.api_v1_prefix}/suppliers/999")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Supplier not found"
+        assert response.json()["detail"] == "Supplier with ID 999 not found"
 
     def test_get_suppliers_with_pagination(self, test_client: TestClient):
         """Test GET /suppliers with pagination parameters."""
@@ -311,7 +311,7 @@ class TestSuppliersAPI:
         response2 = test_client.post(
             f"{settings.api_v1_prefix}/suppliers", json=supplier_data
         )
-        assert response2.status_code == 400  # Should fail due to unique constraint
+        assert response2.status_code == 409  # Should fail due to unique constraint
 
     def test_supplier_validation_empty_name(self, test_client: TestClient):
         """Test supplier validation with empty name."""

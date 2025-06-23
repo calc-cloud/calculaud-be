@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.suppliers import service
-from app.suppliers.exceptions import SupplierAlreadyExists
+from app.suppliers.exceptions import SupplierAlreadyExists, SupplierNotFound
 from app.suppliers.schemas import Supplier, SupplierCreate, SupplierUpdate
 
 router = APIRouter()
@@ -42,7 +42,7 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
     try:
         return service.create_supplier(db, supplier)
     except SupplierAlreadyExists as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.patch("/{supplier_id}", response_model=Supplier)
@@ -53,20 +53,17 @@ def patch_supplier(
 ):
     """Patch an existing supplier."""
     try:
-        patched_supplier = service.patch_supplier(db, supplier_id, supplier_update)
-        if not patched_supplier:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found"
-            )
-        return patched_supplier
+        return service.patch_supplier(db, supplier_id, supplier_update)
+    except SupplierNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except SupplierAlreadyExists as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
     """Delete a supplier."""
-    if not service.delete_supplier(db, supplier_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found"
-        )
+    try:
+        service.delete_supplier(db, supplier_id)
+    except SupplierNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)

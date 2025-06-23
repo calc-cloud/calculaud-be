@@ -1,9 +1,12 @@
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.pagination import PaginationParams, paginate
 from app.service_types.models import ServiceType
-from app.services.exceptions import InvalidServiceTypeId, ServiceAlreadyExists
+from app.services.exceptions import (
+    InvalidServiceTypeId,
+    ServiceAlreadyExists,
+    ServiceNotFound,
+)
 from app.services.models import Service
 from app.services.schemas import ServiceCreate, ServiceUpdate
 
@@ -58,30 +61,36 @@ def create_service(db: Session, service: ServiceCreate) -> Service:
             f"Service type with ID {service.service_type_id} does not exist"
         )
 
-    try:
-        db_service = Service(**service.model_dump())
-        db.add(db_service)
-        db.commit()
-        db.refresh(db_service)
-        return db_service
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e) and "service" in str(e):
-            raise ServiceAlreadyExists(
-                f"Service '{service.name}' already exists for this service type"
-            )
-        raise
+    # Check if service with this name already exists for this service type
+    existing = (
+        db.query(Service)
+        .filter(Service.name == service.name)
+        .filter(Service.service_type_id == service.service_type_id)
+        .first()
+    )
+    if existing:
+        raise ServiceAlreadyExists(
+            f"Service '{service.name}' already exists for this service type"
+        )
+
+    db_service = Service(**service.model_dump())
+    db.add(db_service)
+    db.commit()
+    db.refresh(db_service)
+    return db_service
 
 
 def patch_service(
     db: Session, service_id: int, service_update: ServiceUpdate
-) -> Service | None:
+) -> Service:
     """Patch an existing service."""
     db_service = db.query(Service).filter(Service.id == service_id).first()
     if not db_service:
-        return None
+        raise ServiceNotFound(f"Service with ID {service_id} not found")
+
+    update_data = service_update.model_dump(exclude_unset=True)
 
     # Validate service_type_id if it's being updated
-    update_data = service_update.model_dump(exclude_unset=True)
     if "service_type_id" in update_data and update_data["service_type_id"] is not None:
         service_type = (
             db.query(ServiceType)
@@ -93,28 +102,39 @@ def patch_service(
                 f"Service type with ID {update_data['service_type_id']} does not exist"
             )
 
-    try:
-        for field, value in update_data.items():
-            if value is not None:
-                setattr(db_service, field, value)
+    # Check for name conflicts if name or service_type_id is being updated
+    if "name" in update_data or "service_type_id" in update_data:
+        new_name = update_data.get("name", db_service.name)
+        new_service_type_id = update_data.get(
+            "service_type_id", db_service.service_type_id
+        )
 
-        db.commit()
-        db.refresh(db_service)
-        return db_service
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e) and "service" in str(e):
+        existing = (
+            db.query(Service)
+            .filter(Service.name == new_name)
+            .filter(Service.service_type_id == new_service_type_id)
+            .filter(Service.id != service_id)
+            .first()
+        )
+        if existing:
             raise ServiceAlreadyExists(
-                f"Service '{service_update.name}' already exists for this service type"
+                f"Service '{new_name}' already exists for this service type"
             )
-        raise
+
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(db_service, field, value)
+
+    db.commit()
+    db.refresh(db_service)
+    return db_service
 
 
-def delete_service(db: Session, service_id: int) -> bool:
-    """Delete a service. Returns True if deleted, False if not found."""
+def delete_service(db: Session, service_id: int) -> None:
+    """Delete a service."""
     db_service = db.query(Service).filter(Service.id == service_id).first()
     if not db_service:
-        return False
+        raise ServiceNotFound(f"Service with ID {service_id} not found")
 
     db.delete(db_service)
     db.commit()
-    return True

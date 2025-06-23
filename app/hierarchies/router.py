@@ -1,11 +1,20 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as statuses
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.hierarchies import service
+from app.hierarchies.exceptions import (
+    CircularReferenceError,
+    DuplicateHierarchyName,
+    HierarchyHasChildren,
+    HierarchyHasPurposes,
+    HierarchyNotFound,
+    ParentHierarchyNotFound,
+    SelfParentError,
+)
 from app.hierarchies.models import HierarchyTypeEnum
 from app.hierarchies.schemas import (
     Hierarchy,
@@ -52,13 +61,25 @@ def get_hierarchy_tree(
     db: Session = Depends(get_db),
 ):
     """Get hierarchy tree structure."""
-    return service.get_hierarchy_tree(db, hierarchy_id)
+    try:
+        return service.get_hierarchy_tree(db, hierarchy_id)
+    except HierarchyNotFound as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        )
 
 
 @router.get("/{hierarchy_id}", response_model=Hierarchy)
 def get_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
     """Get a specific hierarchy by ID."""
-    return service.get_hierarchy_by_id(db, hierarchy_id)
+    try:
+        return service.get_hierarchy_by_id(db, hierarchy_id)
+    except HierarchyNotFound as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        )
 
 
 @router.get("/{hierarchy_id}/children", response_model=list[Hierarchy])
@@ -70,19 +91,34 @@ def get_hierarchy_children(
     db: Session = Depends(get_db),
 ):
     """Get direct children of a hierarchy."""
-    service.get_hierarchy_by_id(db, hierarchy_id)  # Validate hierarchy exists
-    hierarchies, _ = service.get_hierarchies(
-        db=db,
-        pagination=PaginationParams(page=1, limit=limit),
-        parent_id=hierarchy_id,
-    )
-    return hierarchies
+    try:
+        service.get_hierarchy_by_id(db, hierarchy_id)  # Validate hierarchy exists
+        hierarchies, _ = service.get_hierarchies(
+            db=db,
+            pagination=PaginationParams(page=1, limit=limit),
+            parent_id=hierarchy_id,
+        )
+        return hierarchies
+    except HierarchyNotFound as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        )
 
 
 @router.post("/", response_model=Hierarchy, status_code=statuses.HTTP_201_CREATED)
 def create_hierarchy(hierarchy_data: HierarchyCreate, db: Session = Depends(get_db)):
     """Create a new hierarchy."""
-    return service.create_hierarchy(db, hierarchy_data)
+    try:
+        return service.create_hierarchy(db, hierarchy_data)
+    except (
+        ParentHierarchyNotFound,
+        DuplicateHierarchyName,
+    ) as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_400_BAD_REQUEST,
+            detail=e.message,
+        )
 
 
 @router.patch("/{hierarchy_id}", response_model=Hierarchy)
@@ -90,10 +126,40 @@ def update_hierarchy(
     hierarchy_id: int, hierarchy_data: HierarchyUpdate, db: Session = Depends(get_db)
 ):
     """Update an existing hierarchy."""
-    return service.update_hierarchy(db, hierarchy_id, hierarchy_data)
+    try:
+        return service.update_hierarchy(db, hierarchy_id, hierarchy_data)
+    except HierarchyNotFound as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        )
+    except (
+        ParentHierarchyNotFound,
+        DuplicateHierarchyName,
+        CircularReferenceError,
+        SelfParentError,
+    ) as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_400_BAD_REQUEST,
+            detail=e.message,
+        )
 
 
 @router.delete("/{hierarchy_id}", status_code=statuses.HTTP_204_NO_CONTENT)
 def delete_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
     """Delete a hierarchy."""
-    service.delete_hierarchy(db, hierarchy_id)
+    try:
+        service.delete_hierarchy(db, hierarchy_id)
+    except HierarchyNotFound as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        )
+    except (
+        HierarchyHasChildren,
+        HierarchyHasPurposes,
+    ) as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_400_BAD_REQUEST,
+            detail=e.message,
+        )

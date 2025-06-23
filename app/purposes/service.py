@@ -10,7 +10,7 @@ from app.hierarchies.models import Hierarchy
 from app.pagination import PaginationParams, paginate
 from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
 from app.purposes.models import Purpose, PurposeContent, StatusEnum
-from app.purposes.schemas import PurposeCreate, PurposeUpdate, PurposeContentBase
+from app.purposes.schemas import PurposeContentBase, PurposeCreate, PurposeUpdate
 from app.services.models import Service
 
 # Constants

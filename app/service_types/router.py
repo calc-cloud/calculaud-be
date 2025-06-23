@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.service_types import service
-from app.service_types.exceptions import ServiceTypeAlreadyExists
+from app.service_types.exceptions import ServiceTypeAlreadyExists, ServiceTypeNotFound
 from app.service_types.schemas import ServiceType, ServiceTypeCreate, ServiceTypeUpdate
 
 router = APIRouter()
@@ -42,7 +42,7 @@ def create_service_type(service_type: ServiceTypeCreate, db: Session = Depends(g
     try:
         return service.create_service_type(db, service_type)
     except ServiceTypeAlreadyExists as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.patch("/{service_type_id}", response_model=ServiceType)
@@ -53,22 +53,17 @@ def patch_service_type(
 ):
     """Patch an existing service type."""
     try:
-        patched_service_type = service.patch_service_type(
-            db, service_type_id, service_type_update
-        )
-        if not patched_service_type:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Service type not found"
-            )
-        return patched_service_type
+        return service.patch_service_type(db, service_type_id, service_type_update)
+    except ServiceTypeNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except ServiceTypeAlreadyExists as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
 @router.delete("/{service_type_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_service_type(service_type_id: int, db: Session = Depends(get_db)):
     """Delete a service type."""
-    if not service.delete_service_type(db, service_type_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Service type not found"
-        )
+    try:
+        service.delete_service_type(db, service_type_id)
+    except ServiceTypeNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)

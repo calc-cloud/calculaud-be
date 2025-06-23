@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.services import service
-from app.services.exceptions import InvalidServiceTypeId, ServiceAlreadyExists
+from app.services.exceptions import (
+    InvalidServiceTypeId,
+    ServiceAlreadyExists,
+    ServiceNotFound,
+)
 from app.services.schemas import Service, ServiceCreate, ServiceUpdate
 
 router = APIRouter()
@@ -45,9 +49,9 @@ def create_service(service_data: ServiceCreate, db: Session = Depends(get_db)):
     try:
         return service.create_service(db, service_data)
     except ServiceAlreadyExists as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
     except InvalidServiceTypeId as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.patch("/{service_id}", response_model=Service)
@@ -58,22 +62,19 @@ def patch_service(
 ):
     """Patch an existing service."""
     try:
-        patched_service = service.patch_service(db, service_id, service_update)
-        if not patched_service:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Service not found"
-            )
-        return patched_service
+        return service.patch_service(db, service_id, service_update)
+    except ServiceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except ServiceAlreadyExists as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
     except InvalidServiceTypeId as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_service(service_id: int, db: Session = Depends(get_db)):
     """Delete a service."""
-    if not service.delete_service(db, service_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Service not found"
-        )
+    try:
+        service.delete_service(db, service_id)
+    except ServiceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
