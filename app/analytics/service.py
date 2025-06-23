@@ -7,6 +7,7 @@ from app.analytics.schemas import (
     FilterParams,
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
+    HierarchyItem,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
     TimeSeriesDataset,
@@ -65,7 +66,7 @@ class AnalyticsService:
         )
 
         if filters.service_ids:
-            query = query.filter(PurposeContent.service_id.in_(filters.service_ids))
+            query = query.where(PurposeContent.service_id.in_(filters.service_ids))
             filters.service_ids = None
 
         query = apply_filters(query, filters, self.db)
@@ -187,14 +188,14 @@ class AnalyticsService:
             parent_hierarchy = self.db.get(Hierarchy, hierarchy_params.parent_id)
             if not parent_hierarchy:
                 return HierarchyDistributionResponse(
-                    labels=[], data=[], level=target_level, parent_name=None
+                    items=[], level=target_level, parent_name=None
                 )
 
             # Get all descendants of parent that are at the target level
             descendants_query = (
                 select(Hierarchy.id)
                 .select_from(Hierarchy)
-                .filter(
+                .where(
                     Hierarchy.type == target_level,
                     Hierarchy.path.like(f"{parent_hierarchy.path}%")
                 )
@@ -218,21 +219,18 @@ class AnalyticsService:
 
         # Base query to get hierarchy nodes
         hierarchy_query = (
-            select(Hierarchy.id, Hierarchy.name)
+            select(Hierarchy.id, Hierarchy.name, Hierarchy.path, Hierarchy.type)
             .select_from(Hierarchy)
-            .filter(hierarchy_condition)
+            .where(hierarchy_condition)
             .order_by(Hierarchy.name)
         )
 
         hierarchy_result = self.db.execute(hierarchy_query).all()
 
         # For each hierarchy node, count purposes in its entire subtree
-        labels = []
-        data = []
+        items = []
 
         for row in hierarchy_result:
-            labels.append(row.name)
-
             # Count purposes in this hierarchy's subtree (including direct purposes)
             subtree_filter = build_hierarchy_filter(self.db, [row.id], Purpose)
 
@@ -243,23 +241,20 @@ class AnalyticsService:
                 .where(subtree_filter)
             )
 
-            # Apply the same filters to subtree count manually
-            conditions = []
-            if filters.start_date:
-                conditions.append(Purpose.creation_time >= filters.start_date)
-            if filters.end_date:
-                conditions.append(Purpose.creation_time <= filters.end_date)
-            if filters.status:
-                conditions.append(Purpose.status.in_(filters.status))
-            if filters.supplier_ids:
-                conditions.append(Purpose.supplier_id.in_(filters.supplier_ids))
-            if filters.service_type_ids:
-                conditions.append(Purpose.service_type_id.in_(filters.service_type_ids))
-
-            filtered_query = subtree_query.filter(and_(*conditions)) if conditions else subtree_query
+            # Apply the same filters to subtree count using apply_filters function
+            filtered_query = apply_filters(subtree_query, filters, self.db)
 
             subtree_count = self.db.execute(filtered_query).scalar() or 0
-            data.append(int(subtree_count))
+            
+            # Create hierarchy item with all details
+            hierarchy_item = HierarchyItem(
+                id=row.id,
+                name=row.name,
+                path=row.path,
+                type=row.type,
+                count=int(subtree_count)
+            )
+            items.append(hierarchy_item)
 
         # Get parent name if drilling down
         parent_name = None
@@ -268,5 +263,5 @@ class AnalyticsService:
             parent_name = parent.name if parent else None
 
         return HierarchyDistributionResponse(
-            labels=labels, data=data, level=target_level, parent_name=parent_name
+            items=items, level=target_level, parent_name=parent_name
         )

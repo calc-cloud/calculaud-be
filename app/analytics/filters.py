@@ -1,5 +1,5 @@
-from sqlalchemy import and_
-from sqlalchemy.orm import Query, Session
+from sqlalchemy import and_, Select
+from sqlalchemy.orm import Session
 
 from app.analytics.schemas import FilterParams
 from app.common.hierarchy_utils import build_hierarchy_filter
@@ -7,7 +7,7 @@ from app.hierarchies.models import Hierarchy
 from app.purposes.models import Purpose, PurposeContent
 
 
-def apply_filters(query: Query, filters: FilterParams, db: Session = None) -> Query:
+def apply_filters(query: Select, filters: FilterParams, db: Session = None) -> Select:
     """Apply universal filters to any query that includes Purpose."""
 
     conditions = []
@@ -47,6 +47,6 @@ def apply_filters(query: Query, filters: FilterParams, db: Session = None) -> Qu
 
     # Apply all conditions
     if conditions:
-        query = query.filter(and_(*conditions))
+        query = query.where(and_(*conditions))
 
     return query

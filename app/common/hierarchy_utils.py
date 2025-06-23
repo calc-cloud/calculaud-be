@@ -1,4 +1,4 @@
-from sqlalchemy import or_
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.hierarchies.models import Hierarchy
@@ -27,7 +27,9 @@ def build_hierarchy_filter(db: Session, hierarchy_ids: list[int], target_model_c
         hierarchy_filter = build_hierarchy_filter(db, [1, 2], Purpose)
         query = query.filter(hierarchy_filter)
     """
-    hierarchies = db.query(Hierarchy).filter(Hierarchy.id.in_(hierarchy_ids)).all()
+    hierarchies_query = select(Hierarchy).where(Hierarchy.id.in_(hierarchy_ids))
+    hierarchies = db.execute(hierarchies_query).scalars().all()
+    
     if hierarchies:
         hierarchy_filters = []
         for hierarchy in hierarchies:

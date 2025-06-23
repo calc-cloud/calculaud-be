@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.costs.models import CurrencyEnum
 from app.hierarchies.models import HierarchyTypeEnum
+from app.hierarchies.schemas import Hierarchy
 from app.purposes.models import StatusEnum
 
 
@@ -60,11 +61,15 @@ class TimeSeriesResponse(BaseModel):
     datasets: list[TimeSeriesDataset]
 
 
+class HierarchyItem(Hierarchy):
+    """Hierarchy item with detailed information."""
+    count: int
+
+
 class HierarchyDistributionResponse(BaseModel):
     """Hierarchy distribution chart with drill-down support."""
 
-    labels: list[str]
-    data: list[int]
+    items: list[HierarchyItem]
     level: HierarchyTypeEnum | None = None
     parent_name: str | None = None
 
