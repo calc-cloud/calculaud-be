@@ -64,6 +64,10 @@ class AnalyticsService:
             .join(Service, PurposeContent.service_id == Service.id)
         )
 
+        if filters.service_type:
+            query = query.filter(PurposeContent.service_id.in_(filters.service_ids))
+            filters.service_ids = None
+
         query = apply_filters(query, filters, self.db)
 
         # Group by service
@@ -87,9 +91,6 @@ class AnalyticsService:
             .select_from(Purpose)
             .join(ServiceType, Purpose.service_type_id == ServiceType.id)
         )
-
-        if filters.service_ids:
-            query = query.filter(PurposeContent.service_id.in_(filters.service_ids))
 
         # Apply filters
         query = apply_filters(query, filters, self.db)
