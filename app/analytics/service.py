@@ -228,7 +228,7 @@ class AnalyticsService:
         hierarchy_query = (
             select(Hierarchy.id, Hierarchy.name, Hierarchy.path, Hierarchy.type)
             .select_from(Hierarchy)
-            .where(and_(conditions))
+            .where(and_(*conditions))
             .order_by(Hierarchy.name)
         )
 
