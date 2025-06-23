@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, select, and_
 from sqlalchemy.orm import Session
 
 from app.analytics.filters import apply_filters
@@ -30,7 +30,7 @@ class AnalyticsService:
         self.db = db
 
     def _convert_currency(
-        self, amount: float, from_currency: CurrencyEnum, to_currency: CurrencyEnum
+            self, amount: float, from_currency: CurrencyEnum, to_currency: CurrencyEnum
     ) -> float:
         """Convert currency using the configured rate."""
         if from_currency == to_currency:
@@ -49,7 +49,7 @@ class AnalyticsService:
         return amount
 
     def get_services_quantities(
-        self, filters: FilterParams
+            self, filters: FilterParams
     ) -> ServicesQuantityResponse:
         """Get total quantities for each service."""
 
@@ -80,7 +80,7 @@ class AnalyticsService:
         return ServicesQuantityResponse(labels=labels, data=data)
 
     def get_service_types_distribution(
-        self, filters: FilterParams
+            self, filters: FilterParams
     ) -> ServiceTypesDistributionResponse:
         """Get distribution of purposes by service type."""
 
@@ -107,7 +107,7 @@ class AnalyticsService:
         return ServiceTypesDistributionResponse(labels=labels, data=data)
 
     def get_expenditure_timeline(
-        self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
+            self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
     ) -> TimeSeriesResponse:
         """Get expenditure over time with currency conversion."""
 
@@ -171,7 +171,7 @@ class AnalyticsService:
         return TimeSeriesResponse(labels=labels, datasets=[dataset])
 
     def get_hierarchy_distribution(
-        self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest
+            self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest
     ) -> HierarchyDistributionResponse:
         """Get distribution of purposes by hierarchy with drill-down support."""
 
@@ -179,8 +179,8 @@ class AnalyticsService:
 
         # Apply hierarchy conditions according to requirements
         if (
-            hierarchy_params.parent_id is not None
-            and hierarchy_params.level is not None
+                hierarchy_params.parent_id is not None
+                and hierarchy_params.level is not None
         ):
             # Get children of parent (recursively) at specified level
             target_level = hierarchy_params.level
@@ -224,7 +224,8 @@ class AnalyticsService:
         hierarchy_query = (
             select(Hierarchy.id, Hierarchy.name, Hierarchy.path, Hierarchy.type)
             .select_from(Hierarchy)
-            .where(hierarchy_condition)
+            .where(
+                and_(hierarchy_condition, build_hierarchy_filter(self.db, hierarchy_params.hierarchy_ids, Hierarchy)))
             .order_by(Hierarchy.name)
         )
 
