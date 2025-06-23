@@ -63,6 +63,7 @@ class TimeSeriesResponse(BaseModel):
 
 class HierarchyItem(Hierarchy):
     """Hierarchy item with detailed information."""
+
     count: int
 
 

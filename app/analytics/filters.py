@@ -1,4 +1,4 @@
-from sqlalchemy import and_, Select
+from sqlalchemy import Select, and_
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import FilterParams
@@ -7,7 +7,14 @@ from app.hierarchies.models import Hierarchy
 from app.purposes.models import Purpose, PurposeContent
 
 
-def apply_filters(query: Select, filters: FilterParams, db: Session = None) -> Select:
+def apply_filters(
+    query: Select,
+    filters: FilterParams,
+    db: Session = None,
+    *,
+    hierarchy_table_joined: bool = False,
+    purpose_content_table_joined: bool = False
+) -> Select:
     """Apply universal filters to any query that includes Purpose."""
 
     conditions = []
@@ -21,8 +28,8 @@ def apply_filters(query: Select, filters: FilterParams, db: Session = None) -> S
 
     # Recursive hierarchy filter - requires join with Hierarchy table
     if filters.hierarchy_ids:
-        # Join with Hierarchy table to access path for recursive filtering
-        query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
+        if not hierarchy_table_joined:
+            query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
         hierarchy_filter = build_hierarchy_filter(db, filters.hierarchy_ids, Purpose)
         conditions.append(hierarchy_filter)
 
@@ -34,15 +41,14 @@ def apply_filters(query: Select, filters: FilterParams, db: Session = None) -> S
     if filters.supplier_ids:
         conditions.append(Purpose.supplier_id.in_(filters.supplier_ids))
 
-    # Service type filter (only applies to Purpose.service_type_id, not Service.service_type_id)
+    # Service type filter
     if filters.service_type_ids:
         conditions.append(Purpose.service_type_id.in_(filters.service_type_ids))
 
-    # Service filter (requires join with PurposeContent) - but only add join if not already present
+    # Service filter - requires join with PurposeContent
     if filters.service_ids:
-        query = query.join(
-            PurposeContent, Purpose.id == PurposeContent.purpose_id, isouter=False
-        )
+        if not purpose_content_table_joined:
+            query = query.join(PurposeContent, Purpose.id == PurposeContent.purpose_id)
         conditions.append(PurposeContent.service_id.in_(filters.service_ids))
 
     # Apply all conditions

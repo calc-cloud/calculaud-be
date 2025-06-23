@@ -211,11 +211,22 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        assert "labels" in data
-        assert "data" in data
+        assert "items" in data
         assert "level" in data
         assert data["level"] == "UNIT"
-        assert "Test Unit" in data["labels"]
+        assert len(data["items"]) > 0
+
+        # Check that Test Unit is in the items
+        unit_names = [item["name"] for item in data["items"]]
+        assert "Test Unit" in unit_names
+
+        # Verify item structure
+        first_item = data["items"][0]
+        assert "id" in first_item
+        assert "name" in first_item
+        assert "path" in first_item
+        assert "type" in first_item
+        assert "count" in first_item
 
     def test_get_hierarchy_distribution_with_level(
         self, test_client: TestClient, setup_test_data
@@ -234,7 +245,10 @@ class TestAnalyticsAPI:
 
         assert data["level"] == "CENTER"
         assert data["parent_name"] == "Test Unit"
-        assert "Test Center" in data["labels"]
+
+        # Check that Test Center is in the items
+        center_names = [item["name"] for item in data["items"]]
+        assert "Test Center" in center_names
 
     def test_analytics_endpoints_with_status_filter(
         self, test_client: TestClient, setup_test_data

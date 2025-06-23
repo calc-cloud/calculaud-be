@@ -29,7 +29,7 @@ def build_hierarchy_filter(db: Session, hierarchy_ids: list[int], target_model_c
     """
     hierarchies_query = select(Hierarchy).where(Hierarchy.id.in_(hierarchy_ids))
     hierarchies = db.execute(hierarchies_query).scalars().all()
-    
+
     if hierarchies:
         hierarchy_filters = []
         for hierarchy in hierarchies:

@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.analytics.filters import apply_filters
@@ -30,7 +30,7 @@ class AnalyticsService:
         self.db = db
 
     def _convert_currency(
-            self, amount: float, from_currency: CurrencyEnum, to_currency: CurrencyEnum
+        self, amount: float, from_currency: CurrencyEnum, to_currency: CurrencyEnum
     ) -> float:
         """Convert currency using the configured rate."""
         if from_currency == to_currency:
@@ -49,7 +49,7 @@ class AnalyticsService:
         return amount
 
     def get_services_quantities(
-            self, filters: FilterParams
+        self, filters: FilterParams
     ) -> ServicesQuantityResponse:
         """Get total quantities for each service."""
 
@@ -65,11 +65,9 @@ class AnalyticsService:
             .join(Service, PurposeContent.service_id == Service.id)
         )
 
-        if filters.service_ids:
-            query = query.where(PurposeContent.service_id.in_(filters.service_ids))
-            filters.service_ids = None
-
-        query = apply_filters(query, filters, self.db)
+        query = apply_filters(
+            query, filters, self.db, purpose_content_table_joined=True
+        )
 
         # Group by service
         query = query.group_by(Service.id, Service.name).order_by(Service.name)
@@ -82,7 +80,7 @@ class AnalyticsService:
         return ServicesQuantityResponse(labels=labels, data=data)
 
     def get_service_types_distribution(
-            self, filters: FilterParams
+        self, filters: FilterParams
     ) -> ServiceTypesDistributionResponse:
         """Get distribution of purposes by service type."""
 
@@ -109,7 +107,7 @@ class AnalyticsService:
         return ServiceTypesDistributionResponse(labels=labels, data=data)
 
     def get_expenditure_timeline(
-            self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
+        self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
     ) -> TimeSeriesResponse:
         """Get expenditure over time with currency conversion."""
 
@@ -173,14 +171,17 @@ class AnalyticsService:
         return TimeSeriesResponse(labels=labels, datasets=[dataset])
 
     def get_hierarchy_distribution(
-            self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest
+        self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest
     ) -> HierarchyDistributionResponse:
         """Get distribution of purposes by hierarchy with drill-down support."""
 
         target_level = None
 
         # Apply hierarchy conditions according to requirements
-        if hierarchy_params.parent_id is not None and hierarchy_params.level is not None:
+        if (
+            hierarchy_params.parent_id is not None
+            and hierarchy_params.level is not None
+        ):
             # Get children of parent (recursively) at specified level
             target_level = hierarchy_params.level
 
@@ -197,10 +198,12 @@ class AnalyticsService:
                 .select_from(Hierarchy)
                 .where(
                     Hierarchy.type == target_level,
-                    Hierarchy.path.like(f"{parent_hierarchy.path}%")
+                    Hierarchy.path.like(f"{parent_hierarchy.path}%"),
                 )
             )
-            descendant_ids = [row.id for row in self.db.execute(descendants_query).all()]
+            descendant_ids = [
+                row.id for row in self.db.execute(descendants_query).all()
+            ]
 
             hierarchy_condition = Hierarchy.id.in_(descendant_ids)
 
@@ -224,6 +227,7 @@ class AnalyticsService:
             .where(hierarchy_condition)
             .order_by(Hierarchy.name)
         )
+        hierarchy_query = apply_filters(hierarchy_query, filters, self.db)
 
         hierarchy_result = self.db.execute(hierarchy_query).all()
 
@@ -242,17 +246,19 @@ class AnalyticsService:
             )
 
             # Apply the same filters to subtree count using apply_filters function
-            filtered_query = apply_filters(subtree_query, filters, self.db)
+            filtered_query = apply_filters(
+                subtree_query, filters, self.db, hierarchy_table_joined=True
+            )
 
             subtree_count = self.db.execute(filtered_query).scalar() or 0
-            
+
             # Create hierarchy item with all details
             hierarchy_item = HierarchyItem(
                 id=row.id,
                 name=row.name,
                 path=row.path,
                 type=row.type,
-                count=int(subtree_count)
+                count=int(subtree_count),
             )
             items.append(hierarchy_item)
 
