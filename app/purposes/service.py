@@ -95,19 +95,23 @@ def _update_existing_emf(db: Session, existing_emf: EMF, emf_data) -> None:
 
 def _build_basic_filters(
     service_type_id: list[int] | None,
+    service_id: list[int] | None,
     supplier_id: list[int] | None,
     status: list[StatusEnum] | None,
 ) -> list:
     """Build basic filters for purpose queries."""
     filters = []
 
-    if service_type_id is not None and service_type_id:
+    if service_type_id:
         filters.append(Purpose.service_type_id.in_(service_type_id))
 
-    if supplier_id is not None and supplier_id:
+    if service_id:
+        filters.append(Purpose.contents.any(PurposeContent.service_id.in_(service_id)))
+
+    if supplier_id:
         filters.append(Purpose.supplier_id.in_(supplier_id))
 
-    if status is not None and status:
+    if  status:
         filters.append(Purpose.status.in_(status))
 
     return filters
@@ -175,6 +179,7 @@ def get_purposes(
     hierarchy_id: list[int] | None = None,
     supplier_id: list[int] | None = None,
     service_type_id: list[int] | None = None,
+    service_id: list[int] | None = None,
     status: list[StatusEnum] | None = None,
     search: str | None = None,
     sort_by: str = "creation_time",
@@ -197,7 +202,7 @@ def get_purposes(
         filters.append(hierarchy_filter)
 
     # Add basic filters
-    basic_filters = _build_basic_filters(service_type_id, supplier_id, status)
+    basic_filters = _build_basic_filters(service_type_id, service_id, supplier_id, status)
     filters.extend(basic_filters)
 
     if filters:

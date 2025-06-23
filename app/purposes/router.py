@@ -26,6 +26,9 @@ def get_purposes(
     service_type_id: list[int] | None = Query(
         None, description="Filter by service type ID(s)", multiple=True
     ),
+    service_id: list[int] | None = Query(
+        None, description="Filter by service ID(s)", multiple=True
+    ),
     status: list[StatusEnum] | None = Query(
         None, description="Filter by status(es)", multiple=True
     ),
@@ -43,6 +46,7 @@ def get_purposes(
         hierarchy_id=hierarchy_id,
         supplier_id=supplier_id,
         service_type_id=service_type_id,
+        service_id=service_id,
         status=status,
         search=search,
         sort_by=sort_by,
