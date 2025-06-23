@@ -227,7 +227,6 @@ class AnalyticsService:
             .where(hierarchy_condition)
             .order_by(Hierarchy.name)
         )
-        hierarchy_query = apply_filters(hierarchy_query, filters, self.db)
 
         hierarchy_result = self.db.execute(hierarchy_query).all()
 
