@@ -14,7 +14,7 @@ class TestServiceTypesAPI:
             "items": [],
             "total": 0,
             "page": 1,
-            "limit": 20,
+            "limit": 100,
             "has_next": False,
             "has_prev": False,
             "pages": 0,

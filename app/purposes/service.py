@@ -1,7 +1,6 @@
 from typing import Literal
 
 from sqlalchemy import and_, desc, or_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.costs.models import Cost
@@ -11,7 +10,7 @@ from app.hierarchies.models import Hierarchy
 from app.pagination import PaginationParams, paginate
 from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
 from app.purposes.models import Purpose, PurposeContent, StatusEnum
-from app.purposes.schemas import PurposeCreate, PurposeUpdate
+from app.purposes.schemas import PurposeCreate, PurposeUpdate, PurposeContentBase
 from app.services.models import Service
 
 # Constants
@@ -36,25 +35,33 @@ def _validate_service_exists(db: Session, service_id: int) -> None:
         raise ServiceNotFound(service_id)
 
 
+def _validate_unique_services_in_purpose(services: list[PurposeContentBase]) -> None:
+    """Validate that all services in purpose contents are unique."""
+    service_ids = [content.service_id for content in services]
+
+    if len(service_ids) != len(set(service_ids)):
+        # Find the duplicate service_id
+        seen = set()
+        for service_id in service_ids:
+            if service_id in seen:
+                raise DuplicateServiceInPurpose(service_id)
+            seen.add(service_id)
+
+
 def _create_purpose_content(
     db: Session, purpose_id: int, content_data
 ) -> PurposeContent:
-    """Create a purpose content entry with validation and error handling."""
+    """Create a purpose content entry with validation."""
     _validate_service_exists(db, content_data.service_id)
 
-    try:
-        db_content = PurposeContent(
-            purpose_id=purpose_id,
-            service_id=content_data.service_id,
-            quantity=content_data.quantity,
-        )
-        db.add(db_content)
-        db.flush()  # Flush to catch unique constraint violations early
-        return db_content
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e) and "purpose_content" in str(e):
-            raise DuplicateServiceInPurpose(content_data.service_id)
-        raise
+    db_content = PurposeContent(
+        purpose_id=purpose_id,
+        service_id=content_data.service_id,
+        quantity=content_data.quantity,
+    )
+    db.add(db_content)
+    db.flush()
+    return db_content
 
 
 def _create_emf_with_costs(db: Session, purpose_id: int, emf_data) -> EMF:
@@ -229,6 +236,10 @@ def get_purposes(
 
 def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
     """Create a new purpose with EMFs, contents, and link files."""
+    # Validate unique services in purpose contents
+    if purpose.contents:
+        _validate_unique_services_in_purpose(purpose.contents)
+
     purpose_data = purpose.model_dump(
         exclude={"emfs", "file_attachment_ids", "contents"}
     )
@@ -279,6 +290,9 @@ def patch_purpose(
 
     # Handle contents separately - replace all contents
     if purpose_update.contents is not None:
+        # Validate unique services in purpose contents
+        _validate_unique_services_in_purpose(purpose_update.contents)
+
         # Delete existing contents
         db.query(PurposeContent).filter(
             PurposeContent.purpose_id == db_purpose.id

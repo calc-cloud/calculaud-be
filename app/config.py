@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     api_v1_prefix: Annotated[str, Field(default="/api/v1")]
 
     # Pagination
-    default_page_size: Annotated[int, Field(default=20)]
+    default_page_size: Annotated[int, Field(default=100)]
     max_page_size: Annotated[int, Field(default=200)]
 
     # AWS S3 Configuration

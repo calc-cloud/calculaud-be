@@ -14,7 +14,7 @@ class TestHierarchiesAPI:
         assert data["items"] == []
         assert data["total"] == 0
         assert data["page"] == 1
-        assert data["limit"] == 20
+        assert data["limit"] == 100
 
     def test_create_hierarchy_root_node(
         self, test_client: TestClient, sample_hierarchy_data: dict
