@@ -144,11 +144,11 @@ class AnalyticsService:
         if timeline_params.group_by == "day":
             date_trunc = func.date(Purpose.creation_time)
         elif timeline_params.group_by == "week":
-            date_trunc = func.strftime("%Y-W%W", Purpose.creation_time)
+            date_trunc = func.to_char(Purpose.creation_time, "YYYY-\"W\"WW")
         elif timeline_params.group_by == "year":
-            date_trunc = func.strftime("%Y", Purpose.creation_time)
+            date_trunc = func.to_char(Purpose.creation_time, "YYYY")
         else:  # month
-            date_trunc = func.strftime("%Y-%m", Purpose.creation_time)
+            date_trunc = func.to_char(Purpose.creation_time, "YYYY-MM")
 
         # Base query with joins
         query = (
