@@ -10,10 +10,11 @@ from app.analytics.schemas import (
     HierarchyItem,
     ServiceItem,
     ServicesQuantityResponse,
+    ServiceTypeExpenditureItem,
     ServiceTypeItem,
     ServiceTypesDistributionResponse,
-    TimeSeriesDataset,
-    TimeSeriesResponse,
+    TimelineExpenditureItem,
+    TimelineExpenditureResponse,
 )
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.config import settings
@@ -49,6 +50,32 @@ class AnalyticsService:
                 return amount / settings.usd_to_ils_rate
 
         return amount
+
+    def _get_date_format_function(self, column, group_by: str):
+        """Get database-specific date formatting function."""
+        # Detect database type from the dialect
+        dialect_name = self.db.bind.dialect.name
+
+        if dialect_name == "postgresql":
+            # PostgreSQL uses to_char
+            if group_by == "day":
+                return func.to_char(column, "YYYY-MM-DD")
+            elif group_by == "week":
+                return func.to_char(column, 'YYYY-"W"WW')
+            elif group_by == "year":
+                return func.to_char(column, "YYYY")
+            else:  # month
+                return func.to_char(column, "YYYY-MM")
+        else:
+            # SQLite and others use strftime
+            if group_by == "day":
+                return func.strftime("%Y-%m-%d", column)
+            elif group_by == "week":
+                return func.strftime("%Y-W%W", column)
+            elif group_by == "year":
+                return func.strftime("%Y", column)
+            else:  # month
+                return func.strftime("%Y-%m", column)
 
     def get_services_quantities(
         self, filters: FilterParams
@@ -117,9 +144,9 @@ class AnalyticsService:
         query = apply_filters(query, filters, self.db)
 
         # Group by service type
-        query = query.group_by(
-            ServiceType.id, ServiceType.name
-        ).order_by(ServiceType.name)
+        query = query.group_by(ServiceType.id, ServiceType.name).order_by(
+            ServiceType.name
+        )
 
         result = self.db.execute(query).all()
 
@@ -137,27 +164,25 @@ class AnalyticsService:
 
     def get_expenditure_timeline(
         self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
-    ) -> TimeSeriesResponse:
-        """Get expenditure over time with currency conversion."""
+    ) -> TimelineExpenditureResponse:
+        """Get expenditure over time with service type breakdown."""
 
-        # Determine date grouping
-        if timeline_params.group_by == "day":
-            date_trunc = func.to_char(Purpose.creation_time, "YYYY-MM-DD")
-        elif timeline_params.group_by == "week":
-            date_trunc = func.to_char(Purpose.creation_time, "YYYY-\"W\"WW")
-        elif timeline_params.group_by == "year":
-            date_trunc = func.to_char(Purpose.creation_time, "YYYY")
-        else:  # month
-            date_trunc = func.to_char(Purpose.creation_time, "YYYY-MM")
+        # Determine date grouping using database-specific function
+        date_trunc = self._get_date_format_function(
+            Purpose.creation_time, timeline_params.group_by
+        )
 
-        # Base query with joins
+        # Base query with ServiceType joins
         query = (
             select(
                 date_trunc.label("time_period"),
+                ServiceType.id.label("service_type_id"),
+                ServiceType.name.label("service_type_name"),
                 Cost.currency,
                 func.sum(Cost.amount).label("total_amount"),
             )
             .select_from(Purpose)
+            .join(ServiceType, Purpose.service_type_id == ServiceType.id)
             .join(EMF, Purpose.id == EMF.purpose_id)
             .join(Cost, EMF.id == Cost.emf_id)
         )
@@ -165,39 +190,85 @@ class AnalyticsService:
         # Apply filters
         query = apply_filters(query, filters, self.db)
 
-        # Group by time period and currency
-        query = query.group_by(date_trunc, Cost.currency).order_by(date_trunc)
+        # Group by time period, service type, and currency
+        query = query.group_by(
+            date_trunc, ServiceType.id, ServiceType.name, Cost.currency
+        ).order_by(date_trunc, ServiceType.name)
 
         result = self.db.execute(query).all()
 
-        # Process results and convert currency
+        # Process results by time_period → service_type → currency
         time_periods = set()
-        currency_data = {}
+        period_data = {}
 
         for row in result:
             time_periods.add(row.time_period)
 
-            # Convert currency if needed
-            converted_amount = self._convert_currency(
-                row.total_amount, row.currency, timeline_params.currency
+            if row.time_period not in period_data:
+                period_data[row.time_period] = {}
+
+            service_key = (row.service_type_id, row.service_type_name)
+            if service_key not in period_data[row.time_period]:
+                period_data[row.time_period][service_key] = {
+                    CurrencyEnum.ILS: 0.0,
+                    CurrencyEnum.SUPPORT_USD: 0.0,
+                    CurrencyEnum.AVAILABLE_USD: 0.0,
+                }
+
+            period_data[row.time_period][service_key][row.currency] = float(
+                row.total_amount
             )
 
-            if row.time_period not in currency_data:
-                currency_data[row.time_period] = 0
+        # Create response with service type breakdown
+        items = []
 
-            currency_data[row.time_period] += converted_amount
+        for period in sorted(time_periods):
+            service_data = []
+            period_total_ils = 0.0
+            period_total_usd = 0.0
 
-        # Create response
-        labels = sorted(list(time_periods))
-        data = [currency_data.get(period, 0) for period in labels]
+            for (service_type_id, service_type_name), amounts in period_data[
+                period
+            ].items():
+                ils_amount = amounts.get(CurrencyEnum.ILS, 0.0)
+                support_usd_amount = amounts.get(CurrencyEnum.SUPPORT_USD, 0.0)
+                available_usd_amount = amounts.get(CurrencyEnum.AVAILABLE_USD, 0.0)
 
-        dataset = TimeSeriesDataset(
-            label=f"Expenditure ({timeline_params.currency.value})",
-            data=data,
-            currency=timeline_params.currency.value,
+                # Calculate totals for this service type
+                usd_subtotal = support_usd_amount + available_usd_amount
+                service_total_usd = usd_subtotal + (
+                    ils_amount / settings.usd_to_ils_rate
+                )
+                service_total_ils = ils_amount + (
+                    usd_subtotal * settings.usd_to_ils_rate
+                )
+
+                # Add to period totals
+                period_total_usd += service_total_usd
+                period_total_ils += service_total_ils
+
+                service_item = ServiceTypeExpenditureItem(
+                    service_type_id=service_type_id,
+                    name=service_type_name,
+                    total_ils=service_total_ils,
+                    total_usd=service_total_usd,
+                )
+                service_data.append(service_item)
+
+            # Sort service data by name for consistent ordering
+            service_data.sort(key=lambda x: x.name)
+
+            timeline_item = TimelineExpenditureItem(
+                time_period=period,
+                total_ils=period_total_ils,
+                total_usd=period_total_usd,
+                data=service_data,
+            )
+            items.append(timeline_item)
+
+        return TimelineExpenditureResponse(
+            items=items, group_by=timeline_params.group_by
         )
-
-        return TimeSeriesResponse(labels=labels, datasets=[dataset])
 
     def get_hierarchy_distribution(
         self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest

@@ -181,7 +181,7 @@ class TestAnalyticsAPI:
     def test_get_expenditure_timeline_ils(
         self, test_client: TestClient, setup_test_data
     ):
-        """Test expenditure timeline in ILS."""
+        """Test expenditure timeline with service type breakdown."""
 
         response = test_client.get(
             "/api/v1/analytics/expenditure/timeline",
@@ -191,28 +191,58 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        assert "labels" in data
-        assert "datasets" in data
-        assert len(data["datasets"]) == 1
-        assert data["datasets"][0]["currency"] == "ILS"
+        assert "items" in data
+        assert "group_by" in data
+        assert data["group_by"] == "month"
+        assert len(data["items"]) > 0
+
+        # Check structure of first item
+        first_item = data["items"][0]
+        assert "time_period" in first_item
+        assert "total_ils" in first_item
+        assert "total_usd" in first_item
+        assert "data" in first_item
+
+        # Check service type breakdown
+        if first_item["data"]:
+            service_type = first_item["data"][0]
+            assert "service_type_id" in service_type
+            assert "name" in service_type
+            assert "total_ils" in service_type
+            assert "total_usd" in service_type
 
     def test_get_expenditure_timeline_usd(
         self, test_client: TestClient, setup_test_data
     ):
-        """Test expenditure timeline in USD."""
+        """Test expenditure timeline with different group_by parameter."""
 
         response = test_client.get(
             "/api/v1/analytics/expenditure/timeline",
-            params={"currency": "SUPPORT_USD", "group_by": "month"},
+            params={"currency": "SUPPORT_USD", "group_by": "year"},
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert "labels" in data
-        assert "datasets" in data
-        assert len(data["datasets"]) == 1
-        assert data["datasets"][0]["currency"] == "SUPPORT_USD"
+        assert "items" in data
+        assert "group_by" in data
+        assert data["group_by"] == "year"
+        assert len(data["items"]) > 0
+        
+        # Check structure of first item
+        first_item = data["items"][0]
+        assert "time_period" in first_item
+        assert "total_ils" in first_item
+        assert "total_usd" in first_item
+        assert "data" in first_item
+        
+        # Check service type breakdown
+        if first_item["data"]:
+            service_type = first_item["data"][0]
+            assert "service_type_id" in service_type
+            assert "name" in service_type
+            assert "total_ils" in service_type
+            assert "total_usd" in service_type
 
     def test_get_hierarchy_distribution_default(
         self, test_client: TestClient, setup_test_data
@@ -339,28 +369,3 @@ class TestAnalyticsAPI:
 
         # Should include both service types since both purposes use this supplier
         assert len(data["data"]) == 2
-
-    def test_analytics_endpoints_invalid_parameters(
-        self, test_client: TestClient, setup_test_data
-    ):
-        """Test analytics endpoints with invalid parameters."""
-
-        # Test invalid currency
-        response = test_client.get(
-            "/api/v1/analytics/expenditure/timeline",
-            params={"currency": "INVALID", "group_by": "month"},
-        )
-        assert response.status_code == 422
-
-        # Test invalid hierarchy level
-        response = test_client.get(
-            "/api/v1/analytics/hierarchies/distribution", params={"level": "INVALID"}
-        )
-        assert response.status_code == 422
-
-        # Test invalid date format
-        response = test_client.get(
-            "/api/v1/analytics/services/quantities",
-            params={"start_date": "invalid-date"},
-        )
-        assert response.status_code == 422

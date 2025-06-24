@@ -11,7 +11,7 @@ from app.analytics.schemas import (
     HierarchyDistributionResponse,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
-    TimeSeriesResponse,
+    TimelineExpenditureResponse,
 )
 from app.analytics.service import AnalyticsService
 from app.database import get_db
@@ -54,17 +54,22 @@ def get_service_types_distribution(
     return analytics_service.get_service_types_distribution(filters)
 
 
-@router.get("/expenditure/timeline", response_model=TimeSeriesResponse)
+@router.get("/expenditure/timeline", response_model=TimelineExpenditureResponse)
 def get_expenditure_timeline(
     analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
     request: Annotated[ExpenditureTimelineRequest, Query()],
-) -> TimeSeriesResponse:
+) -> TimelineExpenditureResponse:
     """
-    Get expenditure over time with currency conversion.
+    Get expenditure over time with service type breakdown.
 
-    Returns a line chart with time on x-axis and expenditure on y-axis.
-    Supports currency switching (ILS/USD) and service type filtering.
-    Supports all universal filters.
+    Returns expenditure data grouped by time periods, with detailed breakdown
+    by service type for each period. Each item includes:
+    - time_period: The grouped time period (e.g., "2024-01")
+    - total_ils: Total expenditure in ILS for the period
+    - total_usd: Total expenditure in USD for the period
+    - data: Array of service types with their expenditure amounts
+
+    Supports all universal filters and time grouping (day, week, month, year).
     """
     return analytics_service.get_expenditure_timeline(request, request)
 

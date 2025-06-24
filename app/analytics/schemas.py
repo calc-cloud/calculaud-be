@@ -1,9 +1,8 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from app.costs.models import CurrencyEnum
 from app.hierarchies.models import HierarchyTypeEnum
 from app.hierarchies.schemas import Hierarchy
 from app.purposes.models import StatusEnum
@@ -56,11 +55,46 @@ class TimeSeriesDataset(BaseModel):
     currency: str
 
 
+class MultiCurrencyDataPoint(BaseModel):
+    """Data point with values in all currencies."""
+
+    ils: float
+    support_usd: float
+    available_usd: float
+    total_usd: float
+    total_ils: float
+
+
 class TimeSeriesResponse(BaseModel):
     """Time series chart response format."""
 
     labels: list[str]
     datasets: list[TimeSeriesDataset]
+
+
+class ServiceTypeExpenditureItem(BaseModel):
+    """Service type expenditure breakdown item."""
+
+    service_type_id: int
+    name: str
+    total_ils: float
+    total_usd: float
+
+
+class TimelineExpenditureItem(BaseModel):
+    """Timeline expenditure item with service type breakdown."""
+
+    time_period: str
+    total_ils: float
+    total_usd: float
+    data: list[ServiceTypeExpenditureItem]
+
+
+class TimelineExpenditureResponse(BaseModel):
+    """Timeline expenditure response with service type breakdown."""
+
+    items: list[TimelineExpenditureItem]
+    group_by: Literal["day", "week", "month", "year"]
 
 
 class HierarchyItem(Hierarchy):
@@ -105,11 +139,9 @@ class ServiceTypesDistributionResponse(BaseModel):
 class ExpenditureTimelineRequest(FilterParams):
     """Request parameters for expenditure timeline with filters."""
 
-    currency: Annotated[
-        CurrencyEnum, Field(description="Currency to display (ILS/USD)")
-    ]
     group_by: Annotated[
-        str, Field(default="month", description="Time grouping: day, week, month, year")
+        Literal["day", "week", "month", "year"],
+        Field(default="month", description="Time grouping: day, week, month, year"),
     ]
 
 
