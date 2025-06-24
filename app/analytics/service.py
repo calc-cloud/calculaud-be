@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.analytics.filters import apply_filters
@@ -8,7 +8,9 @@ from app.analytics.schemas import (
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
     HierarchyItem,
+    ServiceItem,
     ServicesQuantityResponse,
+    ServiceTypeItem,
     ServiceTypesDistributionResponse,
     TimeSeriesDataset,
     TimeSeriesResponse,
@@ -30,7 +32,7 @@ class AnalyticsService:
         self.db = db
 
     def _convert_currency(
-            self, amount: float, from_currency: CurrencyEnum, to_currency: CurrencyEnum
+        self, amount: float, from_currency: CurrencyEnum, to_currency: CurrencyEnum
     ) -> float:
         """Convert currency using the configured rate."""
         if from_currency == to_currency:
@@ -49,20 +51,25 @@ class AnalyticsService:
         return amount
 
     def get_services_quantities(
-            self, filters: FilterParams
+        self, filters: FilterParams
     ) -> ServicesQuantityResponse:
         """Get total quantities for each service."""
 
         # Build query conditions manually for better control
 
-        # Base query with joins
+        # Base query with joins - select all Service fields, ServiceType name, and quantity
         query = (
             select(
-                Service.name, func.sum(PurposeContent.quantity).label("total_quantity")
+                Service.id,
+                Service.name,
+                Service.service_type_id,
+                ServiceType.name.label("service_type_name"),
+                func.sum(PurposeContent.quantity).label("total_quantity"),
             )
             .select_from(Purpose)
             .join(PurposeContent, Purpose.id == PurposeContent.purpose_id)
             .join(Service, PurposeContent.service_id == Service.id)
+            .join(ServiceType, Service.service_type_id == ServiceType.id)
         )
 
         query = apply_filters(
@@ -70,23 +77,38 @@ class AnalyticsService:
         )
 
         # Group by service
-        query = query.group_by(Service.id, Service.name).order_by(Service.name)
+        query = query.group_by(
+            Service.id, Service.name, Service.service_type_id, ServiceType.name
+        ).order_by(Service.name)
 
         result = self.db.execute(query).all()
 
-        labels = [row.name for row in result]
-        data = [float(row.total_quantity) for row in result]
+        # Create ServiceItem objects
+        service_items = []
+        for row in result:
+            service_item = ServiceItem(
+                id=row.id,
+                name=row.name,
+                service_type_id=row.service_type_id,
+                service_type_name=row.service_type_name,
+                quantity=float(row.total_quantity),
+            )
+            service_items.append(service_item)
 
-        return ServicesQuantityResponse(labels=labels, data=data)
+        return ServicesQuantityResponse(data=service_items)
 
     def get_service_types_distribution(
-            self, filters: FilterParams
+        self, filters: FilterParams
     ) -> ServiceTypesDistributionResponse:
         """Get distribution of purposes by service type."""
 
-        # Base query
+        # Base query - select all ServiceType fields and count
         query = (
-            select(ServiceType.name, func.count(Purpose.id).label("purpose_count"))
+            select(
+                ServiceType.id,
+                ServiceType.name,
+                func.count(Purpose.id).label("purpose_count"),
+            )
             .select_from(Purpose)
             .join(ServiceType, Purpose.service_type_id == ServiceType.id)
         )
@@ -95,19 +117,26 @@ class AnalyticsService:
         query = apply_filters(query, filters, self.db)
 
         # Group by service type
-        query = query.group_by(ServiceType.id, ServiceType.name).order_by(
-            ServiceType.name
-        )
+        query = query.group_by(
+            ServiceType.id, ServiceType.name
+        ).order_by(ServiceType.name)
 
         result = self.db.execute(query).all()
 
-        labels = [row.name for row in result]
-        data = [int(row.purpose_count) for row in result]
+        # Create ServiceTypeItem objects
+        service_type_items = []
+        for row in result:
+            service_type_item = ServiceTypeItem(
+                id=row.id,
+                name=row.name,
+                count=int(row.purpose_count),
+            )
+            service_type_items.append(service_type_item)
 
-        return ServiceTypesDistributionResponse(labels=labels, data=data)
+        return ServiceTypesDistributionResponse(data=service_type_items)
 
     def get_expenditure_timeline(
-            self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
+        self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
     ) -> TimeSeriesResponse:
         """Get expenditure over time with currency conversion."""
 
@@ -171,7 +200,7 @@ class AnalyticsService:
         return TimeSeriesResponse(labels=labels, datasets=[dataset])
 
     def get_hierarchy_distribution(
-            self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest
+        self, filters: FilterParams, hierarchy_params: HierarchyDistributionRequest
     ) -> HierarchyDistributionResponse:
         """Get distribution of purposes by hierarchy with drill-down support."""
 
@@ -179,8 +208,8 @@ class AnalyticsService:
 
         # Apply hierarchy conditions according to requirements
         if (
-                hierarchy_params.parent_id is not None
-                and hierarchy_params.level is not None
+            hierarchy_params.parent_id is not None
+            and hierarchy_params.level is not None
         ):
             # Get children of parent (recursively) at specified level
             target_level = hierarchy_params.level
@@ -223,10 +252,18 @@ class AnalyticsService:
         # Base query to get hierarchy nodes
         conditions = [hierarchy_condition]
         if filters.hierarchy_ids:
-            conditions.append(build_hierarchy_filter(self.db, filters.hierarchy_ids, Hierarchy))
+            conditions.append(
+                build_hierarchy_filter(self.db, filters.hierarchy_ids, Hierarchy)
+            )
 
         hierarchy_query = (
-            select(Hierarchy.id, Hierarchy.name, Hierarchy.path, Hierarchy.type, Hierarchy.parent_id)
+            select(
+                Hierarchy.id,
+                Hierarchy.name,
+                Hierarchy.path,
+                Hierarchy.type,
+                Hierarchy.parent_id,
+            )
             .select_from(Hierarchy)
             .where(and_(*conditions))
             .order_by(Hierarchy.name)

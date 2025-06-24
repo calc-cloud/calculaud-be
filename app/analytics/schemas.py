@@ -7,6 +7,8 @@ from app.costs.models import CurrencyEnum
 from app.hierarchies.models import HierarchyTypeEnum
 from app.hierarchies.schemas import Hierarchy
 from app.purposes.models import StatusEnum
+from app.service_types.schemas import ServiceType
+from app.services.schemas import Service
 
 
 class FilterParams(BaseModel):
@@ -67,6 +69,19 @@ class HierarchyItem(Hierarchy):
     count: int
 
 
+class ServiceItem(Service):
+    """Service item with quantity information."""
+
+    quantity: float
+    service_type_name: str
+
+
+class ServiceTypeItem(ServiceType):
+    """ServiceType item with count information."""
+
+    count: int
+
+
 class HierarchyDistributionResponse(BaseModel):
     """Hierarchy distribution chart with drill-down support."""
 
@@ -75,16 +90,16 @@ class HierarchyDistributionResponse(BaseModel):
     parent_name: str | None = None
 
 
-class ServicesQuantityResponse(ChartDataResponse):
+class ServicesQuantityResponse(BaseModel):
     """Services quantity chart response."""
 
-    pass
+    data: list[ServiceItem]
 
 
-class ServiceTypesDistributionResponse(ChartDataResponse):
+class ServiceTypesDistributionResponse(BaseModel):
     """Service types distribution chart response."""
 
-    data: list[int]  # Override to use int for counts
+    data: list[ServiceTypeItem]
 
 
 class ExpenditureTimelineRequest(FilterParams):

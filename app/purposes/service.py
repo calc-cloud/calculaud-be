@@ -111,7 +111,7 @@ def _build_basic_filters(
     if supplier_id:
         filters.append(Purpose.supplier_id.in_(supplier_id))
 
-    if  status:
+    if status:
         filters.append(Purpose.status.in_(status))
 
     return filters
@@ -202,7 +202,9 @@ def get_purposes(
         filters.append(hierarchy_filter)
 
     # Add basic filters
-    basic_filters = _build_basic_filters(service_type_id, service_id, supplier_id, status)
+    basic_filters = _build_basic_filters(
+        service_type_id, service_id, supplier_id, status
+    )
     filters.extend(basic_filters)
 
     if filters:

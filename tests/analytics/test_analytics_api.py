@@ -117,15 +117,22 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        assert "labels" in data
         assert "data" in data
-        assert len(data["labels"]) == 3
         assert len(data["data"]) == 3
 
         # Check that services are included
-        assert "IT Consulting" in data["labels"]
-        assert "Software License" in data["labels"]
-        assert "Hardware" in data["labels"]
+        service_names = [item["name"] for item in data["data"]]
+        assert "IT Consulting" in service_names
+        assert "Software License" in service_names
+        assert "Hardware" in service_names
+
+        # Check structure of service items
+        first_item = data["data"][0]
+        assert "id" in first_item
+        assert "name" in first_item
+        assert "service_type_id" in first_item
+        assert "service_type_name" in first_item
+        assert "quantity" in first_item
 
     def test_get_services_quantities_with_filters(
         self, test_client: TestClient, setup_test_data
@@ -141,10 +148,11 @@ class TestAnalyticsAPI:
         data = response.json()
 
         # Should only include services from January (purpose1)
-        assert len(data["labels"]) == 2
-        assert "IT Consulting" in data["labels"]
-        assert "Software License" in data["labels"]
-        assert "Hardware" not in data["labels"]
+        assert len(data["data"]) == 2
+        service_names = [item["name"] for item in data["data"]]
+        assert "IT Consulting" in service_names
+        assert "Software License" in service_names
+        assert "Hardware" not in service_names
 
     def test_get_service_types_distribution(
         self, test_client: TestClient, setup_test_data
@@ -156,14 +164,19 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        assert "labels" in data
         assert "data" in data
-        assert len(data["labels"]) == 2
         assert len(data["data"]) == 2
 
         # Check service types are included
-        assert "Consulting" in data["labels"]
-        assert "Equipment" in data["labels"]
+        service_type_names = [item["name"] for item in data["data"]]
+        assert "Consulting" in service_type_names
+        assert "Equipment" in service_type_names
+
+        # Check structure of service type items
+        first_item = data["data"][0]
+        assert "id" in first_item
+        assert "name" in first_item
+        assert "count" in first_item
 
     def test_get_expenditure_timeline_ils(
         self, test_client: TestClient, setup_test_data
@@ -265,8 +278,9 @@ class TestAnalyticsAPI:
         data = response.json()
 
         # Should only show consulting type (from purpose1)
-        assert len(data["labels"]) == 1
-        assert "Consulting" in data["labels"]
+        assert len(data["data"]) == 1
+        service_type_names = [item["name"] for item in data["data"]]
+        assert "Consulting" in service_type_names
 
     def test_analytics_endpoints_with_hierarchy_filter(
         self, test_client: TestClient, setup_test_data
@@ -284,7 +298,7 @@ class TestAnalyticsAPI:
         data = response.json()
 
         # Should include all services since both purposes are in the center
-        assert len(data["labels"]) == 3
+        assert len(data["data"]) == 3
 
     def test_analytics_endpoints_with_service_type_filter(
         self, test_client: TestClient, setup_test_data
@@ -302,10 +316,11 @@ class TestAnalyticsAPI:
         data = response.json()
 
         # Should only show consulting services
-        assert len(data["labels"]) == 2
-        assert "IT Consulting" in data["labels"]
-        assert "Software License" in data["labels"]
-        assert "Hardware" not in data["labels"]
+        assert len(data["data"]) == 2
+        service_names = [item["name"] for item in data["data"]]
+        assert "IT Consulting" in service_names
+        assert "Software License" in service_names
+        assert "Hardware" not in service_names
 
     def test_analytics_endpoints_with_supplier_filter(
         self, test_client: TestClient, setup_test_data
@@ -323,7 +338,7 @@ class TestAnalyticsAPI:
         data = response.json()
 
         # Should include both service types since both purposes use this supplier
-        assert len(data["labels"]) == 2
+        assert len(data["data"]) == 2
 
     def test_analytics_endpoints_invalid_parameters(
         self, test_client: TestClient, setup_test_data
