@@ -142,7 +142,7 @@ class AnalyticsService:
 
         # Determine date grouping
         if timeline_params.group_by == "day":
-            date_trunc = func.date(Purpose.creation_time)
+            date_trunc = func.to_char(Purpose.creation_time, "YYYY-MM-DD")
         elif timeline_params.group_by == "week":
             date_trunc = func.to_char(Purpose.creation_time, "YYYY-\"W\"WW")
         elif timeline_params.group_by == "year":
