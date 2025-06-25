@@ -80,8 +80,6 @@ class Purpose(PurposeBase):
 class FilterParams(BaseModel):
     """Universal filter parameters for analytics endpoints."""
 
-    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
-
     start_date: Annotated[
         date | None,
         Query(default=None, description="Filter by purpose creation date from"),
