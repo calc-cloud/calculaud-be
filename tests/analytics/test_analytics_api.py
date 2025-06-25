@@ -228,14 +228,14 @@ class TestAnalyticsAPI:
         assert "group_by" in data
         assert data["group_by"] == "year"
         assert len(data["items"]) > 0
-        
+
         # Check structure of first item
         first_item = data["items"][0]
         assert "time_period" in first_item
         assert "total_ils" in first_item
         assert "total_usd" in first_item
         assert "data" in first_item
-        
+
         # Check service type breakdown
         if first_item["data"]:
             service_type = first_item["data"][0]
@@ -339,7 +339,7 @@ class TestAnalyticsAPI:
 
         response = test_client.get(
             "/api/v1/analytics/services/quantities",
-            params={"service_type_ids": [service_type_id]},
+            params={"service_type_id": [service_type_id]},
         )
 
         assert response.status_code == 200

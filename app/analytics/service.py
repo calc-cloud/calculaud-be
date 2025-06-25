@@ -1,10 +1,9 @@
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from app.analytics.filters import apply_filters
+from app.purposes.filters import apply_filters
 from app.analytics.schemas import (
     ExpenditureTimelineRequest,
-    FilterParams,
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
     HierarchyItem,
@@ -16,6 +15,7 @@ from app.analytics.schemas import (
     TimelineExpenditureItem,
     TimelineExpenditureResponse,
 )
+from app.purposes.schemas import FilterParams
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.config import settings
 from app.costs.models import Cost, CurrencyEnum

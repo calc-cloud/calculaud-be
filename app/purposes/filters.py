@@ -1,7 +1,7 @@
 from sqlalchemy import Select, and_
 from sqlalchemy.orm import Session
 
-from app.analytics.schemas import FilterParams
+from app.purposes.schemas import FilterParams
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.hierarchies.models import Hierarchy
 from app.purposes.models import Purpose, PurposeContent
@@ -34,8 +34,8 @@ def apply_filters(
         conditions.append(hierarchy_filter)
 
     # Status filter
-    if filters.status:
-        conditions.append(Purpose.status.in_(filters.status))
+    if filters.statuses:
+        conditions.append(Purpose.status.in_(filters.statuses))
 
     # Supplier filter
     if filters.supplier_ids:

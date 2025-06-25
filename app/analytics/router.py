@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
     ExpenditureTimelineRequest,
-    FilterParams,
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
     TimelineExpenditureResponse,
 )
+from app.purposes.schemas import FilterParams
 from app.analytics.service import AnalyticsService
 from app.database import get_db
 

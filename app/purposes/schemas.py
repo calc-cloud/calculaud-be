@@ -1,12 +1,14 @@
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
+from fastapi.params import Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app import StatusEnum
 from app.emfs.schemas import EMF, EMFCreate, EMFUpdate
 from app.files.schemas import FileAttachment
 from app.hierarchies.schemas import Hierarchy
+from app.pagination import PaginationParams
 
 
 class PurposeContentBase(BaseModel):
@@ -73,3 +75,65 @@ class Purpose(PurposeBase):
     contents: Annotated[list[PurposeContent], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FilterParams(BaseModel):
+    """Universal filter parameters for analytics endpoints."""
+
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
+
+    start_date: Annotated[
+        date | None,
+        Query(default=None, description="Filter by purpose creation date from"),
+    ]
+    end_date: Annotated[
+        date | None,
+        Query(default=None, description="Filter by purpose creation date to"),
+    ]
+    service_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by specific service IDs",
+            alias="service_id",
+        ),
+    ]
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
+    ]
+    hierarchy_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None, description="Filter by hierarchy IDs", alias="hierarchy_id"
+        ),
+    ]
+    statuses: Annotated[
+        list[StatusEnum] | None,
+        Query(default=None, description="Filter by purpose status", alias="status"),
+    ]
+    supplier_ids: Annotated[
+        list[int] | None,
+        Query(default=None, description="Filter by supplier IDs", alias="supplier_id"),
+    ]
+
+
+class GetPurposesRequest(FilterParams, PaginationParams):
+    """Request parameters for getting purposes with filters."""
+
+    search: Annotated[
+        str | None,
+        Field(default=None, description="Search in description and EMF IDs..."),
+    ]
+    sort_by: Annotated[
+        str,
+        Field(default="creation_time", description="Sort by field"),
+    ]
+    sort_order: Annotated[
+        Literal["asc", "desc"],
+        Field(default="desc", description="Sort order: asc or desc"),
+    ]

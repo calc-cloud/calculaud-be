@@ -1,43 +1,12 @@
-from datetime import date
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from app.hierarchies.models import HierarchyTypeEnum
 from app.hierarchies.schemas import Hierarchy
-from app.purposes.models import StatusEnum
+from app.purposes.schemas import FilterParams
 from app.service_types.schemas import ServiceType
 from app.services.schemas import Service
-
-
-class FilterParams(BaseModel):
-    """Universal filter parameters for analytics endpoints."""
-
-    start_date: Annotated[
-        date | None,
-        Field(default=None, description="Filter by purpose creation date from"),
-    ]
-    end_date: Annotated[
-        date | None,
-        Field(default=None, description="Filter by purpose creation date to"),
-    ]
-    service_ids: Annotated[
-        list[int] | None,
-        Field(default=None, description="Filter by specific service IDs"),
-    ]
-    service_type_ids: Annotated[
-        list[int] | None, Field(default=None, description="Filter by service type IDs")
-    ]
-    hierarchy_ids: Annotated[
-        list[int] | None, Field(default=None, description="Filter by hierarchy IDs")
-    ]
-    status: Annotated[
-        list[StatusEnum] | None,
-        Field(default=None, description="Filter by purpose status"),
-    ]
-    supplier_ids: Annotated[
-        list[int] | None, Field(default=None, description="Filter by supplier IDs")
-    ]
 
 
 class ChartDataResponse(BaseModel):

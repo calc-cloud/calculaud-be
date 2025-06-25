@@ -1,59 +1,35 @@
-from typing import Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as statuses
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
+from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
 from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
-from app.purposes.models import StatusEnum
-from app.purposes.schemas import Purpose, PurposeCreate, PurposeUpdate
+from app.purposes.schemas import (
+    Purpose,
+    PurposeCreate,
+    PurposeUpdate,
+    GetPurposesRequest,
+)
 
 router = APIRouter()
 
 
 @router.get("/", response_model=PaginatedResult[Purpose])
 def get_purposes(
-    pagination: PaginationParams = Depends(),
-    hierarchy_id: list[int] | None = Query(
-        None, description="Filter by hierarchy ID(s)", multiple=True
-    ),
-    supplier_id: list[int] | None = Query(
-        None, description="Filter by supplier ID(s)", multiple=True
-    ),
-    service_type_id: list[int] | None = Query(
-        None, description="Filter by service type ID(s)", multiple=True
-    ),
-    service_id: list[int] | None = Query(
-        None, description="Filter by service ID(s)", multiple=True
-    ),
-    status: list[StatusEnum] | None = Query(
-        None, description="Filter by status(es)", multiple=True
-    ),
-    search: str | None = Query(None, description="Search in description and emf_id"),
-    sort_by: str = Query("creation_time", description="Sort by field"),
-    sort_order: Literal["asc", "desc"] = Query(
-        "desc", description="Sort order: asc or desc"
-    ),
+    params: Annotated[GetPurposesRequest, Query()],
     db: Session = Depends(get_db),
 ):
     """Get all purposes with filtering, searching, sorting, and pagination."""
     purposes, total = service.get_purposes(
         db=db,
-        pagination=pagination,
-        hierarchy_id=hierarchy_id,
-        supplier_id=supplier_id,
-        service_type_id=service_type_id,
-        service_id=service_id,
-        status=status,
-        search=search,
-        sort_by=sort_by,
-        sort_order=sort_order,
+        params=params,
     )
 
-    return create_paginated_result(purposes, total, pagination)
+    return create_paginated_result(purposes, total, params)
 
 
 @router.get("/{purpose_id}", response_model=Purpose)

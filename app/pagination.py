@@ -1,7 +1,8 @@
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field, computed_field
-from sqlalchemy.orm import Query
+from sqlalchemy import Select, func, select
+from sqlalchemy.orm import Query, Session
 
 from .config import settings
 
@@ -55,6 +56,31 @@ def paginate(query: Query, pagination: PaginationParams) -> tuple[list[Any], int
     total = query.count()
 
     items = query.offset(pagination.offset).limit(pagination.limit).all()
+
+    return items, total
+
+
+def paginate_select(
+    db: Session, stmt: Select, pagination: PaginationParams
+) -> tuple[list[Any], int]:
+    """
+    Paginate a SQLAlchemy Select statement (v2 API).
+
+    Args:
+        db: Database session
+        stmt: SQLAlchemy Select statement to paginate
+        pagination: Pagination parameters
+
+    Returns:
+        Tuple of (items list, total_count)
+    """
+    # Get total count
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = db.execute(count_stmt).scalar()
+
+    # Get paginated items
+    items_stmt = stmt.offset(pagination.offset).limit(pagination.limit)
+    items = db.execute(items_stmt).scalars().unique().all()
 
     return items, total
 

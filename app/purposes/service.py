@@ -1,23 +1,25 @@
-from typing import Literal
-
-from sqlalchemy import and_, desc, or_
+from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.common.hierarchy_utils import build_hierarchy_filter
 from app.costs.models import Cost
 from app.emfs.models import EMF
 from app.files import service as file_service
-from app.hierarchies.models import Hierarchy
-from app.pagination import PaginationParams, paginate
+from app.pagination import paginate_select
 from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
-from app.purposes.models import Purpose, PurposeContent, StatusEnum
-from app.purposes.schemas import PurposeContentBase, PurposeCreate, PurposeUpdate
+from app.purposes.filters import apply_filters
+from app.purposes.models import Purpose, PurposeContent
+from app.purposes.schemas import (
+    GetPurposesRequest,
+    PurposeContentBase,
+    PurposeCreate,
+    PurposeUpdate,
+)
 from app.services.models import Service
 
 
-def _get_base_purpose_query(db: Session):
-    """Get base purpose query with all necessary joins."""
-    return db.query(Purpose).options(
+def _get_base_purpose_select():
+    """Get base purpose select statement with all necessary joins."""
+    return select(Purpose).options(
         joinedload(Purpose.emfs),
         joinedload(Purpose.file_attachments),
         joinedload(Purpose.contents)
@@ -28,7 +30,8 @@ def _get_base_purpose_query(db: Session):
 
 def _validate_service_exists(db: Session, service_id: int) -> None:
     """Validate that a service exists, raise ServiceNotFound if not."""
-    service = db.query(Service).filter(Service.id == service_id).first()
+    stmt = select(Service).where(Service.id == service_id)
+    service = db.execute(stmt).scalars().first()
     if not service:
         raise ServiceNotFound(service_id)
 
@@ -87,34 +90,13 @@ def _update_existing_emf(db: Session, existing_emf: EMF, emf_data) -> None:
     # Update costs if provided
     if emf_data.costs is not None:
         # Clear existing costs and create new ones
-        db.query(Cost).filter(Cost.emf_id == existing_emf.id).delete()
+        stmt = select(Cost).where(Cost.emf_id == existing_emf.id)
+        costs_to_delete = db.execute(stmt).scalars().all()
+        for cost in costs_to_delete:
+            db.delete(cost)
         for cost_data in emf_data.costs:
             db_cost = Cost(**cost_data.model_dump(), emf_id=existing_emf.id)
             db.add(db_cost)
-
-
-def _build_basic_filters(
-    service_type_id: list[int] | None,
-    service_id: list[int] | None,
-    supplier_id: list[int] | None,
-    status: list[StatusEnum] | None,
-) -> list:
-    """Build basic filters for purpose queries."""
-    filters = []
-
-    if service_type_id:
-        filters.append(Purpose.service_type_id.in_(service_type_id))
-
-    if service_id:
-        filters.append(Purpose.contents.any(PurposeContent.service_id.in_(service_id)))
-
-    if supplier_id:
-        filters.append(Purpose.supplier_id.in_(supplier_id))
-
-    if status:
-        filters.append(Purpose.status.in_(status))
-
-    return filters
 
 
 def _build_search_filter(search: str):
@@ -170,60 +152,36 @@ def _process_emfs(db: Session, db_purpose: Purpose, emfs_data) -> None:
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
     """Get a single purpose by ID."""
-    return _get_base_purpose_query(db).filter(Purpose.id == purpose_id).first()
+    stmt = _get_base_purpose_select().where(Purpose.id == purpose_id)
+    return db.execute(stmt).scalars().first()
 
 
-def get_purposes(
-    db: Session,
-    pagination: PaginationParams,
-    hierarchy_id: list[int] | None = None,
-    supplier_id: list[int] | None = None,
-    service_type_id: list[int] | None = None,
-    service_id: list[int] | None = None,
-    status: list[StatusEnum] | None = None,
-    search: str | None = None,
-    sort_by: str = "creation_time",
-    sort_order: Literal["asc", "desc"] = "desc",
-) -> tuple[list[Purpose], int]:
+def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose], int]:
     """
     Get purposes with filtering, searching, sorting, and pagination.
 
     Returns:
         Tuple of (purposes list, total count)
     """
-    query = _get_base_purpose_query(db)
+    stmt = _get_base_purpose_select()
 
-    # Apply filters
-    filters = []
-    if hierarchy_id is not None and hierarchy_id:
-        # Join with Hierarchy table to filter by path
-        query = query.join(Hierarchy, Purpose.hierarchy_id == Hierarchy.id)
-        hierarchy_filter = build_hierarchy_filter(db, hierarchy_id, Purpose)
-        filters.append(hierarchy_filter)
-
-    # Add basic filters
-    basic_filters = _build_basic_filters(
-        service_type_id, service_id, supplier_id, status
-    )
-    filters.extend(basic_filters)
-
-    if filters:
-        query = query.filter(and_(*filters))
+    # Apply universal filters using the centralized filtering method
+    stmt = apply_filters(stmt, params, db)
 
     # Apply search
-    if search:
-        search_filter = _build_search_filter(search)
-        query = query.filter(search_filter)
+    if params.search:
+        search_filter = _build_search_filter(params.search)
+        stmt = stmt.where(search_filter)
 
     # Apply sorting
-    sort_column = getattr(Purpose, sort_by, Purpose.creation_time)
-    if sort_order == "desc":
-        query = query.order_by(desc(sort_column))
+    sort_column = getattr(Purpose, params.sort_by, Purpose.creation_time)
+    if params.sort_order == "desc":
+        stmt = stmt.order_by(desc(sort_column))
     else:
-        query = query.order_by(sort_column)
+        stmt = stmt.order_by(sort_column)
 
     # Apply pagination
-    return paginate(query, pagination)
+    return paginate_select(db, stmt, params)
 
 
 def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
@@ -262,7 +220,8 @@ def patch_purpose(
     db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
-    db_purpose = _get_base_purpose_query(db).filter(Purpose.id == purpose_id).first()
+    stmt = _get_base_purpose_select().where(Purpose.id == purpose_id)
+    db_purpose = db.execute(stmt).scalars().first()
     if not db_purpose:
         return None
 
@@ -286,9 +245,11 @@ def patch_purpose(
         _validate_unique_services_in_purpose(purpose_update.contents)
 
         # Delete existing contents
-        db.query(PurposeContent).filter(
-            PurposeContent.purpose_id == db_purpose.id
-        ).delete()
+        stmt = select(PurposeContent).where(PurposeContent.purpose_id == db_purpose.id)
+        contents_to_delete = db.execute(stmt).scalars().all()
+        for content in contents_to_delete:
+            db.delete(content)
+        db.flush()  # Ensure deletions are committed before creating new ones
 
         # Create new contents
         for content_data in purpose_update.contents:
@@ -301,7 +262,8 @@ def patch_purpose(
 
 def delete_purpose(db: Session, purpose_id: int) -> bool:
     """Delete a purpose and its associated files. Returns True if deleted, False if not found."""
-    db_purpose = db.query(Purpose).filter(Purpose.id == purpose_id).first()
+    stmt = select(Purpose).where(Purpose.id == purpose_id)
+    db_purpose = db.execute(stmt).scalars().first()
     if not db_purpose:
         return False
 
