@@ -1,6 +1,7 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.pagination import PaginationParams, paginate
+from app.pagination import PaginationParams, paginate_select
 from app.service_types.models import ServiceType
 from app.services.exceptions import (
     InvalidServiceTypeId,
@@ -13,7 +14,8 @@ from app.services.schemas import ServiceCreate, ServiceUpdate
 
 def get_service(db: Session, service_id: int) -> Service | None:
     """Get a single service by ID."""
-    return db.query(Service).filter(Service.id == service_id).first()
+    stmt = select(Service).where(Service.id == service_id)
+    return db.execute(stmt).scalars().first()
 
 
 def get_services(
@@ -34,40 +36,39 @@ def get_services(
     Returns:
         Tuple of (services list, total count)
     """
-    query = db.query(Service)
+    stmt = select(Service)
 
     # Apply service_type_id filter if provided
     if service_type_id is not None:
-        query = query.filter(Service.service_type_id == service_type_id)
+        stmt = stmt.where(Service.service_type_id == service_type_id)
 
     # Apply search filter if provided
     if search:
-        query = query.filter(Service.name.ilike(f"%{search}%"))
+        stmt = stmt.where(Service.name.ilike(f"%{search}%"))
 
     # Apply ordering
-    query = query.order_by(Service.name)
+    stmt = stmt.order_by(Service.name)
 
-    return paginate(query, pagination)
+    return paginate_select(db, stmt, pagination)
 
 
 def create_service(db: Session, service: ServiceCreate) -> Service:
     """Create a new service."""
     # Validate that service_type_id exists
-    service_type = (
-        db.query(ServiceType).filter(ServiceType.id == service.service_type_id).first()
-    )
+    stmt = select(ServiceType).where(ServiceType.id == service.service_type_id)
+    service_type = db.execute(stmt).scalars().first()
     if not service_type:
         raise InvalidServiceTypeId(
             f"Service type with ID {service.service_type_id} does not exist"
         )
 
     # Check if service with this name already exists for this service type
-    existing = (
-        db.query(Service)
-        .filter(Service.name == service.name)
-        .filter(Service.service_type_id == service.service_type_id)
-        .first()
+    stmt = (
+        select(Service)
+        .where(Service.name == service.name)
+        .where(Service.service_type_id == service.service_type_id)
     )
+    existing = db.execute(stmt).scalars().first()
     if existing:
         raise ServiceAlreadyExists(
             f"Service '{service.name}' already exists for this service type"
@@ -84,7 +85,8 @@ def patch_service(
     db: Session, service_id: int, service_update: ServiceUpdate
 ) -> Service:
     """Patch an existing service."""
-    db_service = db.query(Service).filter(Service.id == service_id).first()
+    stmt = select(Service).where(Service.id == service_id)
+    db_service = db.execute(stmt).scalars().first()
     if not db_service:
         raise ServiceNotFound(f"Service with ID {service_id} not found")
 
@@ -92,11 +94,10 @@ def patch_service(
 
     # Validate service_type_id if it's being updated
     if "service_type_id" in update_data and update_data["service_type_id"] is not None:
-        service_type = (
-            db.query(ServiceType)
-            .filter(ServiceType.id == update_data["service_type_id"])
-            .first()
+        stmt = select(ServiceType).where(
+            ServiceType.id == update_data["service_type_id"]
         )
+        service_type = db.execute(stmt).scalars().first()
         if not service_type:
             raise InvalidServiceTypeId(
                 f"Service type with ID {update_data['service_type_id']} does not exist"
@@ -109,13 +110,13 @@ def patch_service(
             "service_type_id", db_service.service_type_id
         )
 
-        existing = (
-            db.query(Service)
-            .filter(Service.name == new_name)
-            .filter(Service.service_type_id == new_service_type_id)
-            .filter(Service.id != service_id)
-            .first()
+        stmt = (
+            select(Service)
+            .where(Service.name == new_name)
+            .where(Service.service_type_id == new_service_type_id)
+            .where(Service.id != service_id)
         )
+        existing = db.execute(stmt).scalars().first()
         if existing:
             raise ServiceAlreadyExists(
                 f"Service '{new_name}' already exists for this service type"
@@ -132,7 +133,8 @@ def patch_service(
 
 def delete_service(db: Session, service_id: int) -> None:
     """Delete a service."""
-    db_service = db.query(Service).filter(Service.id == service_id).first()
+    stmt = select(Service).where(Service.id == service_id)
+    db_service = db.execute(stmt).scalars().first()
     if not db_service:
         raise ServiceNotFound(f"Service with ID {service_id} not found")
 

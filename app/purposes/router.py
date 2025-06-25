@@ -9,10 +9,10 @@ from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
 from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
 from app.purposes.schemas import (
+    GetPurposesRequest,
     Purpose,
     PurposeCreate,
     PurposeUpdate,
-    GetPurposesRequest,
 )
 
 router = APIRouter()

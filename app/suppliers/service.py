@@ -1,6 +1,7 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.pagination import PaginationParams, paginate
+from app.pagination import PaginationParams, paginate_select
 from app.suppliers.exceptions import SupplierAlreadyExists, SupplierNotFound
 from app.suppliers.models import Supplier
 from app.suppliers.schemas import SupplierCreate, SupplierUpdate
@@ -8,7 +9,8 @@ from app.suppliers.schemas import SupplierCreate, SupplierUpdate
 
 def get_supplier(db: Session, supplier_id: int) -> Supplier | None:
     """Get a single supplier by ID."""
-    return db.query(Supplier).filter(Supplier.id == supplier_id).first()
+    stmt = select(Supplier).where(Supplier.id == supplier_id)
+    return db.execute(stmt).scalar_one_or_none()
 
 
 def get_suppliers(
@@ -25,22 +27,23 @@ def get_suppliers(
     Returns:
         Tuple of (suppliers list, total count)
     """
-    query = db.query(Supplier)
+    stmt = select(Supplier)
 
     # Apply search filter if provided
     if search:
-        query = query.filter(Supplier.name.ilike(f"%{search}%"))
+        stmt = stmt.where(Supplier.name.ilike(f"%{search}%"))
 
     # Apply ordering
-    query = query.order_by(Supplier.name)
+    stmt = stmt.order_by(Supplier.name)
 
-    return paginate(query, pagination)
+    return paginate_select(db, stmt, pagination)
 
 
 def create_supplier(db: Session, supplier: SupplierCreate) -> Supplier:
     """Create a new supplier."""
     # Check if supplier with this name already exists
-    existing = db.query(Supplier).filter(Supplier.name == supplier.name).first()
+    stmt = select(Supplier).where(Supplier.name == supplier.name)
+    existing = db.execute(stmt).scalar_one_or_none()
     if existing:
         raise SupplierAlreadyExists(f"Supplier '{supplier.name}' already exists")
 
@@ -55,7 +58,8 @@ def patch_supplier(
     db: Session, supplier_id: int, supplier_update: SupplierUpdate
 ) -> Supplier:
     """Patch an existing supplier."""
-    db_supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+    stmt = select(Supplier).where(Supplier.id == supplier_id)
+    db_supplier = db.execute(stmt).scalar_one_or_none()
     if not db_supplier:
         raise SupplierNotFound(f"Supplier with ID {supplier_id} not found")
 
@@ -63,12 +67,12 @@ def patch_supplier(
 
     # Check for name conflicts if name is being updated
     if "name" in update_data and update_data["name"] is not None:
-        existing = (
-            db.query(Supplier)
-            .filter(Supplier.name == update_data["name"])
-            .filter(Supplier.id != supplier_id)
-            .first()
+        existing_stmt = (
+            select(Supplier)
+            .where(Supplier.name == update_data["name"])
+            .where(Supplier.id != supplier_id)
         )
+        existing = db.execute(existing_stmt).scalar_one_or_none()
         if existing:
             raise SupplierAlreadyExists(
                 f"Supplier '{update_data['name']}' already exists"
@@ -85,7 +89,8 @@ def patch_supplier(
 
 def delete_supplier(db: Session, supplier_id: int) -> None:
     """Delete a supplier."""
-    db_supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+    stmt = select(Supplier).where(Supplier.id == supplier_id)
+    db_supplier = db.execute(stmt).scalar_one_or_none()
     if not db_supplier:
         raise SupplierNotFound(f"Supplier with ID {supplier_id} not found")
 

@@ -285,6 +285,43 @@ field: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 items: Mapped[List["Item"]] = relationship(...)
 ```
 
+### SQLAlchemy v2 Query Syntax
+
+Always use modern `select()` statements instead of legacy `db.query()` methods:
+
+```python
+from sqlalchemy import select, func
+from sqlalchemy.orm import Session, joinedload
+
+# ✅ Modern select() syntax
+def get_user(db: Session, user_id: int) -> User | None:
+    stmt = select(User).where(User.id == user_id)
+    return db.execute(stmt).scalars().first()
+
+def get_users(db: Session, search: str | None = None) -> list[User]:
+    stmt = select(User)
+    if search:
+        stmt = stmt.where(User.name.ilike(f"%{search}%"))
+    return db.execute(stmt).scalars().all()
+
+# Use paginate_select for pagination
+from app.pagination import paginate_select
+def get_paginated_users(db: Session, pagination) -> tuple[list[User], int]:
+    stmt = select(User).order_by(User.created_at.desc())
+    return paginate_select(db, stmt, pagination)
+
+# ❌ Legacy syntax (DO NOT USE)
+def get_user_old(db: Session, user_id: int) -> User | None:
+    return db.query(User).filter(User.id == user_id).first()
+```
+
+**Key Rules:**
+1. Always use `select()` statements, never `db.query()`
+2. Use `.where()` instead of `.filter()` for conditions
+3. Use `db.execute(stmt).scalars().first/all()` for query execution
+4. Use `paginate_select()` for paginated results
+5. Use `.unique()` with `joinedload` to avoid duplicates
+
 When implementing:
 
 1. Set up FastAPI project structure with proper dependency injection and SYNC routes

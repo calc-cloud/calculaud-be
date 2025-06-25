@@ -1,4 +1,4 @@
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.hierarchies.exceptions import (
@@ -12,7 +12,7 @@ from app.hierarchies.exceptions import (
 )
 from app.hierarchies.models import Hierarchy
 from app.hierarchies.schemas import HierarchyCreate, HierarchyUpdate
-from app.pagination import PaginationParams, paginate
+from app.pagination import PaginationParams, paginate_select
 
 
 def _calculate_path(db: Session, parent_id: int | None, name: str) -> str:
@@ -20,7 +20,8 @@ def _calculate_path(db: Session, parent_id: int | None, name: str) -> str:
     if parent_id is None:
         return name
 
-    parent = db.query(Hierarchy).filter(Hierarchy.id == parent_id).first()
+    stmt = select(Hierarchy).where(Hierarchy.id == parent_id)
+    parent = db.execute(stmt).scalars().first()
     if not parent:
         return name
 
@@ -29,7 +30,8 @@ def _calculate_path(db: Session, parent_id: int | None, name: str) -> str:
 
 def _update_children_paths(db: Session, hierarchy_id: int, new_path: str) -> None:
     """Recursively update paths for all children of a hierarchy."""
-    children = db.query(Hierarchy).filter(Hierarchy.parent_id == hierarchy_id).all()
+    stmt = select(Hierarchy).where(Hierarchy.parent_id == hierarchy_id)
+    children = db.execute(stmt).scalars().all()
 
     for child in children:
         child.path = f"{new_path} / {child.name}"
@@ -47,33 +49,34 @@ def get_hierarchies(
     sort_order: str = "asc",
 ) -> tuple[list[Hierarchy], int]:
     """Get hierarchies with filtering, searching, sorting, and pagination."""
-    query = db.query(Hierarchy)
+    stmt = select(Hierarchy)
 
     # Apply filters
     if type_filter:
-        query = query.filter(Hierarchy.type == type_filter)
+        stmt = stmt.where(Hierarchy.type == type_filter)
 
     if parent_id is not None:
-        query = query.filter(Hierarchy.parent_id == parent_id)
+        stmt = stmt.where(Hierarchy.parent_id == parent_id)
 
     if search:
         search_filter = f"%{search.lower()}%"
-        query = query.filter(func.lower(Hierarchy.name).like(search_filter))
+        stmt = stmt.where(func.lower(Hierarchy.name).like(search_filter))
 
     # Apply sorting
     sort_column = getattr(Hierarchy, sort_by, Hierarchy.name)
     if sort_order.lower() == "desc":
-        query = query.order_by(sort_column.desc())
+        stmt = stmt.order_by(sort_column.desc())
     else:
-        query = query.order_by(sort_column.asc())
+        stmt = stmt.order_by(sort_column.asc())
 
     # Apply pagination
-    return paginate(query, pagination)
+    return paginate_select(db, stmt, pagination)
 
 
 def get_hierarchy_by_id(db: Session, hierarchy_id: int) -> Hierarchy:
     """Get a hierarchy by ID."""
-    hierarchy = db.query(Hierarchy).filter(Hierarchy.id == hierarchy_id).first()
+    stmt = select(Hierarchy).where(Hierarchy.id == hierarchy_id)
+    hierarchy = db.execute(stmt).scalars().first()
     if not hierarchy:
         raise HierarchyNotFound(hierarchy_id)
     return hierarchy
@@ -87,12 +90,12 @@ def get_hierarchy_tree(db: Session, hierarchy_id: int | None = None) -> list[Hie
         return _build_hierarchy_tree(db, hierarchy.id)
     else:
         # Get all root hierarchies (parent_id is None) with their children
-        root_hierarchies = (
-            db.query(Hierarchy)
-            .filter(Hierarchy.parent_id.is_(None))
+        stmt = (
+            select(Hierarchy)
+            .where(Hierarchy.parent_id.is_(None))
             .options(selectinload(Hierarchy.children))
-            .all()
         )
+        root_hierarchies = db.execute(stmt).scalars().all()
 
         # Build complete tree for each root
         for root in root_hierarchies:
@@ -103,12 +106,12 @@ def get_hierarchy_tree(db: Session, hierarchy_id: int | None = None) -> list[Hie
 
 def _build_hierarchy_tree(db: Session, parent_id: int) -> list[Hierarchy]:
     """Recursively build hierarchy tree."""
-    hierarchies = (
-        db.query(Hierarchy)
-        .filter(Hierarchy.parent_id == parent_id)
+    stmt = (
+        select(Hierarchy)
+        .where(Hierarchy.parent_id == parent_id)
         .options(selectinload(Hierarchy.children))
-        .all()
     )
+    hierarchies = db.execute(stmt).scalars().all()
 
     for hierarchy in hierarchies:
         hierarchy.children = _build_hierarchy_tree(db, hierarchy.id)
@@ -120,23 +123,19 @@ def create_hierarchy(db: Session, hierarchy_data: HierarchyCreate) -> Hierarchy:
     """Create a new hierarchy."""
     # Validate parent exists if parent_id is provided
     if hierarchy_data.parent_id:
-        parent = (
-            db.query(Hierarchy).filter(Hierarchy.id == hierarchy_data.parent_id).first()
-        )
+        stmt = select(Hierarchy).where(Hierarchy.id == hierarchy_data.parent_id)
+        parent = db.execute(stmt).scalars().first()
         if not parent:
             raise ParentHierarchyNotFound(hierarchy_data.parent_id)
 
     # Check for duplicate name within the same parent
-    existing = (
-        db.query(Hierarchy)
-        .filter(
-            and_(
-                Hierarchy.name == hierarchy_data.name,
-                Hierarchy.parent_id == hierarchy_data.parent_id,
-            )
+    stmt = select(Hierarchy).where(
+        and_(
+            Hierarchy.name == hierarchy_data.name,
+            Hierarchy.parent_id == hierarchy_data.parent_id,
         )
-        .first()
     )
+    existing = db.execute(stmt).scalars().first()
 
     if existing:
         raise DuplicateHierarchyName(hierarchy_data.name)
@@ -170,26 +169,22 @@ def update_hierarchy(
         if _would_create_circular_reference(db, hierarchy_id, update_data["parent_id"]):
             raise CircularReferenceError()
 
-        parent = (
-            db.query(Hierarchy).filter(Hierarchy.id == update_data["parent_id"]).first()
-        )
+        stmt = select(Hierarchy).where(Hierarchy.id == update_data["parent_id"])
+        parent = db.execute(stmt).scalars().first()
         if not parent:
             raise ParentHierarchyNotFound(update_data["parent_id"])
 
     # Check for duplicate name if name is being updated
     if "name" in update_data:
         parent_id = update_data.get("parent_id", hierarchy.parent_id)
-        existing = (
-            db.query(Hierarchy)
-            .filter(
-                and_(
-                    Hierarchy.name == update_data["name"],
-                    Hierarchy.parent_id == parent_id,
-                    Hierarchy.id != hierarchy_id,
-                )
+        stmt = select(Hierarchy).where(
+            and_(
+                Hierarchy.name == update_data["name"],
+                Hierarchy.parent_id == parent_id,
+                Hierarchy.id != hierarchy_id,
             )
-            .first()
         )
+        existing = db.execute(stmt).scalars().first()
 
         if existing:
             raise DuplicateHierarchyName(update_data["name"])
@@ -218,9 +213,8 @@ def delete_hierarchy(db: Session, hierarchy_id: int) -> None:
     hierarchy = get_hierarchy_by_id(db, hierarchy_id)
 
     # Check if hierarchy has children
-    children_count = (
-        db.query(Hierarchy).filter(Hierarchy.parent_id == hierarchy_id).count()
-    )
+    stmt = select(func.count(Hierarchy.id)).where(Hierarchy.parent_id == hierarchy_id)
+    children_count = db.execute(stmt).scalar()
 
     if children_count > 0:
         raise HierarchyHasChildren(children_count)
@@ -228,9 +222,8 @@ def delete_hierarchy(db: Session, hierarchy_id: int) -> None:
     # Check if hierarchy has associated purposes
     from app.purposes.models import Purpose
 
-    purposes_count = (
-        db.query(Purpose).filter(Purpose.hierarchy_id == hierarchy_id).count()
-    )
+    stmt = select(func.count(Purpose.id)).where(Purpose.hierarchy_id == hierarchy_id)
+    purposes_count = db.execute(stmt).scalar()
     if purposes_count > 0:
         raise HierarchyHasPurposes(purposes_count)
 
@@ -250,7 +243,8 @@ def _would_create_circular_reference(
             return True
         visited.add(current_parent_id)
 
-        parent = db.query(Hierarchy).filter(Hierarchy.id == current_parent_id).first()
+        stmt = select(Hierarchy).where(Hierarchy.id == current_parent_id)
+        parent = db.execute(stmt).scalars().first()
         if not parent:
             break
         current_parent_id = parent.parent_id

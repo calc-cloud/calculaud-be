@@ -12,9 +12,9 @@ from app.analytics.schemas import (
     ServiceTypesDistributionResponse,
     TimelineExpenditureResponse,
 )
-from app.purposes.schemas import FilterParams
 from app.analytics.service import AnalyticsService
 from app.database import get_db
+from app.purposes.schemas import FilterParams
 
 router = APIRouter()
 

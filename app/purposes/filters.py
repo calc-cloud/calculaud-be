@@ -1,10 +1,10 @@
 from sqlalchemy import Select, and_
 from sqlalchemy.orm import Session
 
-from app.purposes.schemas import FilterParams
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.hierarchies.models import Hierarchy
 from app.purposes.models import Purpose, PurposeContent
+from app.purposes.schemas import FilterParams
 
 
 def apply_filters(
