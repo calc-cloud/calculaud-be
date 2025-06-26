@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from app.config import settings
 
 
 class FileAttachmentBase(BaseModel):
@@ -14,6 +16,10 @@ class FileAttachment(FileAttachmentBase):
     id: int
     s3_key: str
     uploaded_at: datetime
+
+    @computed_field
+    def file_url(self) -> str:
+        return f"{settings.s3_bucket_url}/{self.s3_key}"
 
     model_config = ConfigDict(from_attributes=True)
 
