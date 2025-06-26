@@ -3,15 +3,12 @@ from unittest.mock import patch
 
 import pytest
 from botocore.exceptions import ClientError
+from sqlalchemy import select
 
+from app import Purpose, StatusEnum
 from app.files.exceptions import FileNotFoundError, FileUploadError
 from app.files.models import FileAttachment
-from app.files.service import (
-    delete_file,
-    get_file_download_url,
-    link_files_to_purpose,
-    upload_file,
-)
+from app.files.service import delete_file, get_file_download_url, upload_file
 
 
 class TestUploadFile:
@@ -29,9 +26,8 @@ class TestUploadFile:
         assert result.message == "File uploaded successfully"
 
         # Check database record was created
-        file_record = (
-            db_session.query(FileAttachment).filter_by(id=result.file_id).first()
-        )
+        stmt = select(FileAttachment).where(FileAttachment.id == result.file_id)
+        file_record = db_session.execute(stmt).scalar_one_or_none()
         assert file_record is not None
         assert file_record.original_filename == "test.pdf"
 
@@ -48,7 +44,8 @@ class TestUploadFile:
             upload_file(db_session, file_obj, "test.pdf", "application/pdf")
 
         # Check no database record was created
-        file_record = db_session.query(FileAttachment).first()
+        stmt = select(FileAttachment)
+        file_record = db_session.execute(stmt).scalar_one_or_none()
         assert file_record is None
 
 
@@ -123,7 +120,8 @@ class TestDeleteFile:
         assert result is True
 
         # Check file was deleted from database
-        file_record = db_session.query(FileAttachment).filter_by(id=file_id).first()
+        stmt = select(FileAttachment).where(FileAttachment.id == file_id)
+        file_record = db_session.execute(stmt).scalar_one_or_none()
         assert file_record is None
 
     def test_delete_file_not_found(self, db_session):
@@ -154,9 +152,9 @@ class TestDeleteFile:
             delete_file(db_session, file_attachment.id)
 
 
-class TestLinkFilesToPurpose:
-    def test_link_files_to_purpose_success(self, db_session):
-        """Test successful file linking to purpose."""
+class TestFilePurposeManyToManyRelationship:
+    def test_direct_many_to_many_relationship(self, db_session, sample_purpose):
+        """Test direct many-to-many relationship between files and purposes."""
         # Create file records
         file1 = FileAttachment(
             original_filename="test1.pdf",
@@ -173,16 +171,62 @@ class TestLinkFilesToPurpose:
         db_session.add_all([file1, file2])
         db_session.commit()
 
-        purpose_id = 123
-        file_ids = [file1.id, file2.id]
+        # Directly link files to purpose using the many-to-many relationship
+        sample_purpose.file_attachments.extend([file1, file2])
+        db_session.commit()
 
-        result = link_files_to_purpose(db_session, file_ids, purpose_id)
-
-        assert result is True
+        # Verify the relationship works both ways
+        db_session.refresh(sample_purpose)
+        db_session.refresh(file1)
+        db_session.refresh(file2)
 
         # Check files are linked to purpose
-        updated_file1 = db_session.query(FileAttachment).filter_by(id=file1.id).first()
-        updated_file2 = db_session.query(FileAttachment).filter_by(id=file2.id).first()
+        linked_file_ids = {f.id for f in sample_purpose.file_attachments}
+        assert file1.id in linked_file_ids
+        assert file2.id in linked_file_ids
 
-        assert updated_file1.purpose_id == purpose_id
-        assert updated_file2.purpose_id == purpose_id
+        # Check purpose is linked to files (reverse relationship)
+        assert sample_purpose in file1.purposes
+        assert sample_purpose in file2.purposes
+
+    def test_file_linked_to_multiple_purposes(
+        self, db_session, sample_purpose, sample_hierarchy
+    ):
+        """Test that a single file can be linked to multiple purposes (many-to-many)."""
+
+        # Create a second purpose
+        purpose2 = Purpose(
+            hierarchy_id=sample_hierarchy.id,
+            status=StatusEnum.IN_PROGRESS,
+            description="Second purpose",
+        )
+        db_session.add(purpose2)
+        db_session.commit()
+
+        # Create a file
+        shared_file = FileAttachment(
+            original_filename="shared.pdf",
+            s3_key="files/shared-uuid.pdf",
+            mime_type="application/pdf",
+            file_size=1024,
+        )
+        db_session.add(shared_file)
+        db_session.commit()
+
+        # Link the same file to both purposes
+        sample_purpose.file_attachments.append(shared_file)
+        purpose2.file_attachments.append(shared_file)
+        db_session.commit()
+
+        # Verify the file is linked to both purposes
+        db_session.refresh(sample_purpose)
+        db_session.refresh(purpose2)
+        db_session.refresh(shared_file)
+
+        assert shared_file in sample_purpose.file_attachments
+        assert shared_file in purpose2.file_attachments
+
+        # Verify reverse relationships
+        assert sample_purpose in shared_file.purposes
+        assert purpose2 in shared_file.purposes
+        assert len(shared_file.purposes) == 2

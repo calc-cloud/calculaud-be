@@ -1,6 +1,7 @@
 from typing import BinaryIO
 
 from botocore.exceptions import ClientError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.aws.exceptions import S3DeleteError
@@ -75,9 +76,8 @@ def get_file_download_url(db: Session, file_id: int) -> FileDownloadResponse:
     Raises:
         FileNotFoundError: If file not found
     """
-    file_attachment = (
-        db.query(FileAttachment).filter(FileAttachment.id == file_id).first()
-    )
+    stmt = select(FileAttachment).where(FileAttachment.id == file_id)
+    file_attachment = db.execute(stmt).scalar_one_or_none()
 
     if not file_attachment:
         raise FileNotFoundError(f"File with ID {file_id} not found")
@@ -109,9 +109,8 @@ def delete_file(db: Session, file_id: int) -> bool:
     Raises:
         FileNotFoundError: If file not found
     """
-    file_attachment = (
-        db.query(FileAttachment).filter(FileAttachment.id == file_id).first()
-    )
+    stmt = select(FileAttachment).where(FileAttachment.id == file_id)
+    file_attachment = db.execute(stmt).scalar_one_or_none()
 
     if not file_attachment:
         raise FileNotFoundError(f"File with ID {file_id} not found")
@@ -148,25 +147,4 @@ def delete_multiple_files(files: list[FileAttachment]) -> bool:
             pass
 
     # Delete all files from database (will be handled by cascade delete)
-    return True
-
-
-def link_files_to_purpose(db: Session, file_ids: list[int], purpose_id: int) -> bool:
-    """
-    Link files to a purpose.
-
-    Args:
-        db: Database session
-        file_ids: List of file IDs to link
-        purpose_id: ID of the purpose
-
-    Returns:
-        True if linking successful
-    """
-    files = db.query(FileAttachment).filter(FileAttachment.id.in_(file_ids)).all()
-
-    for file_attachment in files:
-        file_attachment.purpose_id = purpose_id
-
-    db.commit()
     return True

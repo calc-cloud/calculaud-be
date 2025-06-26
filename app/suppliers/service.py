@@ -1,15 +1,24 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
+from app.files.models import FileAttachment
 from app.pagination import PaginationParams, paginate_select
-from app.suppliers.exceptions import SupplierAlreadyExists, SupplierNotFound
+from app.suppliers.exceptions import (
+    InvalidFileIcon,
+    SupplierAlreadyExists,
+    SupplierNotFound,
+)
 from app.suppliers.models import Supplier
 from app.suppliers.schemas import SupplierCreate, SupplierUpdate
 
 
 def get_supplier(db: Session, supplier_id: int) -> Supplier | None:
     """Get a single supplier by ID."""
-    stmt = select(Supplier).where(Supplier.id == supplier_id)
+    stmt = (
+        select(Supplier)
+        .options(joinedload(Supplier.file_icon))
+        .where(Supplier.id == supplier_id)
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
@@ -27,7 +36,7 @@ def get_suppliers(
     Returns:
         Tuple of (suppliers list, total count)
     """
-    stmt = select(Supplier)
+    stmt = select(Supplier).options(joinedload(Supplier.file_icon))
 
     # Apply search filter if provided
     if search:
@@ -39,6 +48,15 @@ def get_suppliers(
     return paginate_select(db, stmt, pagination)
 
 
+def _validate_file_icon(db: Session, file_icon_id: int | None) -> None:
+    """Validate that file_icon_id exists if provided."""
+    if file_icon_id is not None:
+        stmt = select(FileAttachment).where(FileAttachment.id == file_icon_id)
+        file_attachment = db.execute(stmt).scalar_one_or_none()
+        if not file_attachment:
+            raise InvalidFileIcon(f"File with ID {file_icon_id} not found")
+
+
 def create_supplier(db: Session, supplier: SupplierCreate) -> Supplier:
     """Create a new supplier."""
     # Check if supplier with this name already exists
@@ -46,6 +64,9 @@ def create_supplier(db: Session, supplier: SupplierCreate) -> Supplier:
     existing = db.execute(stmt).scalar_one_or_none()
     if existing:
         raise SupplierAlreadyExists(f"Supplier '{supplier.name}' already exists")
+
+    # Validate file icon if provided
+    _validate_file_icon(db, supplier.file_icon_id)
 
     db_supplier = Supplier(**supplier.model_dump())
     db.add(db_supplier)
@@ -77,6 +98,10 @@ def patch_supplier(
             raise SupplierAlreadyExists(
                 f"Supplier '{update_data['name']}' already exists"
             )
+
+    # Validate file icon if being updated
+    if "file_icon_id" in update_data:
+        _validate_file_icon(db, update_data["file_icon_id"])
 
     for field, value in update_data.items():
         if value is not None:

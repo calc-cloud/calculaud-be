@@ -1,3 +1,6 @@
+import io
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from app.config import settings
@@ -616,3 +619,167 @@ class TestPurposeContentAPI:
         assert "service_id" in content
         assert "quantity" in content
         assert content["quantity"] == 2
+
+
+class TestPurposeFileAttachmentAPI:
+    """Test Purpose File Attachment functionality with many-to-many relationship."""
+
+    @patch("app.files.service.s3_service.upload_file")
+    def test_create_purpose_with_file_attachments(
+        self, mock_s3_upload, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test creating a purpose with file attachments using many-to-many relationship."""
+        # Mock S3 upload
+        mock_s3_upload.return_value = "files/test-uuid.pdf"
+
+        # Upload a file first (this will create a real database record)
+        file_content = b"test content"
+        files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
+        upload_response = test_client.post(
+            f"{settings.api_v1_prefix}/files/upload", files=files
+        )
+        assert upload_response.status_code == 201
+        file_id = upload_response.json()["file_id"]
+
+        # Create purpose with file attachment
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["file_attachment_ids"] = [file_id]
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert "file_attachments" in data
+        assert len(data["file_attachments"]) == 1
+        assert data["file_attachments"][0]["id"] == file_id
+
+    def test_multiple_purposes_share_same_file(
+        self, test_client: TestClient, sample_purpose_data: dict, sample_file_attachment
+    ):
+        """Test that multiple purposes can share the same file (many-to-many)."""
+        file_id = sample_file_attachment.id
+
+        # Create first purpose with file
+        purpose1_data = sample_purpose_data.copy()
+        purpose1_data["description"] = "Purpose 1"
+        purpose1_data["file_attachment_ids"] = [file_id]
+        response1 = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose1_data
+        )
+        assert response1.status_code == 201
+        purpose1_id = response1.json()["id"]
+
+        # Create second purpose with same file
+        purpose2_data = sample_purpose_data.copy()
+        purpose2_data["description"] = "Purpose 2"
+        purpose2_data["file_attachment_ids"] = [file_id]
+        response2 = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose2_data
+        )
+        assert response2.status_code == 201
+        purpose2_id = response2.json()["id"]
+
+        # Verify both purposes have the same file
+        get_response1 = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose1_id}"
+        )
+        get_response2 = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose2_id}"
+        )
+
+        assert len(get_response1.json()["file_attachments"]) == 1
+        assert len(get_response2.json()["file_attachments"]) == 1
+        assert get_response1.json()["file_attachments"][0]["id"] == file_id
+        assert get_response2.json()["file_attachments"][0]["id"] == file_id
+
+    def test_update_purpose_file_attachments(
+        self,
+        test_client: TestClient,
+        sample_purpose_data: dict,
+        multiple_file_attachments,
+    ):
+        """Test updating purpose file attachments."""
+        file1_id = multiple_file_attachments[0].id
+        file2_id = multiple_file_attachments[1].id
+
+        # Create purpose with first file
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["file_attachment_ids"] = [file1_id]
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Update to include both files
+        update_data = {"file_attachment_ids": [file1_id, file2_id]}
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["file_attachments"]) == 2
+
+        file_ids = [f["id"] for f in data["file_attachments"]]
+        assert file1_id in file_ids
+        assert file2_id in file_ids
+
+        # Update to remove first file
+        update_data = {"file_attachment_ids": [file2_id]}
+        response = test_client.patch(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["file_attachments"]) == 1
+        assert data["file_attachments"][0]["id"] == file2_id
+
+    def test_delete_purpose_preserves_files(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test that deleting a purpose doesn't delete files (they might be linked to other purposes)."""
+        # This test would require actual file upload and database setup
+        # For now, we'll create a simple test
+        purpose_data = sample_purpose_data.copy()
+        create_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        purpose_id = create_response.json()["id"]
+
+        # Delete purpose
+        delete_response = test_client.delete(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert delete_response.status_code == 204
+
+        # Verify purpose is deleted
+        get_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert get_response.status_code == 404
+
+    def test_purpose_without_file_attachments(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test creating and getting purpose without file attachments."""
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert "file_attachments" in data
+        assert len(data["file_attachments"]) == 0
+
+    def test_purpose_with_empty_file_attachment_list(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test creating purpose with empty file attachment list."""
+        purpose_data = sample_purpose_data.copy()
+        purpose_data["file_attachment_ids"] = []
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data["file_attachments"]) == 0

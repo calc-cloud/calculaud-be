@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.suppliers import service
-from app.suppliers.exceptions import SupplierAlreadyExists, SupplierNotFound
+from app.suppliers.exceptions import (
+    InvalidFileIcon,
+    SupplierAlreadyExists,
+    SupplierNotFound,
+)
 from app.suppliers.schemas import Supplier, SupplierCreate, SupplierUpdate
 
 router = APIRouter()
@@ -43,6 +47,8 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
         return service.create_supplier(db, supplier)
     except SupplierAlreadyExists as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+    except InvalidFileIcon as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.patch("/{supplier_id}", response_model=Supplier)
@@ -58,6 +64,8 @@ def patch_supplier(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except SupplierAlreadyExists as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
+    except InvalidFileIcon as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)

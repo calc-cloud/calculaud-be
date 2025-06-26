@@ -14,7 +14,6 @@ class FileAttachment(FileAttachmentBase):
     id: int
     s3_key: str
     uploaded_at: datetime
-    purpose_id: int | None
 
     model_config = ConfigDict(from_attributes=True)
 

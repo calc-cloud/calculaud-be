@@ -43,7 +43,7 @@ class PaginatedResult(BaseModel, Generic[T]):
 
 
 def paginate_select(
-        db: Session, stmt: Select, pagination: PaginationParams
+    db: Session, stmt: Select, pagination: PaginationParams
 ) -> tuple[list[Any], int]:
     """
     Paginate a SQLAlchemy Select statement (v2 API).
@@ -68,7 +68,7 @@ def paginate_select(
 
 
 def create_paginated_result(
-        items: list[T], total: int, pagination: PaginationParams
+    items: list[T], total: int, pagination: PaginationParams
 ) -> PaginatedResult[T]:
     """
     Create a PaginatedResult from items and pagination info.

@@ -47,7 +47,7 @@ The API follows RESTful patterns with nested resources:
   - EMF operations are handled through purpose routes (create, update, delete EMFs via purpose PATCH)
 - `/costs` - Managed through EMFs within purposes
 - `/hierarchies` - Manages organizational structure
-- `/files` - Optional file upload functionality
+- `/files` - File upload and management functionality
 
 ### EMF Operations
 
@@ -55,6 +55,108 @@ EMF operations are integrated into the purpose routes:
 - **Create EMF**: Include EMFs in `POST /purposes` or add via `PATCH /purposes/{id}`
 - **Update EMF**: Use `PATCH /purposes/{id}` with updated EMF data
 - **Delete EMF**: Use `PATCH /purposes/{id}` without the EMF (exclude from EMFs list)
+
+### File Upload Operations
+
+Files are uploaded separately and linked to purposes via file IDs:
+
+#### Upload a File
+```bash
+POST /api/v1/files/upload
+Content-Type: multipart/form-data
+
+# Form data with file field
+file: [binary file data]
+```
+
+**Response:**
+```json
+{
+  "file_id": 123,
+  "original_filename": "document.pdf",
+  "mime_type": "application/pdf",
+  "file_size": 1024000,
+  "uploaded_at": "2024-01-15T10:30:00",
+  "message": "File uploaded successfully"
+}
+```
+
+#### Link Files to Purpose
+Include the `file_id` in purpose creation or updates:
+
+```json
+{
+  "description": "New procurement request",
+  "file_attachment_ids": [123, 456],
+  "status": "IN_PROGRESS"
+}
+```
+
+#### Download File
+```bash
+GET /api/v1/files/{file_id}
+```
+
+**Response:**
+```json
+{
+  "file_id": 123,
+  "original_filename": "document.pdf",
+  "download_url": "https://s3.../presigned-url",
+  "expires_in": 3600
+}
+```
+
+#### Delete File
+```bash
+DELETE /api/v1/files/{file_id}
+```
+
+**Workflow:**
+1. Upload files using `/files/upload` endpoint
+2. Get the `file_id` from upload response
+3. Include `file_attachment_ids` when creating/updating purposes
+4. Files are automatically linked to the purpose
+
+#### File Icon Support for Suppliers
+
+Suppliers can have file icons linked through the `file_icon_id` field:
+
+```json
+// Create supplier with file icon
+POST /api/v1/suppliers
+{
+  "name": "Tech Solutions Inc",
+  "file_icon_id": 456
+}
+
+// Response includes file icon relationship
+{
+  "id": 1,
+  "name": "Tech Solutions Inc",
+  "file_icon_id": 456,
+  "file_icon": {
+    "id": 456,
+    "original_filename": "company_logo.png",
+    "content_type": "image/png",
+    "file_size": 2048
+  }
+}
+
+// Update supplier file icon
+PATCH /api/v1/suppliers/1
+{
+  "file_icon_id": 789
+}
+
+// Remove file icon (set to null)
+PATCH /api/v1/suppliers/1
+{
+  "file_icon_id": null
+}
+```
+
+**File Icon Validation**: The system validates that the `file_icon_id` refers to an existing file. If the file doesn't exist, an `InvalidFileIcon` custom exception is raised, returning HTTP 400 Bad Request with details about the missing file.
 
 ## Key Features to Implement
 
@@ -398,6 +500,59 @@ fastapi-project
     7. `config.py` - e.g. env vars
     8. `utils.py` - non-business logic functions, e.g. response normalization, data enrichment, etc.
     9. `exceptions.py` - module specific exceptions, e.g. `PostNotFound`, `InvalidUserData`
+
+### Custom Exception Handling
+
+Always use custom exceptions instead of generic exceptions like `ValueError` or `Exception`. This provides better error handling and more specific HTTP status codes.
+
+**Pattern for Custom Exceptions:**
+
+```python
+# In module exceptions.py
+class ModuleException(Exception):
+    """Base exception for module operations."""
+    
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+class ResourceNotFound(ModuleException):
+    """Raised when a resource is not found."""
+    
+    def __init__(self, resource_id: int):
+        self.message = f"Resource with ID {resource_id} not found"
+        super().__init__(self.message)
+
+class InvalidFileIcon(ModuleException):
+    """Raised when file_icon_id refers to a non-existent file."""
+    
+    def __init__(self, file_id: int):
+        self.message = f"File with ID {file_id} not found"
+        super().__init__(self.message)
+
+# In service.py
+def get_resource(db: Session, resource_id: int):
+    resource = db.execute(select(Resource).where(Resource.id == resource_id)).scalar_one_or_none()
+    if not resource:
+        raise ResourceNotFound(resource_id)
+    return resource
+
+def validate_file_icon(db: Session, file_icon_id: int):
+    if file_icon_id is not None:
+        file_attachment = db.execute(select(FileAttachment).where(FileAttachment.id == file_icon_id)).scalar_one_or_none()
+        if not file_attachment:
+            raise InvalidFileIcon(file_icon_id)
+
+# In router.py
+@router.get("/{resource_id}")
+def get_resource(resource_id: int, db: Session = Depends(get_db)):
+    try:
+        return service.get_resource(db, resource_id)
+    except ResourceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+    except InvalidFileIcon as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+```
 
 ### Migrations. Alembic
 

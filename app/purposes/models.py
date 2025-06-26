@@ -71,7 +71,7 @@ class Purpose(Base):
         "EMF", back_populates="purpose", cascade="all, delete-orphan"
     )
     file_attachments: Mapped[list["FileAttachment"]] = relationship(
-        "FileAttachment", back_populates="purpose", cascade="all, delete-orphan"
+        "FileAttachment", secondary="purpose_file_attachment", back_populates="purposes"
     )
     contents: Mapped[list["PurposeContent"]] = relationship(
         "PurposeContent", back_populates="purpose", cascade="all, delete-orphan"

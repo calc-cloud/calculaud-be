@@ -1,9 +1,9 @@
 from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app import FileAttachment
 from app.costs.models import Cost
 from app.emfs.models import EMF
-from app.files import service as file_service
 from app.pagination import paginate_select
 from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
 from app.purposes.filters import apply_filters
@@ -113,18 +113,18 @@ def _build_search_filter(search: str):
     )
 
 
-def _handle_file_attachments(
+def _set_file_attachments(
     db: Session, db_purpose: Purpose, file_attachment_ids: list[int]
 ) -> None:
-    """Handle file attachment updates for a purpose."""
-    # Unlink files not in the new list
-    current_file_ids = {f.id for f in db_purpose.file_attachments}
-    new_file_ids = set(file_attachment_ids)
-    files_to_unlink = current_file_ids - new_file_ids
-    for file in files_to_unlink:
-        file_service.delete_file(db, file)
-    # Link new files
-    file_service.link_files_to_purpose(db, file_attachment_ids, db_purpose.id)
+    """Handle file attachment updates for a purpose using many-to-many relationship."""
+    files = (
+        db.execute(
+            select(FileAttachment).where(FileAttachment.id.in_(file_attachment_ids))
+        )
+        .scalars()
+        .all()
+    )
+    db_purpose.file_attachments = files
 
 
 def _process_emfs(db: Session, db_purpose: Purpose, emfs_data) -> None:
@@ -153,7 +153,7 @@ def _process_emfs(db: Session, db_purpose: Purpose, emfs_data) -> None:
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
     """Get a single purpose by ID."""
     stmt = _get_base_purpose_select().where(Purpose.id == purpose_id)
-    return db.execute(stmt).scalars().first()
+    return db.execute(stmt).unique().scalars().first()
 
 
 def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose], int]:
@@ -205,11 +205,8 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
     for emf_data in purpose.emfs:
         _create_emf_with_costs(db, db_purpose.id, emf_data)
 
-    # Link files to purpose if provided
     if purpose.file_attachment_ids:
-        file_service.link_files_to_purpose(
-            db, purpose.file_attachment_ids, db_purpose.id
-        )
+        _set_file_attachments(db, db_purpose, purpose.file_attachment_ids)
 
     db.commit()
     db.refresh(db_purpose)
@@ -220,14 +217,13 @@ def patch_purpose(
     db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
-    stmt = _get_base_purpose_select().where(Purpose.id == purpose_id)
-    db_purpose = db.execute(stmt).scalars().first()
+    db_purpose = get_purpose(db, purpose_id)
     if not db_purpose:
         return None
 
     # Handle file attachments first
     if purpose_update.file_attachment_ids is not None:
-        _handle_file_attachments(db, db_purpose, purpose_update.file_attachment_ids)
+        _set_file_attachments(db, db_purpose, purpose_update.file_attachment_ids)
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
@@ -261,16 +257,14 @@ def patch_purpose(
 
 
 def delete_purpose(db: Session, purpose_id: int) -> bool:
-    """Delete a purpose and its associated files. Returns True if deleted, False if not found."""
+    """Delete a purpose. Returns True if deleted, False if not found."""
     stmt = select(Purpose).where(Purpose.id == purpose_id)
     db_purpose = db.execute(stmt).scalars().first()
     if not db_purpose:
         return False
 
-    # Delete associated files from S3 and database
-    for file in db_purpose.file_attachments:
-        file_service.delete_file(db, file.id)
-
+    # With many-to-many relationship, files are automatically unlinked by cascade delete
+    # Files themselves are not deleted since they might be linked to other purposes
     db.delete(db_purpose)
     db.commit()
     return True

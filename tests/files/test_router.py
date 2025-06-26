@@ -4,23 +4,17 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.files.exceptions import FileNotFoundError, FileUploadError
-from app.files.schemas import FileDownloadResponse, FileUploadResponse
+from app.files.schemas import FileDownloadResponse
 from app.main import app
 
 client = TestClient(app)
 
 
 class TestFileUpload:
-    @patch("app.files.router.service.upload_file")
-    def test_upload_file_success(self, mock_upload):
+    @patch("app.files.service.s3_service.upload_file")
+    def test_upload_file_success(self, mock_s3_upload):
         """Test successful file upload."""
-        mock_upload.return_value = FileUploadResponse(
-            file_id=1,
-            original_filename="test.pdf",
-            mime_type="application/pdf",
-            file_size=1024,
-            uploaded_at="2023-01-01T00:00:00",
-        )
+        mock_s3_upload.return_value = "files/test-uuid.pdf"
 
         response = client.post(
             "/api/v1/files/upload",
@@ -31,9 +25,11 @@ class TestFileUpload:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["file_id"] == 1
         assert data["original_filename"] == "test.pdf"
+        assert data["mime_type"] == "application/pdf"
+        assert data["file_size"] == 12  # len(b"test content")
         assert data["message"] == "File uploaded successfully"
+        assert "file_id" in data
 
     def test_upload_file_no_file(self):
         """Test file upload without providing a file."""
@@ -41,10 +37,14 @@ class TestFileUpload:
 
         assert response.status_code == 422  # Unprocessable Entity
 
-    @patch("app.files.router.service.upload_file")
-    def test_upload_file_upload_error(self, mock_upload):
+    @patch("app.files.service.s3_service.upload_file")
+    def test_upload_file_upload_error(self, mock_s3_upload):
         """Test file upload with upload error."""
-        mock_upload.side_effect = FileUploadError("S3 upload failed")
+        from botocore.exceptions import ClientError
+
+        mock_s3_upload.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchBucket"}}, "upload_file"
+        )
 
         response = client.post(
             "/api/v1/files/upload",
@@ -54,7 +54,7 @@ class TestFileUpload:
         )
 
         assert response.status_code == 500
-        assert "S3 upload failed" in response.json()["detail"]
+        assert "Failed to upload file" in response.json()["detail"]
 
 
 class TestFileDownload:

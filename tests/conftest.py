@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import EMF, Cost, Hierarchy, Purpose, Service, ServiceType
+from app import EMF, Cost, FileAttachment, Hierarchy, Purpose, Service, ServiceType
 from app.database import Base, get_db
 from app.main import app
 
@@ -235,3 +235,43 @@ def sample_purpose_data_with_contents(sample_hierarchy, sample_service) -> dict:
         "description": "Test description",
         "contents": [{"service_id": sample_service.id, "quantity": 2}],
     }
+
+
+# File upload fixtures
+@pytest.fixture
+def sample_file_attachment(db_session) -> FileAttachment:
+    """Create sample file attachment in database."""
+    file_attachment = FileAttachment(
+        original_filename="test.pdf",
+        s3_key="files/test-uuid.pdf",
+        mime_type="application/pdf",
+        file_size=1024,
+    )
+    db_session.add(file_attachment)
+    db_session.commit()
+    db_session.refresh(file_attachment)
+    return file_attachment
+
+
+@pytest.fixture
+def multiple_file_attachments(db_session) -> list[FileAttachment]:
+    """Create multiple sample file attachments in database."""
+    files = [
+        FileAttachment(
+            original_filename="file1.pdf",
+            s3_key="files/file1-uuid.pdf",
+            mime_type="application/pdf",
+            file_size=1024,
+        ),
+        FileAttachment(
+            original_filename="file2.jpg",
+            s3_key="files/file2-uuid.jpg",
+            mime_type="image/jpeg",
+            file_size=2048,
+        ),
+    ]
+    db_session.add_all(files)
+    db_session.commit()
+    for file_attachment in files:
+        db_session.refresh(file_attachment)
+    return files
