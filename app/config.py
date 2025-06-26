@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: Annotated[str, Field(default="")]
     aws_region: Annotated[str, Field(default="us-east-1")]
     s3_bucket_name: Annotated[str, Field(default="calcloud-files")]
-    s3_bucket_url: Annotated[str, Field(default="https://calcloud-files.s3.amazonaws.com/")]
+    s3_bucket_url: Annotated[str, Field(default="https://calcloud-files.s3.amazonaws.com")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
 
     # Currency Configuration
