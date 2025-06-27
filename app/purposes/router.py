@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
-from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
+from app.purposes.exceptions import (
+    DuplicateServiceInPurpose,
+    FileAttachmentsNotFound,
+    ServiceNotFound,
+)
 from app.purposes.schemas import (
     GetPurposesRequest,
     Purpose,
@@ -48,7 +52,11 @@ def create_purpose(purpose: PurposeCreate, db: Session = Depends(get_db)):
     """Create a new purpose."""
     try:
         return service.create_purpose(db, purpose)
-    except (ServiceNotFound, DuplicateServiceInPurpose) as e:
+    except (
+        ServiceNotFound,
+        DuplicateServiceInPurpose,
+        FileAttachmentsNotFound,
+    ) as e:
         raise HTTPException(status_code=statuses.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -64,7 +72,11 @@ def patch_purpose(
                 status_code=statuses.HTTP_404_NOT_FOUND, detail="Purpose not found"
             )
         return patched_purpose
-    except (ServiceNotFound, DuplicateServiceInPurpose) as e:
+    except (
+        ServiceNotFound,
+        DuplicateServiceInPurpose,
+        FileAttachmentsNotFound,
+    ) as e:
         raise HTTPException(status_code=statuses.HTTP_400_BAD_REQUEST, detail=str(e))
 
 

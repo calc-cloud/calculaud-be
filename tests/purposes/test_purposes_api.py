@@ -1,785 +1,323 @@
-import io
-from unittest.mock import patch
+"""Test Purpose CRUD operations using base test mixins."""
 
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from tests.base import BaseAPITestClass
+from tests.utils import APITestHelper, assert_paginated_response
 
 
-class TestPurposesAPI:
-    """Test Purpose API endpoints."""
+class TestPurposesApi(BaseAPITestClass):
+    """Test Purpose CRUD operations using base test mixins."""
 
-    def test_get_purposes_empty_list(self, test_client: TestClient):
-        """Test GET /purposes returns empty list initially."""
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes")
-        assert response.status_code == 200
-        assert response.json() == {
-            "items": [],
-            "total": 0,
-            "page": 1,
-            "limit": 100,
-            "has_next": False,
-            "has_prev": False,
-            "pages": 0,
+    # Configuration for base test mixins
+    resource_name = "purposes"
+    resource_endpoint = f"{settings.api_v1_prefix}/purposes"
+    create_data_fixture = "sample_purpose_data"
+    instance_fixture = "sample_purpose"
+    multiple_instances_fixture = "multiple_purposes"
+    search_instances_fixture = "multiple_purposes"
+    search_field = "description"
+
+    def _get_update_data(self) -> dict:
+        """Get data for update operations."""
+        return {
+            "description": "Updated Purpose Description",
+            "status": "IN_PROGRESS",
+            "comments": "Updated comments",
         }
 
-    def test_create_purpose(self, test_client: TestClient, sample_purpose_data: dict):
-        """Test POST /purposes creates new purpose."""
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert data["hierarchy"]["id"] == sample_purpose_data["hierarchy_id"]
-        assert data["description"] == sample_purpose_data["description"]
-        assert data["status"] == sample_purpose_data["status"]
-        assert "id" in data
-        assert "creation_time" in data
-
-    def test_get_purpose_by_id(
+    def test_create_purpose_response_structure(
         self, test_client: TestClient, sample_purpose_data: dict
     ):
-        """Test GET /purposes/{id} returns purpose with EMFs and costs."""
-        # Create purpose first
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Get purpose by ID
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
-        assert response.status_code == 200
+        """Test that created purpose has correct response structure."""
+        response = test_client.post(self.resource_endpoint, json=sample_purpose_data)
+        assert response.status_code == 201
         data = response.json()
-        assert data["id"] == purpose_id
-        assert data["description"] == sample_purpose_data["description"]
+
+        # Verify response structure
+        assert "id" in data
+        assert "creation_time" in data
+        assert "hierarchy" in data
         assert "emfs" in data
         assert isinstance(data["emfs"], list)
 
-    def test_get_purpose_not_found(self, test_client: TestClient):
-        """Test GET /purposes/{id} returns 404 for non-existent purpose."""
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes/999")
-        assert response.status_code == 404
+        # Verify hierarchy relationship is loaded
+        if sample_purpose_data.get("hierarchy_id"):
+            assert data["hierarchy"]["id"] == sample_purpose_data["hierarchy_id"]
 
-    def test_patch_purpose(self, test_client: TestClient, sample_purpose_data: dict):
-        """Test PATCH /purposes/{id} patches purpose."""
-        # Create purpose first
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Patch purpose
-        patch_data = sample_purpose_data.copy()
-        patch_data["description"] = "Patched description"
-        patch_data["status"] = "IN_PROGRESS"
-
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=patch_data
-        )
+    def test_get_purpose_includes_relationships(
+        self, test_client: TestClient, created_purpose
+    ):
+        """Test that retrieved purpose includes all relationships."""
+        response = test_client.get(f"{self.resource_endpoint}/{created_purpose['id']}")
         assert response.status_code == 200
         data = response.json()
-        assert data["description"] == "Patched description"
-        assert data["status"] == "IN_PROGRESS"
-        assert data["id"] == purpose_id
 
-    def test_patch_purpose_not_found(
-        self, test_client: TestClient, sample_purpose_data: dict
+        # Verify relationships are loaded
+        assert "hierarchy" in data
+        assert "emfs" in data
+        assert isinstance(data["emfs"], list)
+
+        # Verify response structure matches created purpose
+        assert data["id"] == created_purpose["id"]
+        assert data["description"] == created_purpose["description"]
+
+    """Test Purpose filtering and search functionality."""
+
+    def test_filter_by_status(
+        self, test_client: TestClient, multiple_suppliers_for_filtering
     ):
-        """Test PATCH /purposes/{id} returns 404 for non-existent purpose."""
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/999", json=sample_purpose_data
+        """Test filtering purposes by status."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        # Create purposes with different statuses
+        base_data = {
+            "status": "IN_PROGRESS",
+            "expected_delivery": "2024-12-31",
+        }
+
+        helper.create_resource(
+            {**base_data, "status": "IN_PROGRESS", "description": "In Progress Purpose"}
         )
-        assert response.status_code == 404
-
-    def test_delete_purpose(self, test_client: TestClient, sample_purpose_data: dict):
-        """Test DELETE /purposes/{id} deletes purpose."""
-        # Create purpose first
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        helper.create_resource(
+            {**base_data, "status": "COMPLETED", "description": "Completed Purpose"}
         )
-        purpose_id = create_response.json()["id"]
-
-        # Delete purpose
-        response = test_client.delete(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
-        assert response.status_code == 204
-
-        # Verify purpose is deleted
-        get_response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        helper.create_resource(
+            {**base_data, "status": "IN_PROGRESS", "description": "Another In Progress"}
         )
-        assert get_response.status_code == 404
-
-    def test_delete_purpose_not_found(self, test_client: TestClient):
-        """Test DELETE /purposes/{id} returns 404 for non-existent purpose."""
-        response = test_client.delete(f"{settings.api_v1_prefix}/purposes/999")
-        assert response.status_code == 404
-
-    def test_get_purposes_with_pagination(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test GET /purposes with pagination parameters."""
-        # Create multiple purposes
-        for i in range(5):
-            data = sample_purpose_data.copy()
-            data["description"] = f"Purpose {i}"
-            test_client.post(f"{settings.api_v1_prefix}/purposes", json=data)
-
-        # Test pagination
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?page=1&limit=2")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 2
-        assert data["total"] == 5
-        assert data["page"] == 1
-        assert data["limit"] == 2
-
-    def test_get_purposes_with_filters(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test GET /purposes with filtering."""
-        # Create suppliers first
-        supplier_a = test_client.post(
-            f"{settings.api_v1_prefix}/suppliers", json={"name": "Supplier A"}
-        )
-        supplier_b = test_client.post(
-            f"{settings.api_v1_prefix}/suppliers", json={"name": "Supplier B"}
-        )
-        supplier_a_id = supplier_a.json()["id"]
-        supplier_b_id = supplier_b.json()["id"]
-
-        # Create purposes with different attributes
-        data1 = sample_purpose_data.copy()
-        data1["status"] = "IN_PROGRESS"
-        data1["supplier_id"] = supplier_a_id
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
-
-        data2 = sample_purpose_data.copy()
-        data2["status"] = "COMPLETED"
-        data2["supplier_id"] = supplier_b_id
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
 
         # Test status filter
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?status=IN_PROGRESS"
+        response_data = helper.list_resources(status="IN_PROGRESS")
+        assert len(response_data["items"]) == 2
+        for item in response_data["items"]:
+            assert item["status"] == "IN_PROGRESS"
+
+    def test_filter_by_supplier(
+        self, test_client: TestClient, multiple_suppliers_for_filtering
+    ):
+        """Test filtering purposes by supplier."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        supplier_a_id = multiple_suppliers_for_filtering["supplier_a"]["id"]
+        supplier_b_id = multiple_suppliers_for_filtering["supplier_b"]["id"]
+
+        base_data = {
+            "status": "IN_PROGRESS",
+            "expected_delivery": "2024-12-31",
+        }
+
+        # Create purposes with different suppliers
+        helper.create_resource(
+            {**base_data, "supplier_id": supplier_a_id, "description": "Purpose A"}
         )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["status"] == "IN_PROGRESS"
+        helper.create_resource(
+            {**base_data, "supplier_id": supplier_b_id, "description": "Purpose B"}
+        )
+        helper.create_resource(
+            {
+                **base_data,
+                "supplier_id": supplier_a_id,
+                "description": "Another Purpose A",
+            }
+        )
 
         # Test supplier filter
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?supplier_id={supplier_b_id}"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["supplier"] == "Supplier B"
+        response_data = helper.list_resources(supplier_id=supplier_a_id)
+        assert len(response_data["items"]) == 2
+        for item in response_data["items"]:
+            assert item["supplier"] == "Supplier A"
 
-    def test_get_purposes_with_search(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test GET /purposes with search functionality."""
+    def test_search_in_description(self, test_client: TestClient, sample_hierarchy):
+        """Test searching purposes by description."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        base_data = {
+            "hierarchy_id": sample_hierarchy.id,
+            "status": "IN_PROGRESS",
+            "expected_delivery": "2024-12-31",
+        }
+
         # Create purposes with different descriptions
-        data1 = sample_purpose_data.copy()
-        data1["description"] = "Software development project"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
-
-        data2 = sample_purpose_data.copy()
-        data2["description"] = "Hardware procurement for buying computers"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
-
-        # Test search in description
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=software")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert "software" in data["items"][0]["description"].lower()
-
-        # Test search in description for computers
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?search=computers"
+        helper.create_resource(
+            {**base_data, "description": "Software development project"}
         )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert "computers" in data["items"][0]["description"].lower()
+        helper.create_resource(
+            {**base_data, "description": "Hardware procurement for computers"}
+        )
+        helper.create_resource(
+            {**base_data, "description": "Training program for staff"}
+        )
 
-    def test_get_purposes_with_emf_id_search(
-        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
+        # Test search functionality
+        response_data = helper.search_resources("software")
+        assert len(response_data["items"]) == 1
+        assert "software" in response_data["items"][0]["description"].lower()
+
+        response_data = helper.search_resources("computers")
+        assert len(response_data["items"]) == 1
+        assert "computers" in response_data["items"][0]["description"].lower()
+
+    def test_search_by_emf_id(
+        self, test_client: TestClient, purpose_with_emfs_and_costs
     ):
-        """Test GET /purposes with emf_id search functionality."""
-        # Create purpose with EMFs
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [
-            sample_emf_data.copy(),
+        """Test searching purposes by EMF ID."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        # Test search by emf_id
+        response_data = helper.search_resources("EMF-001")
+        assert len(response_data["items"]) == 1
+        assert response_data["items"][0]["id"] == purpose_with_emfs_and_costs["id"]
+
+        # Test search by different emf_id
+        response_data = helper.search_resources("EMF-002")
+        assert len(response_data["items"]) == 1
+        assert response_data["items"][0]["id"] == purpose_with_emfs_and_costs["id"]
+
+        # Test search by partial emf_id
+        response_data = helper.search_resources("EMF")
+        assert len(response_data["items"]) == 1
+        assert response_data["items"][0]["id"] == purpose_with_emfs_and_costs["id"]
+
+    def test_sorting_by_expected_delivery(
+        self, test_client: TestClient, sample_hierarchy
+    ):
+        """Test sorting purposes by expected delivery date."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        base_data = {
+            "hierarchy_id": sample_hierarchy.id,
+            "status": "IN_PROGRESS",
+            "description": "Test purpose",
+        }
+
+        # Create purposes with different delivery dates
+        helper.create_resource({**base_data, "expected_delivery": "2024-01-01"})
+        helper.create_resource({**base_data, "expected_delivery": "2024-06-01"})
+        helper.create_resource({**base_data, "expected_delivery": "2024-03-01"})
+
+        # Test ascending sort
+        response_data = helper.list_resources(
+            sort_by="expected_delivery", sort_order="asc"
+        )
+        dates = [item["expected_delivery"] for item in response_data["items"]]
+        assert dates == sorted(dates)
+
+        # Test descending sort
+        response_data = helper.list_resources(
+            sort_by="expected_delivery", sort_order="desc"
+        )
+        dates = [item["expected_delivery"] for item in response_data["items"]]
+        assert dates == sorted(dates, reverse=True)
+
+    def test_combined_filters_search_and_sorting(
+        self, test_client: TestClient, sample_hierarchy
+    ):
+        """Test combining filters, search, and sorting."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        base_data = {
+            "hierarchy_id": sample_hierarchy.id,
+            "expected_delivery": "2024-12-31",
+        }
+
+        # Create multiple purposes with various attributes
+        purposes_data = [
             {
-                **sample_emf_data,
-                "emf_id": "EMF-002",
-                "costs": [{"currency": "ILS", "amount": 2000.00}],
+                **base_data,
+                "description": "Project Alpha",
+                "status": "IN_PROGRESS",
+                "expected_delivery": "2024-03-01",
+            },
+            {
+                **base_data,
+                "description": "Project Beta",
+                "status": "COMPLETED",
+                "expected_delivery": "2024-01-01",
+            },
+            {
+                **base_data,
+                "description": "Project Gamma",
+                "status": "IN_PROGRESS",
+                "expected_delivery": "2024-05-01",
+            },
+            {
+                **base_data,
+                "description": "Task Alpha",
+                "status": "IN_PROGRESS",
+                "expected_delivery": "2024-02-01",
             },
         ]
 
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert create_response.status_code == 201
+        for data in purposes_data:
+            helper.create_resource(data)
 
-        # Test search by emf_id
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-001")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["id"] == create_response.json()["id"]
-
-        # Test search by different emf_id
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-002")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["id"] == create_response.json()["id"]
-
-        # Test search by partial emf_id
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["id"] == create_response.json()["id"]
-
-        # Test search by non-existent emf_id
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes?search=EMF-999")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 0
-
-    def test_get_purposes_with_sorting(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test GET /purposes with sorting."""
-        # Create purposes with different dates
-        data1 = sample_purpose_data.copy()
-        data1["expected_delivery"] = "2024-01-01"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=data1)
-
-        data2 = sample_purpose_data.copy()
-        data2["expected_delivery"] = "2024-06-01"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=data2)
-
-        # Test sort by expected_delivery ascending
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?sort_by=expected_delivery&sort_order=asc"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 2
-        assert (
-            data["items"][0]["expected_delivery"]
-            <= data["items"][1]["expected_delivery"]
+        # Test combined filters: status + search + sorting
+        response_data = helper.list_resources(
+            status="IN_PROGRESS",
+            search="Project",
+            sort_by="expected_delivery",
+            sort_order="asc",
         )
 
-        # Test sort by expected_delivery descending
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?sort_by=expected_delivery&sort_order=desc"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 2
-        assert (
-            data["items"][0]["expected_delivery"]
-            >= data["items"][1]["expected_delivery"]
-        )
-
-    def test_get_purposes_combined_filters(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test GET /purposes with combined filters, search, and sorting."""
-        # Create multiple purposes
-        for i in range(3):
-            data = sample_purpose_data.copy()
-            data["description"] = f"Project {i}"
-            data["status"] = "IN_PROGRESS" if i % 2 == 0 else "COMPLETED"
-            data["expected_delivery"] = f"2024-0{i + 1}-01"
-            test_client.post(f"{settings.api_v1_prefix}/purposes", json=data)
-
-        # Test combined filters
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?status=IN_PROGRESS&search=Project"
-            f"&sort_by=expected_delivery&sort_order=desc&limit=10"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 2  # Only 'IN_PROGRESS' projects
-        for item in data["items"]:
+        assert len(response_data["items"]) == 2  # Only IN_PROGRESS projects
+        for item in response_data["items"]:
             assert item["status"] == "IN_PROGRESS"
             assert "Project" in item["description"]
 
-    def test_get_purposes_with_hierarchy_path_filtering(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test GET /purposes with hierarchy path filtering."""
-        # Create hierarchy tree: raphael -> raphael/lustig -> raphael/lustig/some
-        hierarchy_raphael = test_client.post(
-            f"{settings.api_v1_prefix}/hierarchies",
-            json={"type": "UNIT", "name": "raphael", "path": "raphael"},
+        # Verify sorting
+        dates = [item["expected_delivery"] for item in response_data["items"]]
+        assert dates == sorted(dates)
+
+    def test_hierarchy_path_filtering(self, test_client: TestClient, hierarchy_tree):
+        """Test filtering purposes by hierarchy path."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        root_id = hierarchy_tree["root"]["id"]
+        child1_id = hierarchy_tree["children"][0]["id"]
+        child2_id = hierarchy_tree["children"][1]["id"]
+
+        base_data = {
+            "status": "IN_PROGRESS",
+            "expected_delivery": "2024-12-31",
+        }
+
+        # Create purposes for different hierarchy levels
+        helper.create_resource(
+            {**base_data, "hierarchy_id": root_id, "description": "Root Purpose"}
         )
-        hierarchy_lustig = test_client.post(
-            f"{settings.api_v1_prefix}/hierarchies",
-            json={
-                "type": "CENTER",
-                "name": "lustig",
-                "path": "raphael/lustig",
-                "parent_id": hierarchy_raphael.json()["id"],
-            },
+        helper.create_resource(
+            {**base_data, "hierarchy_id": child1_id, "description": "Child 1 Purpose"}
         )
-        hierarchy_some = test_client.post(
-            f"{settings.api_v1_prefix}/hierarchies",
-            json={
-                "type": "ANAF",
-                "name": "some",
-                "path": "raphael/lustig/some",
-                "parent_id": hierarchy_lustig.json()["id"],
-            },
-        )
-
-        raphael_id = hierarchy_raphael.json()["id"]
-        lustig_id = hierarchy_lustig.json()["id"]
-        some_id = hierarchy_some.json()["id"]
-
-        # Create purposes for each hierarchy level
-        purpose_raphael = sample_purpose_data.copy()
-        purpose_raphael["hierarchy_id"] = raphael_id
-        purpose_raphael["description"] = "Purpose for raphael"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_raphael)
-
-        purpose_lustig = sample_purpose_data.copy()
-        purpose_lustig["hierarchy_id"] = lustig_id
-        purpose_lustig["description"] = "Purpose for lustig"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_lustig)
-
-        purpose_some = sample_purpose_data.copy()
-        purpose_some["hierarchy_id"] = some_id
-        purpose_some["description"] = "Purpose for some"
-        test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_some)
-
-        # Test filtering by raphael hierarchy_id - should return all 3 purposes
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?hierarchy_id={raphael_id}"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 3
-        descriptions = [item["description"] for item in data["items"]]
-        assert "Purpose for raphael" in descriptions
-        assert "Purpose for lustig" in descriptions
-        assert "Purpose for some" in descriptions
-
-        # Test filtering by lustig hierarchy_id - should return 2 purposes (lustig and some)
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?hierarchy_id={lustig_id}"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 2
-        descriptions = [item["description"] for item in data["items"]]
-        assert "Purpose for lustig" in descriptions
-        assert "Purpose for some" in descriptions
-
-        # Test filtering by some hierarchy_id - should return only 1 purpose (some)
-        response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?hierarchy_id={some_id}"
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["description"] == "Purpose for some"
-
-
-class TestPurposeContentAPI:
-    """Test Purpose Content functionality."""
-
-    def test_create_purpose_with_contents(
-        self, test_client: TestClient, sample_purpose_data_with_contents: dict
-    ):
-        """Test creating a purpose with contents."""
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert len(data["contents"]) == 1
-        assert (
-            data["contents"][0]["service_id"]
-            == sample_purpose_data_with_contents["contents"][0]["service_id"]
-        )
-        assert (
-            data["contents"][0]["quantity"]
-            == sample_purpose_data_with_contents["contents"][0]["quantity"]
+        helper.create_resource(
+            {**base_data, "hierarchy_id": child2_id, "description": "Child 2 Purpose"}
         )
 
-    def test_create_purpose_with_invalid_service_id(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test creating a purpose with invalid service_id returns 400."""
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["contents"] = [{"service_id": 999, "quantity": 2}]
+        # Test filtering by root hierarchy - should return all purposes
+        response_data = helper.list_resources(hierarchy_id=root_id)
+        assert len(response_data["items"]) == 3
 
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 400
-        assert "Service with ID 999 does not exist" in response.json()["detail"]
+        # Test filtering by child hierarchy - should return only child purposes
+        response_data = helper.list_resources(hierarchy_id=child1_id)
+        assert len(response_data["items"]) == 1
+        assert response_data["items"][0]["description"] == "Child 1 Purpose"
 
-    def test_create_purpose_with_zero_quantity(
-        self, test_client: TestClient, sample_purpose_data: dict, sample_service
-    ):
-        """Test creating a purpose with zero quantity returns 422."""
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["contents"] = [{"service_id": sample_service.id, "quantity": 0}]
+    def test_pagination_with_filters(self, test_client: TestClient, multiple_purposes):
+        """Test pagination combined with filters."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
 
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 422
+        # Test paginated results with filters
+        response_data = helper.list_resources(status="IN_PROGRESS", page=1, limit=3)
 
-    def test_create_purpose_with_negative_quantity(
-        self, test_client: TestClient, sample_purpose_data: dict, sample_service
-    ):
-        """Test creating a purpose with negative quantity returns 422."""
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["contents"] = [{"service_id": sample_service.id, "quantity": -1}]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 422
-
-    def test_create_purpose_with_duplicate_service(
-        self, test_client: TestClient, sample_purpose_data: dict, sample_service
-    ):
-        """Test creating a purpose with duplicate service in contents fails."""
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["contents"] = [
-            {"service_id": sample_service.id, "quantity": 2},
-            {"service_id": sample_service.id, "quantity": 3},
-        ]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        # This should fail due to unique constraint
-        assert response.status_code == 400
-        assert "already included in this purpose" in response.json()["detail"]
-
-    def test_update_purpose_contents(
-        self,
-        test_client: TestClient,
-        sample_purpose_data_with_contents: dict,
-        sample_service,
-    ):
-        """Test updating purpose contents."""
-        # Create purpose with contents
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Update with new contents
-        update_data = {"contents": [{"service_id": sample_service.id, "quantity": 5}]}
-
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["contents"]) == 1
-        assert data["contents"][0]["quantity"] == 5
-
-    def test_update_purpose_contents_empty(
-        self, test_client: TestClient, sample_purpose_data_with_contents: dict
-    ):
-        """Test updating purpose with empty contents."""
-        # Create purpose with contents
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Update with empty contents
-        update_data = {"contents": []}
-
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["contents"]) == 0
-
-    def test_update_purpose_contents_invalid_service_id(
-        self, test_client: TestClient, sample_purpose_data_with_contents: dict
-    ):
-        """Test updating purpose with invalid service_id returns 400."""
-        # Create purpose with contents
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Update with invalid service_id
-        update_data = {"contents": [{"service_id": 999, "quantity": 2}]}
-
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
-        )
-        assert response.status_code == 400
-        assert "Service with ID 999 does not exist" in response.json()["detail"]
-
-    def test_cascade_delete_purpose_contents(
-        self, test_client: TestClient, sample_purpose_data_with_contents: dict
-    ):
-        """Test that purpose contents are deleted when purpose is deleted."""
-        # Create purpose with contents
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Verify purpose exists with contents
-        get_response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
-        )
-        assert get_response.status_code == 200
-        assert len(get_response.json()["contents"]) == 1
-
-        # Delete purpose
-        delete_response = test_client.delete(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
-        )
-        assert delete_response.status_code == 204
-
-        # Verify purpose is deleted
-        get_response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
-        )
-        assert get_response.status_code == 404
-
-    def test_multiple_services_in_purpose_contents(
-        self,
-        test_client: TestClient,
-        sample_purpose_data: dict,
-        sample_service,
-        sample_service_type,
-    ):
-        """Test creating purpose with multiple different services."""
-        # Create additional service
-        service2_response = test_client.post(
-            f"{settings.api_v1_prefix}/services",
-            json={"name": "Service 2", "service_type_id": sample_service_type.id},
-        )
-        service2_id = service2_response.json()["id"]
-
-        # Create purpose with multiple services
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["contents"] = [
-            {"service_id": sample_service.id, "quantity": 2},
-            {"service_id": service2_id, "quantity": 3},
-        ]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        # This should succeed with multiple different services
-        assert response.status_code == 201
-        data = response.json()
-        assert len(data["contents"]) == 2
-
-        # Verify both services are included
-        service_ids = [content["service_id"] for content in data["contents"]]
-        assert sample_service.id in service_ids
-        assert service2_id in service_ids
-
-    def test_get_purpose_with_contents_includes_service_info(
-        self, test_client: TestClient, sample_purpose_data_with_contents: dict
-    ):
-        """Test that getting a purpose includes full content information."""
-        # Create purpose with contents
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data_with_contents
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Get purpose and verify contents structure
-        response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "contents" in data
-        assert len(data["contents"]) == 1
-        content = data["contents"][0]
-        assert "id" in content
-        assert "service_id" in content
-        assert "quantity" in content
-        assert content["quantity"] == 2
-
-
-class TestPurposeFileAttachmentAPI:
-    """Test Purpose File Attachment functionality with many-to-many relationship."""
-
-    @patch("app.files.service.s3_service.upload_file")
-    def test_create_purpose_with_file_attachments(
-        self, mock_s3_upload, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test creating a purpose with file attachments using many-to-many relationship."""
-        # Mock S3 upload
-        mock_s3_upload.return_value = "files/test-uuid.pdf"
-
-        # Upload a file first (this will create a real database record)
-        file_content = b"test content"
-        files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
-        upload_response = test_client.post(
-            f"{settings.api_v1_prefix}/files/upload", files=files
-        )
-        assert upload_response.status_code == 201
-        file_id = upload_response.json()["file_id"]
-
-        # Create purpose with file attachment
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["file_attachment_ids"] = [file_id]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert "file_attachments" in data
-        assert len(data["file_attachments"]) == 1
-        assert data["file_attachments"][0]["id"] == file_id
-
-    def test_multiple_purposes_share_same_file(
-        self, test_client: TestClient, sample_purpose_data: dict, sample_file_attachment
-    ):
-        """Test that multiple purposes can share the same file (many-to-many)."""
-        file_id = sample_file_attachment.id
-
-        # Create first purpose with file
-        purpose1_data = sample_purpose_data.copy()
-        purpose1_data["description"] = "Purpose 1"
-        purpose1_data["file_attachment_ids"] = [file_id]
-        response1 = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose1_data
-        )
-        assert response1.status_code == 201
-        purpose1_id = response1.json()["id"]
-
-        # Create second purpose with same file
-        purpose2_data = sample_purpose_data.copy()
-        purpose2_data["description"] = "Purpose 2"
-        purpose2_data["file_attachment_ids"] = [file_id]
-        response2 = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose2_data
-        )
-        assert response2.status_code == 201
-        purpose2_id = response2.json()["id"]
-
-        # Verify both purposes have the same file
-        get_response1 = test_client.get(
-            f"{settings.api_v1_prefix}/purposes/{purpose1_id}"
-        )
-        get_response2 = test_client.get(
-            f"{settings.api_v1_prefix}/purposes/{purpose2_id}"
+        assert_paginated_response(
+            response_data,
+            expected_total=len(multiple_purposes),
+            expected_page=1,
+            expected_limit=3,
+            expected_has_next=len(multiple_purposes) > 3,
+            expected_has_prev=False,
         )
 
-        assert len(get_response1.json()["file_attachments"]) == 1
-        assert len(get_response2.json()["file_attachments"]) == 1
-        assert get_response1.json()["file_attachments"][0]["id"] == file_id
-        assert get_response2.json()["file_attachments"][0]["id"] == file_id
-
-    def test_update_purpose_file_attachments(
-        self,
-        test_client: TestClient,
-        sample_purpose_data: dict,
-        multiple_file_attachments,
-    ):
-        """Test updating purpose file attachments."""
-        file1_id = multiple_file_attachments[0].id
-        file2_id = multiple_file_attachments[1].id
-
-        # Create purpose with first file
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["file_attachment_ids"] = [file1_id]
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Update to include both files
-        update_data = {"file_attachment_ids": [file1_id, file2_id]}
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["file_attachments"]) == 2
-
-        file_ids = [f["id"] for f in data["file_attachments"]]
-        assert file1_id in file_ids
-        assert file2_id in file_ids
-
-        # Update to remove first file
-        update_data = {"file_attachment_ids": [file2_id]}
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=update_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["file_attachments"]) == 1
-        assert data["file_attachments"][0]["id"] == file2_id
-
-    def test_delete_purpose_preserves_files(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test that deleting a purpose doesn't delete files (they might be linked to other purposes)."""
-        # This test would require actual file upload and database setup
-        # For now, we'll create a simple test
-        purpose_data = sample_purpose_data.copy()
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Delete purpose
-        delete_response = test_client.delete(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
-        )
-        assert delete_response.status_code == 204
-
-        # Verify purpose is deleted
-        get_response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
-        )
-        assert get_response.status_code == 404
-
-    def test_purpose_without_file_attachments(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test creating and getting purpose without file attachments."""
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert "file_attachments" in data
-        assert len(data["file_attachments"]) == 0
-
-    def test_purpose_with_empty_file_attachment_list(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test creating purpose with empty file attachment list."""
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["file_attachment_ids"] = []
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert len(data["file_attachments"]) == 0
+        # Verify all items match filter
+        for item in response_data["items"]:
+            assert item["status"] == "IN_PROGRESS"

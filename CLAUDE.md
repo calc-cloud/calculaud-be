@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Procurement Management System backend built with FastAPI. The system manages Purposes, EMFs (procurement
-forms), Costs, and Hierarchies with full CRUD operations, advanced filtering, and search capabilities.
+Procurement Management System backend built with FastAPI. Manages Purposes, EMFs (procurement forms), Costs, and
+Hierarchies with full CRUD operations, advanced filtering, and search capabilities.
 
 ## Technology Stack
 
@@ -17,572 +17,306 @@ forms), Costs, and Hierarchies with full CRUD operations, advanced filtering, an
 - **Testing**: Pytest
 - **Deployment**: Docker with .env configuration
 
-## Data Model Architecture
+## Quick Start
 
-The system has four main entities with relationships:
-
-1. **Purpose** - Main procurement request entity
-    - Links to Hierarchy (many-to-one)
-    - Contains multiple EMFs (one-to-many)
-    - Fields: delivery date, status, supplier, service type, content, description
-
-2. **EMF** - Procurement form details
-    - Belongs to Purpose (many-to-one)
-    - Contains multiple Costs (one-to-many)
-    - Tracks order, demand, and bikushit IDs with dates
-
-3. **Cost** - Financial entries
-    - Belongs to EMF (many-to-one)
-    - Fields: currency, amount
-
-4. **Hierarchy** - Organizational structure
-    - Self-referencing tree structure (parent-child)
-    - Fields: type (unit, center, etc.), name
-
-## API Structure
-
-The API follows RESTful patterns with nested resources:
-
-- `/purposes` - Main resource with full CRUD, filtering, search, and pagination
-  - EMF operations are handled through purpose routes (create, update, delete EMFs via purpose PATCH)
-- `/costs` - Managed through EMFs within purposes
-- `/hierarchies` - Manages organizational structure
-- `/files` - File upload and management functionality
-
-### EMF Operations
-
-EMF operations are integrated into the purpose routes:
-- **Create EMF**: Include EMFs in `POST /purposes` or add via `PATCH /purposes/{id}`
-- **Update EMF**: Use `PATCH /purposes/{id}` with updated EMF data
-- **Delete EMF**: Use `PATCH /purposes/{id}` without the EMF (exclude from EMFs list)
-
-### File Upload Operations
-
-Files are uploaded separately and linked to purposes via file IDs:
-
-#### Upload a File
-```bash
-POST /api/v1/files/upload
-Content-Type: multipart/form-data
-
-# Form data with file field
-file: [binary file data]
-```
-
-**Response:**
-```json
-{
-  "file_id": 123,
-  "original_filename": "document.pdf",
-  "mime_type": "application/pdf",
-  "file_size": 1024000,
-  "uploaded_at": "2024-01-15T10:30:00",
-  "message": "File uploaded successfully"
-}
-```
-
-#### Link Files to Purpose
-Include the `file_id` in purpose creation or updates:
-
-```json
-{
-  "description": "New procurement request",
-  "file_attachment_ids": [123, 456],
-  "status": "IN_PROGRESS"
-}
-```
-
-#### Download File
-```bash
-GET /api/v1/files/{file_id}
-```
-
-**Response:**
-```json
-{
-  "file_id": 123,
-  "original_filename": "document.pdf",
-  "download_url": "https://s3.../presigned-url",
-  "expires_in": 3600
-}
-```
-
-#### Delete File
-```bash
-DELETE /api/v1/files/{file_id}
-```
-
-**Workflow:**
-1. Upload files using `/files/upload` endpoint
-2. Get the `file_id` from upload response
-3. Include `file_attachment_ids` when creating/updating purposes
-4. Files are automatically linked to the purpose
-
-#### File Icon Support for Suppliers
-
-Suppliers can have file icons linked through the `file_icon_id` field:
-
-```json
-// Create supplier with file icon
-POST /api/v1/suppliers
-{
-  "name": "Tech Solutions Inc",
-  "file_icon_id": 456
-}
-
-// Response includes file icon relationship
-{
-  "id": 1,
-  "name": "Tech Solutions Inc",
-  "file_icon_id": 456,
-  "file_icon": {
-    "id": 456,
-    "original_filename": "company_logo.png",
-    "content_type": "image/png",
-    "file_size": 2048
-  }
-}
-
-// Update supplier file icon
-PATCH /api/v1/suppliers/1
-{
-  "file_icon_id": 789
-}
-
-// Remove file icon (set to null)
-PATCH /api/v1/suppliers/1
-{
-  "file_icon_id": null
-}
-```
-
-**File Icon Validation**: The system validates that the `file_icon_id` refers to an existing file. If the file doesn't exist, an `InvalidFileIcon` custom exception is raised, returning HTTP 400 Bad Request with details about the missing file.
-
-## Key Features to Implement
-
-- **Advanced Filtering**: Support filtering by hierarchy_id, emf_id, supplier, service_type, status
-- **Search**: Full-text search across description, content, and emf_id fields
-- **Sorting**: Support sorting by creation_time, last_modified, expected_delivery
-- **Pagination**: Implement for large datasets
-- **Cascade Operations**: Proper deletion handling with cascading deletes
-
-## Development Commands
-
-### Common Python Commands
+### Environment Setup
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the FastAPI development server
+# Run development server
 uvicorn main:app --reload
 
-# Run tests
+# Run tests  
 pytest
-pytest -v                    # verbose output
-pytest tests/test_file.py    # run specific test file
-pytest -k "test_name"        # run tests matching pattern
-
-# Database migrations
-alembic revision --autogenerate -m "description"
-alembic upgrade head
-
-# Code formatting and linting (run in this order)
-isort .                      # sort imports first
-black .                      # format code (may reformat import lines)
-flake8 .                     # lint code (check for style issues)
-
-# Build and run with Docker
-docker build -t calcloud-back .
-docker run -p 8000:8000 calcloud-back
 ```
 
-### Git Workflow Commands
+### Essential Commands
+
+**Code Quality (ALWAYS run before commit):**
 
 ```bash
-# Create and switch to new feature branch from main
-git checkout main
-git pull origin main
-git checkout -b feature/your-feature-name
-
-# Stage and commit changes
-git add .
-git status                       # check staged files
-git commit -m "feat: add feature description"
-
-# Push branch and create PR
-git push -u origin feature/your-feature-name
-
-# Create pull request using GitHub CLI
-gh pr create --title "Feature: Description" --body "Detailed description of changes"
-
-# Alternative: Create PR through GitHub web interface
-# Visit: https://github.com/username/calcloud-back-remote/compare
-
-# After PR review and merge, cleanup
-git checkout main
-git pull origin main
-git branch -d feature/your-feature-name
+isort .     # Sort imports first
+black .     # Format code  
+flake8 .    # Lint code
 ```
 
-## Configuration Management
+**Database:**
 
-- **Global Config**: Use Pydantic BaseSettings for environment variables and application configuration
-- **Location**: Create `src/config.py` as the main configuration file using `pydantic_settings.BaseSettings`
-- **Environment Variables**: All environment variables should be defined as class attributes in the BaseSettings class
-- **Configuration Access**: Import and use the config instance throughout the application (`from app.config import settings`)
-- **Module-Specific Configs**: Module-specific configs in each domain folder should extend or reference the global
-  config
-- **Dynamic Attributes**: Add new configuration attributes to the BaseSettings class as needed for new features
+```bash
+alembic revision --autogenerate -m "description"
+alembic upgrade head
+```
 
+**Testing:**
 
-## Code Style Guidelines
+```bash
+# Run tests with Docker (recommended)
+docker run --rm -v $(pwd):/app -w /app calcloud-back python -m pytest
 
-- **PEP 8**: Follow Python PEP 8 style guide for code formatting
-- **Type Hints**: Use type hints for all function parameters, return values, and class attributes
-- **Black**: Use Black for automatic code formatting (line length: 88 characters)
-- **Import Organization**: Use isort to organize imports (stdlib, third-party, local)
-- **Linting**: Use flake8 for code quality checks and style enforcement
-- **Docstrings**: Use Google-style docstrings for functions and classes
-- **Variable Naming**: Use snake_case for variables and functions, PascalCase for classes
+# Local testing (if environment is set up)
+pytest -v                    # Verbose output
+pytest tests/suppliers/      # Test specific domain
+pytest -k "test_name"        # Pattern matching
+pytest tests/suppliers/test_suppliers_api.py::TestSuppliersApi::test_create_resource  # Specific test
+```
 
-### Code Quality Workflow
+## Do Not Touch
 
-ALWAYS run these commands in order after changing code and before committing code:
+- Never use legacy SQLAlchemy `db.query()` - use `select()` statements only
+- Never import old typing (`List`, `Dict`, `Optional`, `Union`) - use modern syntax
+- Never skip the code quality workflow (isort → black → flake8)
+- Never commit without running tests
+- Never use generic exceptions - always create custom exceptions
+- Never inherit from existing test classes that already test the same functionality - this causes duplicate test execution
 
-1. **isort .** - Sorts and organizes imports according to PEP 8
-2. **black .** - Formats code consistently (may reformat import lines from isort)
-3. **flake8 .** - Checks for style issues, unused imports, and code quality problems
+## Code Standards
 
-This ensures consistent code style across the entire project. All three tools are required and should pass without
-errors before committing.
+### Must Use Modern Syntax
 
-## Pydantic v2 Guidelines
-
-Use Pydantic v2 with the new Annotated syntax and modern Python typing exclusively:
-
-### Modern Python Typing (Python 3.10+)
-
-Always use the modern union syntax and built-in collections:
+**Python Typing (3.10+):**
 
 ```python
+# ✅ Use
+list[str]  # not List[str]  
+dict[str, int]  # not Dict[str, int]
+str | None  # not Optional[str]
+
+# ✅ Pydantic v2
 from typing import Annotated
-from pydantic import BaseModel, Field, ConfigDict
-from datetime import datetime, date
-from enum import Enum
+from pydantic import BaseModel, Field
 
-# Use built-in types instead of typing imports
-# ✅ Good - Modern syntax
-list[str]           # instead of List[str]
-dict[str, int]      # instead of Dict[str, int]
-tuple[str, int]     # instead of Tuple[str, int]
-str | None          # instead of Optional[str]
-int | str | None    # instead of Union[int, str, None]
 
-# ❌ Bad - Old syntax (don't import these)
-from typing import List, Dict, Tuple, Optional, Union
+class User(BaseModel):
+    name: Annotated[str, Field(min_length=1)]
+    email: Annotated[str | None, Field(default=None)]
 ```
 
-### Pydantic v2 with Modern Typing
+**SQLAlchemy v2:**
 
 ```python
-from typing import Annotated
-from pydantic import BaseModel, Field, ConfigDict
-from datetime import datetime, date
-from enum import Enum
+# ✅ Use
+from sqlalchemy import select
+from sqlalchemy.orm import Mapped, mapped_column
 
-class StatusEnum(str, Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
 
-class UserCreate(BaseModel):
-    name: Annotated[str, Field(min_length=1, max_length=100)]
-    email: Annotated[str, Field(pattern=r'^[^@]+@[^@]+\.[^@]+$')]
-    age: Annotated[int, Field(ge=0, le=120)]
-    is_active: Annotated[bool, Field(default=True)]
-    status: StatusEnum
-    # Use modern union syntax for nullable fields
-    bio: Annotated[str | None, Field(default=None, max_length=500)]
-    tags: Annotated[list[str], Field(default_factory=list)]
-    metadata: Annotated[dict[str, str], Field(default_factory=dict)]
-    created_at: Annotated[datetime, Field(default_factory=datetime.utcnow)]
-
-class User(UserCreate):
-    id: int
-    
-    model_config = ConfigDict(from_attributes=True)
-```
-
-### Nullable Fields
-
-For nullable/optional fields, use the modern union syntax with `None`:
-
-```python
-# ✅ Modern syntax
-field: Annotated[str | None, Field(default=None)]
-field: Annotated[int | None, Field(default=None)]
-field: Annotated[datetime | None, Field(default=None)]
-
-# ❌ Old syntax (avoid)
-from typing import Optional
-field: Annotated[Optional[str], Field(default=None)]
-```
-
-## SQLAlchemy v2 Guidelines
-
-Use SQLAlchemy v2 syntax with Mapped, mapped_column, and modern Python typing:
-
-```python
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from datetime import datetime
-
-class Base(DeclarativeBase):
-    pass
-
+# Model definition with Mapped types
 class User(Base):
-    __tablename__ = "user"  # Use singular form
-    
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    age: Mapped[int] = mapped_column(Integer, nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True)
-    status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum), nullable=False)
-    # Use server defaults for timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), server_onupdate=func.now()
-    )
-    
-    # Use modern typing for nullable fields and relationships
-    bio: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    posts: Mapped[list[Post]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-class Post(Base):
-    __tablename__ = "post"  # Use singular form
-    
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    content: Mapped[str | None] = mapped_column(String, nullable=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    
-    # Relationships with modern typing
-    user: Mapped[User] = relationship(back_populates="posts")
-```
 
-### Modern Typing in SQLAlchemy
-
-```python
-# ✅ Modern syntax
-field: Mapped[str | None] = mapped_column(String(100), nullable=True)
-field: Mapped[int | None] = mapped_column(Integer, nullable=True)
-items: Mapped[list[Item]] = relationship(...)
-parent: Mapped[Parent | None] = relationship(...)
-
-# ❌ Old syntax (avoid)
-from typing import Optional, List
-field: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-items: Mapped[List["Item"]] = relationship(...)
-```
-
-### SQLAlchemy v2 Query Syntax
-
-Always use modern `select()` statements instead of legacy `db.query()` methods:
-
-```python
-from sqlalchemy import select, func
-from sqlalchemy.orm import Session, joinedload
-
-# ✅ Modern select() syntax
 def get_user(db: Session, user_id: int) -> User | None:
     stmt = select(User).where(User.id == user_id)
     return db.execute(stmt).scalars().first()
 
-def get_users(db: Session, search: str | None = None) -> list[User]:
-    stmt = select(User)
-    if search:
-        stmt = stmt.where(User.name.ilike(f"%{search}%"))
-    return db.execute(stmt).scalars().all()
 
-# Use paginate_select for pagination
-from app.pagination import paginate_select
-def get_paginated_users(db: Session, pagination) -> tuple[list[User], int]:
-    stmt = select(User).order_by(User.created_at.desc())
-    return paginate_select(db, stmt, pagination)
-
-# ❌ Legacy syntax (DO NOT USE)
-def get_user_old(db: Session, user_id: int) -> User | None:
-    return db.query(User).filter(User.id == user_id).first()
+# ❌ Never use
+return db.query(User).filter(User.id == user_id).first()
 ```
 
-**Key Rules:**
-1. Always use `select()` statements, never `db.query()`
-2. Use `.where()` instead of `.filter()` for conditions
-3. Use `db.execute(stmt).scalars().first/all()` for query execution
-4. Use `paginate_select()` for paginated results
-5. Use `.unique()` with `joinedload` to avoid duplicates
+### Code Quality Workflow
 
-When implementing:
+**REQUIRED before every commit:**
 
-1. Set up FastAPI project structure with proper dependency injection and SYNC routes
-2. Configure SQLAlchemy v2
-3. Implement Alembic for database migrations (using alembic commands)
-4. Create comprehensive Pytest test suite
-5. Configure Docker for deployment
-6. Implement proper error handling and validation
+1. `isort .` - Sort imports
+2. `black .` - Format code
+3. `flake8 .` - Lint code
+
+All three must pass without errors.
+
+## Data Model
+
+**Core Entities:**
+
+- **Purpose** - Main procurement request (links to Hierarchy, contains EMFs)
+- **EMF** - Procurement form details (belongs to Purpose, contains Costs)
+- **Cost** - Financial entries (belongs to EMF)
+- **Hierarchy** - Self-referencing organizational tree structure
+
+## API Patterns
+
+**Main Resources:**
+
+- `/purposes` - Full CRUD, filtering, search, pagination
+- `/costs` - Managed through EMFs within purposes
+- `/hierarchies` - Organizational structure
+- `/files` - File upload and management
+
+**EMF Operations:**
+
+- Create: Include in `POST /purposes` or `PATCH /purposes/{id}`
+- Update: Use `PATCH /purposes/{id}` with updated EMF data
+- Delete: Use `PATCH /purposes/{id}` without the EMF
+
+**File Upload Workflow:**
+
+1. `POST /api/v1/files/upload` → get `file_id`
+2. Include `file_attachment_ids` in purpose create/update
+3. Files automatically linked to purpose
+
+## Configuration
+
+- Use Pydantic `BaseSettings` for all config
+- Global config: `src/config.py`
+- Import: `from app.config import settings`
+- Environment variables as class attributes
 
 ## Project Structure
 
 ```
-fastapi-project
-├── alembic/
-├── app
-│   ├── auth
-│   │   ├── router.py
-│   │   ├── schemas.py  # pydantic models
-│   │   ├── models.py  # db models
-│   │   ├── dependencies.py
-│   │   ├── config.py  # local configs
-│   │   ├── constants.py
-│   │   ├── exceptions.py
-│   │   ├── service.py
-│   │   └── utils.py
-│   ├── aws
-│   │   ├── client.py  # client model for external service communication
-│   │   ├── schemas.py
-│   │   ├── config.py
-│   │   ├── constants.py
-│   │   ├── exceptions.py
-│   │   └── utils.py
-│   └── posts
-│   │   ├── router.py
-│   │   ├── schemas.py
-│   │   ├── models.py
-│   │   ├── dependencies.py
-│   │   ├── constants.py
-│   │   ├── exceptions.py
-│   │   ├── service.py
-│   │   └── utils.py
-│   ├── config.py  # global configs
-│   ├── models.py  # global models
-│   ├── exceptions.py  # global exceptions
-│   ├── pagination.py  # global module e.g. pagination
-│   ├── database.py  # db connection related stuff
-│   └── main.py
-├── tests/
-│   ├── auth
-│   ├── aws
-│   └── posts
-├── templates/
-│   └── index.html
-├── requirements
-│   ├── base.txt
-│   ├── dev.txt
-│   └── prod.txt
-├── .env
-├── .gitignore
-├── logging.ini
-└── alembic.ini
+app/
+├── __init__.py            # Import all models for SQLAlchemy registration
+├── domain_module/          # Each domain has:
+│   ├── router.py          # Endpoints
+│   ├── schemas.py         # Pydantic models  
+│   ├── models.py          # DB models (use Mapped types)
+│   ├── service.py         # Business logic
+│   ├── dependencies.py    # Router dependencies
+│   ├── exceptions.py      # Custom exceptions
+│   └── utils.py           # Helper functions
+├── config.py              # Global config
+├── database.py            # DB connection
+├── pagination.py          # Pagination utilities
+└── main.py                # FastAPI app init
 ```
 
-1. Store all domain directories inside `app` folder
-    1. `app/` - highest level of an app, contains common models, configs, and constants, etc.
-    2. `app/main.py` - root of the project, which inits the FastAPI app
-2. Each package has its own router, schemas, models, etc.
-    1. `router.py` - is a core of each module with all the endpoints
-    2. `schemas.py` - for pydantic models
-    3. `models.py` - for db models
-    4. `service.py` - module specific business logic
-    5. `dependencies.py` - router dependencies
-    6. `constants.py` - module specific constants and error codes
-    7. `config.py` - e.g. env vars
-    8. `utils.py` - non-business logic functions, e.g. response normalization, data enrichment, etc.
-    9. `exceptions.py` - module specific exceptions, e.g. `PostNotFound`, `InvalidUserData`
-
-### Custom Exception Handling
-
-Always use custom exceptions instead of generic exceptions like `ValueError` or `Exception`. This provides better error handling and more specific HTTP status codes.
-
-**Pattern for Custom Exceptions:**
+**Model Registration:**  
+All SQLAlchemy models must be imported in `app/__init__.py` to ensure proper registration:
 
 ```python
-# In module exceptions.py
+# app/__init__.py - Import all models for SQLAlchemy registration
+from .costs.models import Cost, CurrencyEnum  # noqa: F401
+from .emfs.models import EMF  # noqa: F401
+from .purposes.models import Purpose, StatusEnum  # noqa: F401
+# ... import all other models
+```
+
+## Custom Exceptions Pattern
+
+```python
+# exceptions.py
 class ModuleException(Exception):
-    """Base exception for module operations."""
-    
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
 
+
 class ResourceNotFound(ModuleException):
-    """Raised when a resource is not found."""
-    
     def __init__(self, resource_id: int):
         self.message = f"Resource with ID {resource_id} not found"
         super().__init__(self.message)
 
-class InvalidFileIcon(ModuleException):
-    """Raised when file_icon_id refers to a non-existent file."""
-    
-    def __init__(self, file_id: int):
-        self.message = f"File with ID {file_id} not found"
-        super().__init__(self.message)
 
-# In service.py
+# service.py  
 def get_resource(db: Session, resource_id: int):
     resource = db.execute(select(Resource).where(Resource.id == resource_id)).scalar_one_or_none()
     if not resource:
         raise ResourceNotFound(resource_id)
     return resource
 
-def validate_file_icon(db: Session, file_icon_id: int):
-    if file_icon_id is not None:
-        file_attachment = db.execute(select(FileAttachment).where(FileAttachment.id == file_icon_id)).scalar_one_or_none()
-        if not file_attachment:
-            raise InvalidFileIcon(file_icon_id)
 
-# In router.py
+# router.py
 @router.get("/{resource_id}")
 def get_resource(resource_id: int, db: Session = Depends(get_db)):
     try:
         return service.get_resource(db, resource_id)
     except ResourceNotFound as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-    except InvalidFileIcon as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+        raise HTTPException(status_code=404, detail=e.message)
 ```
 
-### Migrations. Alembic
+## Database Guidelines
 
-1. Migrations must be static and revertable.
-   If your migrations depend on dynamically generated data, then
-   make sure the only thing that is dynamic is the data itself, not its structure.
-2. Generate migrations with descriptive names & slugs. Slug is required and should explain the changes.
-3. Set human-readable file template for new migrations. We use `*date*_*slug*.py` pattern, e.g.
-   `2022-08-24_post_content_idx.py`
+**Naming Conventions:**
 
+- `lower_case_snake` for all names
+- Singular table names (`user`, not `users`)
+- `_at` suffix for datetime fields
+- `_date` suffix for date fields
+
+**Query Rules:**
+
+1. Always use `select()` statements, never `db.query()`
+2. Use `.where()` instead of `.filter()`
+3. Use `db.execute(stmt).scalars().first/all()`
+4. Use `paginate_select()` for pagination
+5. Use `.unique()` with `joinedload`
+
+## Git Workflow
+
+```bash
+# Feature branch workflow
+git checkout main && git pull origin main
+git checkout -b feature/your-feature-name
+
+# Commit with proper format
+git add . && git commit -m "feat: description"
+
+# Create PR
+git push -u origin feature/your-feature-name
+gh pr create --title "Feature: Description" --body "Details"
+
+# Cleanup after merge  
+git checkout main && git pull origin main
+git branch -d feature/your-feature-name
 ```
-# alembic.ini
-file_template = %%(year)d-%%(month).2d-%%(day).2d_%%(slug)s
+
+## Development Guidelines
+
+**Required Features:**
+
+- Advanced filtering by hierarchy_id, emf_id, supplier, service_type, status
+- Full-text search across description, content, emf_id
+- Sorting by creation_time, last_modified, expected_delivery
+- Pagination for large datasets
+- Proper cascade deletion handling
+
+**Implementation Checklist:**
+
+1. FastAPI project structure with dependency injection
+2. SQLAlchemy v2 configuration
+3. Alembic database migrations
+4. Comprehensive Pytest test suite
+5. Docker deployment configuration
+6. Proper error handling and validation
+
+## Style Guidelines
+
+- **PEP 8** compliance
+- **Type hints** for all functions and classes
+- **Google-style docstrings**
+- **snake_case** for variables/functions, **PascalCase** for classes
+- Line length: 120 characters
+
+## Testing Guidelines
+
+### Structure
+
+- **Domain-based organization**: Each domain has `tests/domain_name/fixtures.py` for fixtures and `test_*.py` for tests
+- **Fixture registration**: Global `conftest.py` uses `pytest_plugins` to register domain fixtures
+- **Base test classes**: Inherit from `BaseAPITestClass` in `tests/base.py` for standard CRUD/pagination/search tests
+- **Test utilities**: Use helpers from `tests/utils.py` for consistent assertions
+
+### Test Class Pattern
+
+```python
+class TestResourceAPI(BaseAPITestClass):
+    resource_name = "resources"
+    resource_endpoint = f"{settings.api_v1_prefix}/resources"
+    create_data_fixture = "sample_resource_data"
+    instance_fixture = "sample_resource"
+
+    # Configure other fixture names as needed
+
+    def _get_update_data(self) -> dict:
+        return {"name": "Updated Name"}
+
+    # Add only resource-specific tests here
+    # CRUD/pagination/search inherited automatically
 ```
 
-### Set DB naming conventions
-
-Being consistent with names is important. Some rules we followed:
-
-1. lower_case_snake
-2. singular form (e.g. `post`, `post_like`, `user_playlist`)
-3. group similar tables with module prefix, e.g. `payment_account`, `payment_bill`, `post`, `post_like`
-4. stay consistent across tables, but concrete namings are ok, e.g.
-    1. use `profile_id` in all tables, but if some of them need only profiles that are creators, use `creator_id`
-    2. use `post_id` for all abstract tables like `post_like`, `post_view`, but use concrete naming in relevant modules
-       like `course_id` in `chapters.course_id`
-5. `_at` suffix for datetime
-6. `_date` suffix for date
-
-### SQL-first. Pydantic-second
-
-- It's preferable to do all the complex joins and simple data manipulations with SQL.
-- It's preferable to aggregate JSONs in DB for responses with nested objects.
+**Reference**: See `tests/suppliers/test_suppliers_api.py` for complete example pattern.

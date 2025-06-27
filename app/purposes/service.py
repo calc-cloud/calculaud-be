@@ -5,7 +5,11 @@ from app import FileAttachment
 from app.costs.models import Cost
 from app.emfs.models import EMF
 from app.pagination import paginate_select
-from app.purposes.exceptions import DuplicateServiceInPurpose, ServiceNotFound
+from app.purposes.exceptions import (
+    DuplicateServiceInPurpose,
+    FileAttachmentsNotFound,
+    ServiceNotFound,
+)
 from app.purposes.filters import apply_filters
 from app.purposes.models import Purpose, PurposeContent
 from app.purposes.schemas import (
@@ -124,6 +128,10 @@ def _set_file_attachments(
         .scalars()
         .all()
     )
+    found_ids = {file.id for file in files}
+    missing_ids = set(file_attachment_ids) - found_ids
+    if missing_ids:
+        raise FileAttachmentsNotFound(list(missing_ids))
     db_purpose.file_attachments = files
 
 

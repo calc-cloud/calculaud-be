@@ -1,4 +1,5 @@
 import io
+import uuid
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -14,7 +15,8 @@ class TestFileUpload:
     @patch("app.files.service.s3_service.upload_file")
     def test_upload_file_success(self, mock_s3_upload):
         """Test successful file upload."""
-        mock_s3_upload.return_value = "files/test-uuid.pdf"
+
+        mock_s3_upload.return_value = f"files/router-upload-{uuid.uuid4()}.pdf"
 
         response = client.post(
             "/api/v1/files/upload",

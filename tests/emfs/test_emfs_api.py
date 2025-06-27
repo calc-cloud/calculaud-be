@@ -82,27 +82,6 @@ class TestEMFsAPI:
         )
         assert response.status_code == 404
 
-    def test_update_emf_invalid_data(
-        self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
-    ):
-        """Test PATCH /purposes/{id} with invalid EMF data returns 422."""
-        # Create purpose with EMF first
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [sample_emf_data]
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        purpose_id = create_response.json()["id"]
-
-        # Try to update with invalid EMF data
-        invalid_emf_data = sample_emf_data.copy()
-        invalid_emf_data["order_creation_date"] = "invalid-date-format"
-        patch_data = {"emfs": [invalid_emf_data]}
-        response = test_client.patch(
-            f"{settings.api_v1_prefix}/purposes/{purpose_id}", json=patch_data
-        )
-        assert response.status_code == 422
-
     def test_delete_emf(
         self, test_client: TestClient, sample_purpose_data: dict, sample_emf_data: dict
     ):

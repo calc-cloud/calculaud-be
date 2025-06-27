@@ -104,8 +104,7 @@ def patch_supplier(
         _validate_file_icon(db, update_data["file_icon_id"])
 
     for field, value in update_data.items():
-        if value is not None:
-            setattr(db_supplier, field, value)
+        setattr(db_supplier, field, value)
 
     db.commit()
     db.refresh(db_supplier)

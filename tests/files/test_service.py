@@ -1,4 +1,5 @@
 import io
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -15,7 +16,7 @@ class TestUploadFile:
     @patch("app.files.service.s3_service.upload_file")
     def test_upload_file_success(self, mock_s3_upload, db_session):
         """Test successful file upload."""
-        mock_s3_upload.return_value = "files/test-uuid.pdf"
+        mock_s3_upload.return_value = f"files/service-upload-{uuid.uuid4()}.pdf"
 
         file_obj = io.BytesIO(b"test content")
         result = upload_file(db_session, file_obj, "test.pdf", "application/pdf")
@@ -58,7 +59,7 @@ class TestGetFileDownloadUrl:
         # Create a file record in database
         file_attachment = FileAttachment(
             original_filename="test.pdf",
-            s3_key="files/test-uuid.pdf",
+            s3_key=f"files/service-test-{uuid.uuid4()}.pdf",
             mime_type="application/pdf",
             file_size=1024,
         )
@@ -87,7 +88,7 @@ class TestGetFileDownloadUrl:
         # Create a file record in database
         file_attachment = FileAttachment(
             original_filename="test.pdf",
-            s3_key="files/test-uuid.pdf",
+            s3_key=f"files/service-test-{uuid.uuid4()}.pdf",
             mime_type="application/pdf",
             file_size=1024,
         )
@@ -107,7 +108,7 @@ class TestDeleteFile:
         # Create a file record in database
         file_attachment = FileAttachment(
             original_filename="test.pdf",
-            s3_key="files/test-uuid.pdf",
+            s3_key=f"files/service-test-{uuid.uuid4()}.pdf",
             mime_type="application/pdf",
             file_size=1024,
         )
@@ -139,7 +140,7 @@ class TestDeleteFile:
         # Create a file record in database
         file_attachment = FileAttachment(
             original_filename="test.pdf",
-            s3_key="files/test-uuid.pdf",
+            s3_key=f"files/service-test-{uuid.uuid4()}.pdf",
             mime_type="application/pdf",
             file_size=1024,
         )
