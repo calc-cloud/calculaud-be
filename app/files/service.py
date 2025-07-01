@@ -31,13 +31,13 @@ def upload_file(
     """
 
     try:
-        # Upload to S3
-        s3_key = s3_service.upload_file(file_obj, filename)
-
-        # Get file size
+        # Get file size before uploading
         file_obj.seek(0, 2)
         file_size = file_obj.tell()
         file_obj.seek(0)
+        
+        # Upload to S3
+        s3_key = s3_service.upload_file(file_obj, filename)
 
         # Save metadata to database
         file_attachment = FileAttachment(
