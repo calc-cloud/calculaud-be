@@ -5,7 +5,7 @@ from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.stage_types import service
 from app.stage_types.exceptions import StageTypeAlreadyExists, StageTypeNotFound
-from app.stage_types.schemas import StageTypeResponse, StageTypeCreate, StageTypeUpdate
+from app.stage_types.schemas import StageTypeCreate, StageTypeResponse, StageTypeUpdate
 
 router = APIRouter()
 

@@ -47,7 +47,9 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
         response_data = helper.list_resources()
 
         names = [item["flow_name"] for item in response_data["items"]]
-        expected_names = sorted([flow["flow_name"] for flow in multiple_predefined_flows])
+        expected_names = sorted(
+            [flow["flow_name"] for flow in multiple_predefined_flows]
+        )
         assert names == expected_names
 
     def test_create_flow_with_invalid_stage_type(
@@ -82,19 +84,19 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
         data = response.json()
         assert "flow_stages" in data
         flow_stages = data["flow_stages"]
-        
+
         # Should have 3 priority levels
         assert len(flow_stages) == 3
-        
+
         # First priority should be single stage
         assert isinstance(flow_stages[0], dict)
         assert flow_stages[0]["priority"] == 1
-        
+
         # Second priority should be list of stages
         assert isinstance(flow_stages[1], list)
         assert len(flow_stages[1]) == 2
         assert all(stage["priority"] == 2 for stage in flow_stages[1])
-        
+
         # Third priority should be single stage
         assert isinstance(flow_stages[2], dict)
         assert flow_stages[2]["priority"] == 3
@@ -110,10 +112,9 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
                 stage_ids[2],  # New priority 2 with single stage
             ]
         }
-        
+
         response = test_client.patch(
-            f"{self.resource_endpoint}/{sample_predefined_flow.id}", 
-            json=update_data
+            f"{self.resource_endpoint}/{sample_predefined_flow.id}", json=update_data
         )
         assert response.status_code == 200
 
@@ -121,11 +122,11 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
         data = response.json()
         flow_stages = data["flow_stages"]
         assert len(flow_stages) == 2
-        
+
         # First priority should be list of 2 stages
         assert isinstance(flow_stages[0], list)
         assert len(flow_stages[0]) == 2
-        
+
         # Second priority should be single stage
         assert isinstance(flow_stages[1], dict)
 
@@ -133,12 +134,14 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
         self, test_client: TestClient, sample_predefined_flow
     ):
         """Test that flow stages include full stage type information."""
-        response = test_client.get(f"{self.resource_endpoint}/{sample_predefined_flow.id}")
+        response = test_client.get(
+            f"{self.resource_endpoint}/{sample_predefined_flow.id}"
+        )
         assert response.status_code == 200
-        
+
         data = response.json()
         flow_stages = data["flow_stages"]
-        
+
         # Verify stage type information is included
         for stage_item in flow_stages:
             if isinstance(stage_item, list):
@@ -159,7 +162,7 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
         }
         response = test_client.post(self.resource_endpoint, json=flow_data)
         assert response.status_code == 201
-        
+
         data = response.json()
         assert data["flow_stages"] == []
 
@@ -168,13 +171,12 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
     ):
         """Test updating only flow name without changing stages."""
         update_data = {"flow_name": "Updated Flow Name Only"}
-        
+
         response = test_client.patch(
-            f"{self.resource_endpoint}/{sample_predefined_flow.id}", 
-            json=update_data
+            f"{self.resource_endpoint}/{sample_predefined_flow.id}", json=update_data
         )
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["flow_name"] == "Updated Flow Name Only"
         # Stages should remain unchanged

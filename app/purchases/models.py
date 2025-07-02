@@ -7,7 +7,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.costs.models import Cost
     from app.purposes.models import Purpose
     from app.stages.models import Stage
 
@@ -26,9 +25,9 @@ class Purchase(Base):
     stages: Mapped[list["Stage"]] = relationship(
         "Stage", back_populates="purchase", cascade="all, delete-orphan"
     )
-    costs: Mapped[list["Cost"]] = relationship(
-        "Cost", back_populates="purchase", cascade="all, delete-orphan"
-    )
+    # costs: Mapped[list["Cost"]] = relationship(
+    #     "Cost", back_populates="purchase", cascade="all, delete-orphan"
+    # ) todo: LINK costs to purchases (change from emf)
 
     @property
     def flow_stages(self) -> list["Stage | list[Stage]"]:

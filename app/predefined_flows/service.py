@@ -40,12 +40,9 @@ def get_predefined_flows(
     Returns:
         Tuple of (flows list, total count)
     """
-    stmt = (
-        select(PredefinedFlow)
-        .options(
-            joinedload(PredefinedFlow.predefined_flow_stages).joinedload(
-                PredefinedFlowStage.stage_type
-            )
+    stmt = select(PredefinedFlow).options(
+        joinedload(PredefinedFlow.predefined_flow_stages).joinedload(
+            PredefinedFlowStage.stage_type
         )
     )
 
@@ -156,7 +153,9 @@ def patch_predefined_flow(
     return db_flow
 
 
-def _create_flow_stages(db: Session, flow_id: int, stages: list[int | list[int]]) -> None:
+def _create_flow_stages(
+    db: Session, flow_id: int, stages: list[int | list[int]]
+) -> None:
     """Create predefined flow stages with priorities using enumerate."""
     for priority, stage_item in enumerate(stages, start=1):
         if isinstance(stage_item, list):

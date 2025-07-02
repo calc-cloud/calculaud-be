@@ -24,7 +24,7 @@ class TestStageTypesAPI(BaseAPITestClass):
             "name": "updated_stage",
             "display_name": "Updated Stage Type Name",
             "description": "Updated description",
-            "value_required": True
+            "value_required": True,
         }
 
     # All basic CRUD tests are inherited from BaseAPITestClass
@@ -38,7 +38,7 @@ class TestStageTypesAPI(BaseAPITestClass):
             "name": sample_stage_type.name,
             "display_name": "Different Display Name",
             "description": "Different description",
-            "value_required": False
+            "value_required": False,
         }
         response = test_client.post(self.resource_endpoint, json=duplicate_data)
         assert response.status_code == 409

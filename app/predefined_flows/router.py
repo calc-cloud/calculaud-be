@@ -44,7 +44,9 @@ def get_predefined_flow(flow_id: int, db: Session = Depends(get_db)):
     return flow
 
 
-@router.post("/", response_model=PredefinedFlowResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=PredefinedFlowResponse, status_code=status.HTTP_201_CREATED
+)
 def create_predefined_flow(flow: PredefinedFlowCreate, db: Session = Depends(get_db)):
     """Create a new predefined flow."""
     try:
