@@ -8,6 +8,7 @@ from .hierarchies.router import router as hierarchies_router
 from .purposes.router import router as purposes_router
 from .service_types.router import router as service_types_router
 from .services.router import router as services_router
+from .stage_types.router import router as stage_types_router
 from .suppliers.router import router as suppliers_router
 
 app = FastAPI(
@@ -48,6 +49,12 @@ app.include_router(
     services_router,
     prefix=f"{settings.api_v1_prefix}/services",
     tags=["services"],
+)
+
+app.include_router(
+    stage_types_router,
+    prefix=f"{settings.api_v1_prefix}/stage-types",
+    tags=["stage-types"],
 )
 
 app.include_router(
