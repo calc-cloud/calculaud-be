@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from app.emfs.models import EMF
     from app.files.models import FileAttachment
     from app.hierarchies.models import Hierarchy
+    from app.purchases.models import Purchase
     from app.service_types.models import ServiceType
     from app.services.models import Service
     from app.suppliers.models import Supplier
@@ -75,6 +76,9 @@ class Purpose(Base):
     )
     contents: Mapped[list["PurposeContent"]] = relationship(
         "PurposeContent", back_populates="purpose", cascade="all, delete-orphan"
+    )
+    purchases: Mapped[list["Purchase"]] = relationship(
+        "Purchase", back_populates="purpose", cascade="all, delete-orphan"
     )
 
     @property

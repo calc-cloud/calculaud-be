@@ -35,7 +35,7 @@ def upload_file(
         file_obj.seek(0, 2)
         file_size = file_obj.tell()
         file_obj.seek(0)
-        
+
         # Upload to S3
         s3_key = s3_service.upload_file(file_obj, filename)
 

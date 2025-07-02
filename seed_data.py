@@ -107,60 +107,158 @@ def get_existing_hierarchies(session: Any) -> list[int]:
 def seed_comprehensive_hierarchies(session: Any) -> list[int]:
     """Create a comprehensive hierarchy structure and return all hierarchy IDs."""
     hierarchy_ids = []
-    
+
     # Organization structure data - realistic IT/Government organization
     org_structure = {
         # UNIT level (top level - organization units)
         "units": [
             "Ministry of Defense",
-            "Ministry of Health", 
+            "Ministry of Health",
             "Ministry of Education",
         ],
         # CENTER level (major divisions within units)
         "centers": {
-            "Ministry of Defense": ["Technology Division", "Operations Division", "Logistics Division"],
-            "Ministry of Health": ["Digital Health Division", "Infrastructure Division"],
-            "Ministry of Education": ["Educational Technology Division", "Administrative Systems Division"],
+            "Ministry of Defense": [
+                "Technology Division",
+                "Operations Division",
+                "Logistics Division",
+            ],
+            "Ministry of Health": [
+                "Digital Health Division",
+                "Infrastructure Division",
+            ],
+            "Ministry of Education": [
+                "Educational Technology Division",
+                "Administrative Systems Division",
+            ],
         },
         # ANAF level (branches within centers)
         "anafs": {
-            "Technology Division": ["Cloud Services Branch", "Cybersecurity Branch", "Software Development Branch"],
+            "Technology Division": [
+                "Cloud Services Branch",
+                "Cybersecurity Branch",
+                "Software Development Branch",
+            ],
             "Operations Division": ["Command Systems Branch", "Communications Branch"],
-            "Logistics Division": ["Supply Chain Systems Branch", "Asset Management Branch"],
-            "Digital Health Division": ["Patient Systems Branch", "Medical Records Branch"],
-            "Infrastructure Division": ["Network Operations Branch", "Data Center Branch"],
-            "Educational Technology Division": ["Learning Management Branch", "Student Information Branch"],
-            "Administrative Systems Division": ["HR Systems Branch", "Financial Systems Branch"],
+            "Logistics Division": [
+                "Supply Chain Systems Branch",
+                "Asset Management Branch",
+            ],
+            "Digital Health Division": [
+                "Patient Systems Branch",
+                "Medical Records Branch",
+            ],
+            "Infrastructure Division": [
+                "Network Operations Branch",
+                "Data Center Branch",
+            ],
+            "Educational Technology Division": [
+                "Learning Management Branch",
+                "Student Information Branch",
+            ],
+            "Administrative Systems Division": [
+                "HR Systems Branch",
+                "Financial Systems Branch",
+            ],
         },
         # MADOR level (departments within branches)
         "madorn": {
-            "Cloud Services Branch": ["AWS Department", "Azure Department", "Infrastructure Department"],
-            "Cybersecurity Branch": ["Security Operations Department", "Compliance Department"],
-            "Software Development Branch": ["Backend Development Department", "Frontend Development Department"],
-            "Command Systems Branch": ["Command Center Department", "Tactical Systems Department"],
-            "Communications Branch": ["Radio Systems Department", "Network Communications Department"],
-            "Supply Chain Systems Branch": ["Procurement Systems Department", "Inventory Management Department"],
-            "Asset Management Branch": ["Equipment Tracking Department", "Maintenance Systems Department"],
-            "Patient Systems Branch": ["Electronic Health Records Department", "Telemedicine Department"],
-            "Medical Records Branch": ["Records Management Department", "Data Analytics Department"],
-            "Network Operations Branch": ["Network Monitoring Department", "Infrastructure Support Department"],
-            "Data Center Branch": ["Server Operations Department", "Storage Systems Department"],
-            "Learning Management Branch": ["LMS Development Department", "Content Management Department"],
-            "Student Information Branch": ["Student Records Department", "Academic Systems Department"],
-            "HR Systems Branch": ["Payroll Systems Department", "Employee Management Department"],
-            "Financial Systems Branch": ["Accounting Systems Department", "Budget Management Department"],
+            "Cloud Services Branch": [
+                "AWS Department",
+                "Azure Department",
+                "Infrastructure Department",
+            ],
+            "Cybersecurity Branch": [
+                "Security Operations Department",
+                "Compliance Department",
+            ],
+            "Software Development Branch": [
+                "Backend Development Department",
+                "Frontend Development Department",
+            ],
+            "Command Systems Branch": [
+                "Command Center Department",
+                "Tactical Systems Department",
+            ],
+            "Communications Branch": [
+                "Radio Systems Department",
+                "Network Communications Department",
+            ],
+            "Supply Chain Systems Branch": [
+                "Procurement Systems Department",
+                "Inventory Management Department",
+            ],
+            "Asset Management Branch": [
+                "Equipment Tracking Department",
+                "Maintenance Systems Department",
+            ],
+            "Patient Systems Branch": [
+                "Electronic Health Records Department",
+                "Telemedicine Department",
+            ],
+            "Medical Records Branch": [
+                "Records Management Department",
+                "Data Analytics Department",
+            ],
+            "Network Operations Branch": [
+                "Network Monitoring Department",
+                "Infrastructure Support Department",
+            ],
+            "Data Center Branch": [
+                "Server Operations Department",
+                "Storage Systems Department",
+            ],
+            "Learning Management Branch": [
+                "LMS Development Department",
+                "Content Management Department",
+            ],
+            "Student Information Branch": [
+                "Student Records Department",
+                "Academic Systems Department",
+            ],
+            "HR Systems Branch": [
+                "Payroll Systems Department",
+                "Employee Management Department",
+            ],
+            "Financial Systems Branch": [
+                "Accounting Systems Department",
+                "Budget Management Department",
+            ],
         },
         # TEAM level (operational teams within departments)
         "teams": {
             "AWS Department": ["EC2 Team", "S3 Team", "RDS Team"],
-            "Azure Department": ["Virtual Machines Team", "Storage Team", "Database Team"],
-            "Infrastructure Department": ["Network Team", "Security Team", "Monitoring Team"],
-            "Security Operations Department": ["SOC Team", "Incident Response Team", "Threat Intelligence Team"],
+            "Azure Department": [
+                "Virtual Machines Team",
+                "Storage Team",
+                "Database Team",
+            ],
+            "Infrastructure Department": [
+                "Network Team",
+                "Security Team",
+                "Monitoring Team",
+            ],
+            "Security Operations Department": [
+                "SOC Team",
+                "Incident Response Team",
+                "Threat Intelligence Team",
+            ],
             "Compliance Department": ["Audit Team", "Risk Assessment Team"],
-            "Backend Development Department": ["API Team", "Database Team", "Microservices Team"],
-            "Frontend Development Department": ["Web UI Team", "Mobile Team", "UX Team"],
+            "Backend Development Department": [
+                "API Team",
+                "Database Team",
+                "Microservices Team",
+            ],
+            "Frontend Development Department": [
+                "Web UI Team",
+                "Mobile Team",
+                "UX Team",
+            ],
             "Command Center Department": ["Operations Team", "Coordination Team"],
-            "Tactical Systems Department": ["Systems Integration Team", "Field Support Team"],
+            "Tactical Systems Department": [
+                "Systems Integration Team",
+                "Field Support Team",
+            ],
             "Radio Systems Department": ["Communications Team", "Maintenance Team"],
             "Network Communications Department": ["Network Team", "Protocol Team"],
             "Procurement Systems Department": ["Development Team", "Integration Team"],
@@ -183,23 +281,20 @@ def seed_comprehensive_hierarchies(session: Any) -> list[int]:
             "Employee Management Department": ["HRIS Team", "Benefits Team"],
             "Accounting Systems Department": ["GL Team", "AP/AR Team"],
             "Budget Management Department": ["Planning Team", "Tracking Team"],
-        }
+        },
     }
-    
+
     # Create UNIT level hierarchies
     unit_hierarchies = {}
     for unit_name in org_structure["units"]:
         unit = Hierarchy(
-            type=HierarchyTypeEnum.UNIT,
-            name=unit_name,
-            path=unit_name,
-            parent_id=None
+            type=HierarchyTypeEnum.UNIT, name=unit_name, path=unit_name, parent_id=None
         )
         session.add(unit)
         session.flush()
         unit_hierarchies[unit_name] = unit
         hierarchy_ids.append(unit.id)
-    
+
     # Create CENTER level hierarchies
     center_hierarchies = {}
     for unit_name, centers in org_structure["centers"].items():
@@ -209,13 +304,13 @@ def seed_comprehensive_hierarchies(session: Any) -> list[int]:
                 type=HierarchyTypeEnum.CENTER,
                 name=center_name,
                 path=f"{parent_unit.path} / {center_name}",
-                parent_id=parent_unit.id
+                parent_id=parent_unit.id,
             )
             session.add(center)
             session.flush()
             center_hierarchies[center_name] = center
             hierarchy_ids.append(center.id)
-    
+
     # Create ANAF level hierarchies
     anaf_hierarchies = {}
     for center_name, anafs in org_structure["anafs"].items():
@@ -225,13 +320,13 @@ def seed_comprehensive_hierarchies(session: Any) -> list[int]:
                 type=HierarchyTypeEnum.ANAF,
                 name=anaf_name,
                 path=f"{parent_center.path} / {anaf_name}",
-                parent_id=parent_center.id
+                parent_id=parent_center.id,
             )
             session.add(anaf)
             session.flush()
             anaf_hierarchies[anaf_name] = anaf
             hierarchy_ids.append(anaf.id)
-    
+
     # Create MADOR level hierarchies
     mador_hierarchies = {}
     for anaf_name, madorn in org_structure["madorn"].items():
@@ -241,13 +336,13 @@ def seed_comprehensive_hierarchies(session: Any) -> list[int]:
                 type=HierarchyTypeEnum.MADOR,
                 name=mador_name,
                 path=f"{parent_anaf.path} / {mador_name}",
-                parent_id=parent_anaf.id
+                parent_id=parent_anaf.id,
             )
             session.add(mador)
             session.flush()
             mador_hierarchies[mador_name] = mador
             hierarchy_ids.append(mador.id)
-    
+
     # Create TEAM level hierarchies
     for mador_name, teams in org_structure["teams"].items():
         parent_mador = mador_hierarchies[mador_name]
@@ -256,12 +351,12 @@ def seed_comprehensive_hierarchies(session: Any) -> list[int]:
                 type=HierarchyTypeEnum.TEAM,
                 name=team_name,
                 path=f"{parent_mador.path} / {team_name}",
-                parent_id=parent_mador.id
+                parent_id=parent_mador.id,
             )
             session.add(team)
             session.flush()
             hierarchy_ids.append(team.id)
-    
+
     return hierarchy_ids
 
 
@@ -490,10 +585,14 @@ def main():
         print("🏢 Creating comprehensive hierarchy structure...")
         existing_hierarchy_ids = get_existing_hierarchies(session)
         if existing_hierarchy_ids:
-            print(f"   Found {len(existing_hierarchy_ids)} existing hierarchies, using them...")
+            print(
+                f"   Found {len(existing_hierarchy_ids)} existing hierarchies, using them..."
+            )
             hierarchy_ids = existing_hierarchy_ids
         else:
-            print("   No existing hierarchies found, creating comprehensive structure...")
+            print(
+                "   No existing hierarchies found, creating comprehensive structure..."
+            )
             hierarchy_ids = seed_comprehensive_hierarchies(session)
             print(f"   Created {len(hierarchy_ids)} hierarchies across 5 levels")
 

@@ -13,10 +13,12 @@ from app.main import app
 pytest_plugins = [
     "tests.hierarchies.fixtures",
     "tests.files.fixtures",
+    "tests.predefined_flows.fixtures",
     "tests.purposes.fixtures",
     "tests.emfs.fixtures",
     "tests.services.fixtures",
     "tests.service_types.fixtures",
+    "tests.stage_types.fixtures",
     "tests.costs.fixtures",
     "tests.suppliers.fixtures",
 ]

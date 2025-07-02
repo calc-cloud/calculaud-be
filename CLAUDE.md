@@ -85,12 +85,14 @@ str | None  # not Optional[str]
 
 # ✅ Pydantic v2
 from typing import Annotated
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class User(BaseModel):
     name: Annotated[str, Field(min_length=1)]
     email: Annotated[str | None, Field(default=None)]
+    
+    model_config = ConfigDict(from_attributes=True)
 ```
 
 **SQLAlchemy v2:**
@@ -237,6 +239,7 @@ def get_resource(resource_id: int, db: Session = Depends(get_db)):
 - Singular table names (`user`, not `users`)
 - `_at` suffix for datetime fields
 - `_date` suffix for date fields
+- **String field lengths**: Always use `String(255)` for name fields, `Text` for longer content
 
 **Query Rules:**
 

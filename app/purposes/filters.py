@@ -1,4 +1,4 @@
-from sqlalchemy import Select, and_
+from sqlalchemy import Select, and_, func
 from sqlalchemy.orm import Session
 
 from app.common.hierarchy_utils import build_hierarchy_filter
@@ -21,10 +21,10 @@ def apply_filters(
 
     # Date range filter based on purpose creation_time
     if filters.start_date:
-        conditions.append(Purpose.creation_time >= filters.start_date)
+        conditions.append(func.date(Purpose.creation_time) >= filters.start_date)
 
     if filters.end_date:
-        conditions.append(Purpose.creation_time <= filters.end_date)
+        conditions.append(func.date(Purpose.creation_time) <= filters.end_date)
 
     # Recursive hierarchy filter - requires join with Hierarchy table
     if filters.hierarchy_ids:

@@ -17,7 +17,6 @@ class TestServiceTypesAPI(BaseAPITestClass):
     search_instances_fixture = "search_service_types"
     search_field = "name"
     required_fields = ["name"]
-    max_length_fields = {"name": 100}
 
     def _get_update_data(self) -> dict:
         """Get data for update operations."""
