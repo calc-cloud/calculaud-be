@@ -5,6 +5,7 @@ from .analytics.router import router as analytics_router
 from .config import settings
 from .files.router import router as files_router
 from .hierarchies.router import router as hierarchies_router
+from .predefined_flows.router import router as predefined_flows_router
 from .purposes.router import router as purposes_router
 from .service_types.router import router as service_types_router
 from .services.router import router as services_router
@@ -33,6 +34,12 @@ app.include_router(
     hierarchies_router,
     prefix=f"{settings.api_v1_prefix}/hierarchies",
     tags=["hierarchies"],
+)
+
+app.include_router(
+    predefined_flows_router,
+    prefix=f"{settings.api_v1_prefix}/predefined-flows",
+    tags=["predefined-flows"],
 )
 
 app.include_router(
