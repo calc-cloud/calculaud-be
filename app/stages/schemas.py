@@ -29,6 +29,5 @@ class StageResponse(StageBase):
     purchase_id: int
     stage_type: StageTypeResponse  # full stage type object relationship
     completion_date: datetime | None
-    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

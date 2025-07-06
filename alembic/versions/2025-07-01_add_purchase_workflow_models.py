@@ -61,7 +61,6 @@ def upgrade() -> None:
     sa.Column('priority', sa.Integer(), nullable=False),
     sa.Column('value', sa.Text(), nullable=True),
     sa.Column('completion_date', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['purchase_id'], ['purchase.id'], ),
     sa.ForeignKeyConstraint(['stage_type_id'], ['stage_type.id'], ),
     sa.PrimaryKeyConstraint('id')
