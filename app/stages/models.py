@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Text
@@ -22,9 +22,6 @@ class Stage(Base):
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
     completion_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(UTC), nullable=False
-    )
 
     # Relationships
     stage_type: Mapped["StageType"] = relationship("StageType", back_populates="stages")
