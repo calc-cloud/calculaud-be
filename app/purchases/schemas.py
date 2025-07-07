@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.costs.schemas import Cost, CostBase
-from app.predefined_flows.schemas import PredefinedFlowResponse
+from app.stages.schemas import StageResponse
 
 
 class PurchaseBase(BaseModel):
@@ -24,9 +24,8 @@ class PurchaseResponse(PurchaseBase):
     """Schema for purchase response."""
 
     id: int
-    predefined_flow_id: int | None
-    predefined_flow: PredefinedFlowResponse | None
     creation_date: datetime
     costs: list[Cost] = []
+    flow_stages: list[StageResponse | list[StageResponse]] = []
 
     model_config = ConfigDict(from_attributes=True)

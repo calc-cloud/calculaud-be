@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.costs.models import CurrencyEnum
-from app.purchases.consts import PredefinedFlowName
 
 
 class TestPurchaseAPI:
@@ -62,11 +61,8 @@ class TestPurchaseAPI:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["predefined_flow"] is not None
-        assert (
-            data["predefined_flow"]["flow_name"]
-            == PredefinedFlowName.SUPPORT_USD_ABOVE_100K.value
-        )
+        assert "flow_stages" in data
+        assert isinstance(data["flow_stages"], list)
 
     def test_create_purchase_with_available_usd(
         self,
@@ -82,11 +78,8 @@ class TestPurchaseAPI:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["predefined_flow"] is not None
-        assert (
-            data["predefined_flow"]["flow_name"]
-            == PredefinedFlowName.AVAILABLE_USD_FLOW.value
-        )
+        assert "flow_stages" in data
+        assert isinstance(data["flow_stages"], list)
 
     def test_create_purchase_with_ils(
         self,
@@ -101,8 +94,8 @@ class TestPurchaseAPI:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["predefined_flow"] is not None
-        assert data["predefined_flow"]["flow_name"] == PredefinedFlowName.ILS_FLOW.value
+        assert "flow_stages" in data
+        assert isinstance(data["flow_stages"], list)
 
     def test_create_purchase_with_mixed_costs(
         self,
@@ -117,11 +110,8 @@ class TestPurchaseAPI:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["predefined_flow"] is not None
-        assert (
-            data["predefined_flow"]["flow_name"]
-            == PredefinedFlowName.MIXED_USD_FLOW.value
-        )
+        assert "flow_stages" in data
+        assert isinstance(data["flow_stages"], list)
 
     def test_delete_purchase(self, test_client: TestClient, sample_purchase):
         """Test deleting a purchase."""

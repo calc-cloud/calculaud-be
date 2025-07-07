@@ -29,7 +29,6 @@ def _get_base_purpose_select():
         joinedload(Purpose.purchases)
         .joinedload(Purchase.stages)
         .joinedload(Stage.stage_type),
-        joinedload(Purpose.purchases).joinedload(Purchase.predefined_flow),
         joinedload(Purpose.purchases).joinedload(Purchase.costs),
     )
 
