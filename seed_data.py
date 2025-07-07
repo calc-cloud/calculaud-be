@@ -12,9 +12,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
-from app.costs.models import Cost, CurrencyEnum
+from app.costs.models import Cost
 from app.database import Base
-from app.emfs.models import EMF
 from app.hierarchies.models import Hierarchy, HierarchyTypeEnum
 from app.purposes.models import Purpose, PurposeContent, StatusEnum
 from app.service_types.models import ServiceType
@@ -386,7 +385,7 @@ def create_random_date(start_years_ago: int = 3, end_years_ago: int = 0) -> date
 
 
 def create_random_datetime(
-    start_years_ago: int = 3, end_years_ago: int = 0
+        start_years_ago: int = 3, end_years_ago: int = 0
 ) -> datetime:
     """Create a random datetime within the specified year range."""
     start_date = datetime.now() - timedelta(days=365 * start_years_ago)
@@ -410,7 +409,7 @@ def seed_suppliers(session: Any) -> list[int]:
 
 
 def seed_service_types_and_services(
-    session: Any,
+        session: Any,
 ) -> tuple[list[int], dict[int, list[int]]]:
     """Create service types and services, return service_type_ids and services_by_type_id."""
     service_type_ids = []
@@ -456,12 +455,12 @@ def create_random_bikushit_id() -> str:
 
 
 def seed_purposes_with_emfs_and_costs(
-    session: Any,
-    supplier_ids: list[int],
-    hierarchy_ids: list[int],
-    service_type_ids: list[int],
-    services_by_type_id: dict[int, list[int]],
-    num_purposes: int = 100,
+        session: Any,
+        supplier_ids: list[int],
+        hierarchy_ids: list[int],
+        service_type_ids: list[int],
+        services_by_type_id: dict[int, list[int]],
+        num_purposes: int = 100,
 ) -> None:
     """Create purposes with EMFs and costs."""
 
@@ -499,55 +498,6 @@ def seed_purposes_with_emfs_and_costs(
                 quantity=random.randint(1, 10),
             )
             session.add(content)
-
-        # Create 1-3 EMFs for each purpose
-        num_emfs = random.randint(1, 3)
-        for _ in range(num_emfs):
-            emf_creation_date = create_random_date(3, 0)
-
-            emf = EMF(
-                emf_id=create_random_emf_id(),
-                purpose_id=purpose.id,
-                creation_date=emf_creation_date,
-                order_id=create_random_order_id() if random.random() > 0.3 else None,
-                order_creation_date=(
-                    create_random_date(2, 0) if random.random() > 0.3 else None
-                ),
-                demand_id=create_random_demand_id() if random.random() > 0.4 else None,
-                demand_creation_date=(
-                    create_random_date(2, 0) if random.random() > 0.4 else None
-                ),
-                bikushit_id=(
-                    create_random_bikushit_id() if random.random() > 0.5 else None
-                ),
-                bikushit_creation_date=(
-                    create_random_date(1, 0) if random.random() > 0.5 else None
-                ),
-            )
-            session.add(emf)
-            session.flush()
-
-            # Create 1-2 costs for each EMF with currency restrictions
-            num_costs = random.randint(1, 2)
-
-            # Choose currency type - either all USD types or ILS only
-            currency_options = list(CurrencyEnum)
-            usd_currencies = [c for c in currency_options if "USD" in c.value]
-            ils_currencies = [c for c in currency_options if c.value == "ILS"]
-
-            # Pick either USD group or ILS
-            if random.random() > 0.5:
-                available_currencies = usd_currencies
-            else:
-                available_currencies = ils_currencies
-
-            for _ in range(num_costs):
-                cost = Cost(
-                    emf_id=emf.id,
-                    currency=random.choice(available_currencies),
-                    amount=round(random.uniform(500.0, 100000.0), 2),
-                )
-                session.add(cost)
 
 
 def main():
@@ -614,14 +564,12 @@ def main():
 
         # Print summary
         total_purposes = session.query(Purpose).count()
-        total_emfs = session.query(EMF).count()
         total_costs = session.query(Cost).count()
         total_service_types = session.query(ServiceType).count()
         total_services = session.query(Service).count()
 
         print("\n📊 Summary:")
         print(f"   • Purposes: {total_purposes}")
-        print(f"   • EMFs: {total_emfs}")
         print(f"   • Costs: {total_costs}")
         print(f"   • Service Types: {total_service_types}")
         print(f"   • Services: {total_services}")

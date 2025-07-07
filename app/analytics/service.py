@@ -1,6 +1,7 @@
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from app import Purchase
 from app.analytics.schemas import (
     ExpenditureTimelineRequest,
     HierarchyDistributionRequest,
@@ -17,7 +18,6 @@ from app.analytics.schemas import (
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.config import settings
 from app.costs.models import Cost, CurrencyEnum
-from app.emfs.models import EMF
 from app.hierarchies.models import Hierarchy, HierarchyTypeEnum
 from app.purposes.filters import apply_filters
 from app.purposes.models import Purpose, PurposeContent
@@ -183,8 +183,8 @@ class AnalyticsService:
             )
             .select_from(Purpose)
             .join(ServiceType, Purpose.service_type_id == ServiceType.id)
-            .join(EMF, Purpose.id == EMF.purpose_id)
-            .join(Cost, EMF.id == Cost.emf_id)
+            .join(Purchase, Purpose.id == Purchase.purpose_id)
+            .join(Cost, Purchase.id == Cost.purchase_id)
         )
 
         # Apply filters

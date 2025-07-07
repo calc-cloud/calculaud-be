@@ -1,9 +1,7 @@
 from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app import FileAttachment
-from app.costs.models import Cost
-from app.emfs.models import EMF
+from app import FileAttachment, Purchase, Stage
 from app.pagination import paginate_select
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
@@ -24,11 +22,17 @@ from app.services.models import Service
 def _get_base_purpose_select():
     """Get base purpose select statement with all necessary joins."""
     return select(Purpose).options(
-        joinedload(Purpose.emfs),
         joinedload(Purpose.file_attachments),
         joinedload(Purpose.contents)
         .joinedload(PurposeContent.service)
         .joinedload(Service.service_type),
+        joinedload(Purpose.purchases)
+        .joinedload(Purchase.stages)
+        .joinedload(Stage.stage_type),
+        joinedload(Purpose.purchases)
+        .joinedload(Purchase.predefined_flow),
+        joinedload(Purpose.purchases)
+        .joinedload(Purchase.costs),
     )
 
 
@@ -54,7 +58,7 @@ def _validate_unique_services_in_purpose(services: list[PurposeContentBase]) -> 
 
 
 def _create_purpose_content(
-    db: Session, purpose_id: int, content_data
+        db: Session, purpose_id: int, content_data
 ) -> PurposeContent:
     """Create a purpose content entry with validation."""
     _validate_service_exists(db, content_data.service_id)
@@ -69,48 +73,12 @@ def _create_purpose_content(
     return db_content
 
 
-def _create_emf_with_costs(db: Session, purpose_id: int, emf_data) -> EMF:
-    """Create an EMF with its associated costs."""
-    emf_dict = emf_data.model_dump(exclude={"costs"})
-    db_emf = EMF(**emf_dict, purpose_id=purpose_id)
-    db.add(db_emf)
-    db.flush()
-
-    # Create costs for this EMF if provided
-    for cost_data in emf_data.costs:
-        db_cost = Cost(**cost_data.model_dump(), emf_id=db_emf.id)
-        db.add(db_cost)
-
-    return db_emf
-
-
-def _update_existing_emf(db: Session, existing_emf: EMF, emf_data) -> None:
-    """Update an existing EMF with new data."""
-    emf_dict = emf_data.model_dump(exclude={"costs"})
-    for field, value in emf_dict.items():
-        if value is not None:
-            setattr(existing_emf, field, value)
-
-    # Update costs if provided
-    if emf_data.costs is not None:
-        # Clear existing costs and create new ones
-        stmt = select(Cost).where(Cost.emf_id == existing_emf.id)
-        costs_to_delete = db.execute(stmt).scalars().all()
-        for cost in costs_to_delete:
-            db.delete(cost)
-        for cost_data in emf_data.costs:
-            db_cost = Cost(**cost_data.model_dump(), emf_id=existing_emf.id)
-            db.add(db_cost)
-
-
 def _build_search_filter(search: str):
     """Build search filter for purpose queries."""
     return or_(
         Purpose.description.ilike(f"%{search}%"),
-        Purpose.emfs.any(EMF.emf_id.ilike(f"%{search}%")),
-        Purpose.emfs.any(EMF.order_id.ilike(f"%{search}%")),
-        Purpose.emfs.any(EMF.demand_id.ilike(f"%{search}%")),
-        Purpose.emfs.any(EMF.bikushit_id.ilike(f"%{search}%")),
+        Purpose.purchases.any(Purchase.stages.any(
+            Stage.value.ilike(f"%{search}%"))),
         Purpose.contents.any(
             PurposeContent.service.has(Service.name.ilike(f"%{search}%"))
         ),
@@ -118,7 +86,7 @@ def _build_search_filter(search: str):
 
 
 def _set_file_attachments(
-    db: Session, db_purpose: Purpose, file_attachment_ids: list[int]
+        db: Session, db_purpose: Purpose, file_attachment_ids: list[int]
 ) -> None:
     """Handle file attachment updates for a purpose using many-to-many relationship."""
     files = (
@@ -133,29 +101,6 @@ def _set_file_attachments(
     if missing_ids:
         raise FileAttachmentsNotFound(list(missing_ids))
     db_purpose.file_attachments = files
-
-
-def _process_emfs(db: Session, db_purpose: Purpose, emfs_data) -> None:
-    """Process EMFs for purpose update."""
-    existing_emfs = {emf.emf_id: emf for emf in db_purpose.emfs}
-    updated_emfs = []
-
-    # Loop through new patch EMFs
-    for emf_data in emfs_data:
-        emf_id = emf_data.emf_id
-
-        if emf_id in existing_emfs:
-            # Update existing EMF
-            existing_emf = existing_emfs[emf_id]
-            _update_existing_emf(db, existing_emf, emf_data)
-            updated_emfs.append(existing_emf)
-        else:
-            # Create new EMF
-            db_emf = _create_emf_with_costs(db, db_purpose.id, emf_data)
-            updated_emfs.append(db_emf)
-
-    # Set the updated EMFs list to the purpose
-    db_purpose.emfs = updated_emfs
 
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
@@ -199,7 +144,7 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
         _validate_unique_services_in_purpose(purpose.contents)
 
     purpose_data = purpose.model_dump(
-        exclude={"emfs", "file_attachment_ids", "contents"}
+        exclude={"file_attachment_ids", "contents"}
     )
     db_purpose = Purpose(**purpose_data)
     db.add(db_purpose)
@@ -208,10 +153,6 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
     # Create purpose contents if provided
     for content_data in purpose.contents:
         _create_purpose_content(db, db_purpose.id, content_data)
-
-    # Create EMFs if provided
-    for emf_data in purpose.emfs:
-        _create_emf_with_costs(db, db_purpose.id, emf_data)
 
     if purpose.file_attachment_ids:
         _set_file_attachments(db, db_purpose, purpose.file_attachment_ids)
@@ -222,7 +163,7 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
 
 
 def patch_purpose(
-    db: Session, purpose_id: int, purpose_update: PurposeUpdate
+        db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
     db_purpose = get_purpose(db, purpose_id)
@@ -235,13 +176,9 @@ def patch_purpose(
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
-        exclude_unset=True, exclude={"emfs", "file_attachment_ids", "contents"}
+            exclude_unset=True, exclude={"file_attachment_ids", "contents"}
     ).items():
         setattr(db_purpose, field, value)
-
-    # Handle EMFs separately
-    if purpose_update.emfs is not None:
-        _process_emfs(db, db_purpose, purpose_update.emfs)
 
     # Handle contents separately - replace all contents
     if purpose_update.contents is not None:

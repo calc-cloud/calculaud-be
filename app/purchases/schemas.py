@@ -1,27 +1,30 @@
+"""Pydantic schemas for purchase data validation."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.costs.schemas import Cost
-from app.stages.schemas import StageResponse
+from app.predefined_flows.schemas import PredefinedFlowResponse
 
 
 class PurchaseBase(BaseModel):
+    """Base schema for purchase."""
+    
     purpose_id: int
 
 
 class PurchaseCreate(PurchaseBase):
+    """Schema for creating a purchase."""
     pass
 
 
-class PurchaseUpdate(BaseModel):
-    pass  # No fields to update for now
-
-
 class PurchaseResponse(PurchaseBase):
+    """Schema for purchase response."""
+    
     id: int
-    creation_date: datetime
-    costs: list[Cost]
-    flow_stages: list[StageResponse | list[StageResponse]]
-
+    predefined_flow_id: int | None
+    predefined_flow: PredefinedFlowResponse | None
+    created_at: datetime
+    updated_at: datetime
+    
     model_config = ConfigDict(from_attributes=True)

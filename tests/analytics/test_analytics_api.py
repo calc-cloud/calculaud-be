@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.costs.models import Cost, CurrencyEnum
-from app.emfs.models import EMF
 from app.hierarchies.models import Hierarchy, HierarchyTypeEnum
 from app.purposes.models import Purpose, PurposeContent, StatusEnum
 from app.service_types.models import ServiceType
@@ -82,9 +81,9 @@ class TestAnalyticsAPI:
         db_session.add_all([content1, content2, content3])
         db_session.flush()
 
-        # Create EMFs
-        emf1 = EMF(emf_id="EMF001", purpose_id=purpose1.id)
-        emf2 = EMF(emf_id="EMF002", purpose_id=purpose2.id)
+        # Create EMFs todo: change to purchase
+        # emf1 = EMF(emf_id="EMF001", purpose_id=purpose1.id)
+        # emf2 = EMF(emf_id="EMF002", purpose_id=purpose2.id)
         db_session.add_all([emf1, emf2])
         db_session.flush()
 

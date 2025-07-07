@@ -8,6 +8,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.stage_types.models import StageType
+    from app.purchases.models import Purchase
 
 
 class PredefinedFlow(Base):
@@ -24,6 +25,9 @@ class PredefinedFlow(Base):
         "PredefinedFlowStage",
         back_populates="predefined_flow",
         cascade="all, delete-orphan",
+    )
+    purchases: Mapped[list["Purchase"]] = relationship(
+        "Purchase", back_populates="predefined_flow"
     )
 
     @property

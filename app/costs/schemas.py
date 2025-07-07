@@ -12,6 +12,6 @@ class CostBase(BaseModel):
 
 class Cost(CostBase):
     id: int
-    emf_id: int
+    purchase_id: int
 
     model_config = ConfigDict(from_attributes=True)

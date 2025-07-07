@@ -17,7 +17,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.emfs.models import EMF
     from app.files.models import FileAttachment
     from app.hierarchies.models import Hierarchy
     from app.purchases.models import Purchase
@@ -68,9 +67,6 @@ class Purpose(Base):
     )
     _supplier: Mapped["Supplier"] = relationship("Supplier")
     _service_type: Mapped["ServiceType"] = relationship("ServiceType")
-    emfs: Mapped[list["EMF"]] = relationship(
-        "EMF", back_populates="purpose", cascade="all, delete-orphan"
-    )
     file_attachments: Mapped[list["FileAttachment"]] = relationship(
         "FileAttachment", secondary="purpose_file_attachment", back_populates="purposes"
     )
