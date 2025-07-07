@@ -63,10 +63,10 @@ class Purpose(Base):
 
     # Relationships
     hierarchy: Mapped["Hierarchy"] = relationship(
-        "Hierarchy", back_populates="purposes"
+        "Hierarchy", back_populates="purposes", lazy="joined"
     )
-    _supplier: Mapped["Supplier"] = relationship("Supplier")
-    _service_type: Mapped["ServiceType"] = relationship("ServiceType")
+    _supplier: Mapped["Supplier"] = relationship("Supplier", lazy="joined")
+    _service_type: Mapped["ServiceType"] = relationship("ServiceType", lazy="joined")
     file_attachments: Mapped[list["FileAttachment"]] = relationship(
         "FileAttachment", secondary="purpose_file_attachment", back_populates="purposes"
     )
@@ -104,7 +104,7 @@ class PurposeContent(Base):
 
     # Relationships
     purpose: Mapped["Purpose"] = relationship(back_populates="contents")
-    service: Mapped["Service"] = relationship()
+    service: Mapped["Service"] = relationship(lazy="joined")
 
     @property
     def service_name(self) -> str:
