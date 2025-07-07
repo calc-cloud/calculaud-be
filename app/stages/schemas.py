@@ -18,6 +18,7 @@ class StageCreate(StageBase):
 
 class StageUpdate(BaseModel):
     value: Annotated[str | None, Field(default=None)]
+    completion_date: Annotated[datetime | None, Field(default=None)]
 
 
 class StageCompletion(BaseModel):

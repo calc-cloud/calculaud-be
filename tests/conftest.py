@@ -19,6 +19,7 @@ pytest_plugins = [
     "tests.services.fixtures",
     "tests.service_types.fixtures",
     "tests.stage_types.fixtures",
+    "tests.stages.fixtures",
     "tests.costs.fixtures",
     "tests.suppliers.fixtures",
 ]

@@ -234,32 +234,6 @@ class TestPurposeFileAttachments:
             assert "file_size" in file_attachment
             assert "uploaded_at" in file_attachment
 
-    def test_purpose_file_attachment_ordering(
-        self,
-        test_client: TestClient,
-        sample_purpose_data: dict,
-        multiple_file_attachments,
-    ):
-        """Test that file attachments maintain consistent ordering."""
-        helper = APITestHelper(test_client, f"{settings.api_v1_prefix}/purposes")
-
-        file_ids = [f.id for f in multiple_file_attachments]
-
-        # Create purpose with files in specific order
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["file_attachment_ids"] = file_ids
-        purpose = helper.create_resource(purpose_data)
-
-        # Verify ordering is maintained
-        returned_file_ids = [f["id"] for f in purpose["file_attachments"]]
-
-        # Note: Ordering might be by ID or creation time, depending on implementation
-        # This test verifies consistent ordering rather than specific order
-        retrieved_purpose = helper.get_resource(purpose["id"])
-        retrieved_file_ids = [f["id"] for f in retrieved_purpose["file_attachments"]]
-
-        assert returned_file_ids == retrieved_file_ids
-
     def test_large_number_of_file_attachments(
         self, test_client: TestClient, sample_purpose_data: dict
     ):

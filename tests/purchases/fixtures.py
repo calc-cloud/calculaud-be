@@ -135,11 +135,11 @@ def predefined_flows_for_purchases(db_session: Session):
             [0, 1, 2, 3],
         ),  # approval -> review -> validation -> completion
         (
-            PredefinedFlowName.SUPPORT_USD_ABOVE_100K.value,
+            PredefinedFlowName.SUPPORT_USD_ABOVE_100K_FLOW.value,
             [0, 1, 2, 3],
         ),  # approval -> review -> validation -> completion
         (
-            PredefinedFlowName.MIXED_USD_ABOVE_100K.value,
+            PredefinedFlowName.MIXED_USD_ABOVE_100K_FLOW.value,
             [0, 1, 2, 3],
         ),  # approval -> review -> validation -> completion
     ]

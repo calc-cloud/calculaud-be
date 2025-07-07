@@ -95,7 +95,7 @@ def get_predefined_flow_for_purchase(purchase: Purchase) -> PredefinedFlowName |
 
     if len(purchase.costs) > 1:
         if is_amount_above_100k:
-            return PredefinedFlowName.MIXED_USD_ABOVE_100K
+            return PredefinedFlowName.MIXED_USD_ABOVE_100K_FLOW
         else:
             return PredefinedFlowName.MIXED_USD_FLOW
 
@@ -103,7 +103,7 @@ def get_predefined_flow_for_purchase(purchase: Purchase) -> PredefinedFlowName |
 
     if cost.currency == CurrencyEnum.SUPPORT_USD:
         if is_amount_above_100k:
-            return PredefinedFlowName.SUPPORT_USD_ABOVE_100K
+            return PredefinedFlowName.SUPPORT_USD_ABOVE_100K_FLOW
         return PredefinedFlowName.SUPPORT_USD_FLOW
 
     elif cost.currency == CurrencyEnum.AVAILABLE_USD:
