@@ -5,10 +5,10 @@ from fastapi.params import Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app import StatusEnum
-from app.emfs.schemas import EMF, EMFCreate, EMFUpdate
 from app.files.schemas import FileAttachment
 from app.hierarchies.schemas import Hierarchy
 from app.pagination import PaginationParams
+from app.purchases.schemas import PurchaseResponse
 
 
 class PurposeContentBase(BaseModel):
@@ -43,7 +43,6 @@ class PurposeBase(BaseModel):
 
 class PurposeCreate(PurposeBase):
     hierarchy_id: Annotated[int | None, Field(default=None)]
-    emfs: Annotated[list[EMFCreate], Field(default_factory=list)]
     file_attachment_ids: Annotated[list[int], Field(default_factory=list)]
     contents: Annotated[list[PurposeContentCreate], Field(default_factory=list)]
 
@@ -56,7 +55,6 @@ class PurposeUpdate(BaseModel):
     supplier_id: int | None = None
     service_type_id: int | None = None
     description: Annotated[str | None, Field(default=None, max_length=2000)]
-    emfs: Annotated[list[EMFUpdate] | None, Field(default=None)]
     file_attachment_ids: Annotated[list[int] | None, Field(default=None)]
     contents: Annotated[list[PurposeContentUpdate] | None, Field(default=None)]
 
@@ -70,9 +68,9 @@ class Purpose(PurposeBase):
     service_type: str | None = None
     hierarchy: Hierarchy | None = None
 
-    emfs: Annotated[list[EMF], Field(default_factory=list)]
     file_attachments: Annotated[list[FileAttachment], Field(default_factory=list)]
     contents: Annotated[list[PurposeContent], Field(default_factory=list)]
+    purchases: Annotated[list[PurchaseResponse], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -125,7 +123,7 @@ class GetPurposesRequest(FilterParams, PaginationParams):
 
     search: Annotated[
         str | None,
-        Field(default=None, description="Search in description and EMF IDs..."),
+        Field(default=None, description="Search in description and stage values..."),
     ]
     sort_by: Annotated[
         str,

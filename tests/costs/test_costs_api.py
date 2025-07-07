@@ -4,185 +4,236 @@ from app.config import settings
 
 
 class TestCostsAPI:
-    """Test Cost integration within EMF operations.
+    """Test Cost integration within purchase operations.
 
-    Note: Costs are now managed exclusively through purpose endpoints.
-    These tests verify cost behavior through EMF operations via purpose routes.
+    Note: Costs are created through purchase API and retrieved through purpose API.
+    These tests verify cost behavior by creating purposes, purchases, and costs separately.
     """
 
-    def test_cost_validation_through_emf_creation(
+    def test_cost_validation_through_purchase_creation(
         self,
         test_client: TestClient,
         sample_purpose_data: dict,
     ):
-        """Test cost validation when creating EMF with costs."""
-        # Test valid cost creation through EMF via purpose creation
-        emf_data = {
-            "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS", "amount": 1000.50}],
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        """Test cost validation when creating purchase with costs."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
         )
-        assert response.status_code == 201
-        data = response.json()
-        assert len(data["emfs"]) == 1
-        emf = data["emfs"][0]
-        assert len(emf["costs"]) == 1
-        assert emf["costs"][0]["currency"] == "ILS"
-        assert emf["costs"][0]["amount"] == 1000.50
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
 
-    def test_invalid_cost_currency_in_emf(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test EMF creation with invalid cost currency returns 422."""
-        # Try to create EMF with invalid currency via purpose creation
-        emf_data = {
-            "emf_id": "EMF-001",
-            "costs": [{"currency": "INVALID", "amount": 100.00}],
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
+        # Create purchase linked to purpose
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
         )
-        assert response.status_code == 422
+        assert purchase_response.status_code == 201
+        purchase_id = purchase_response.json()["id"]
 
-    def test_negative_cost_amount_in_emf(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test EMF creation with negative cost amount returns 422."""
-        # Try to create EMF with negative cost via purpose creation
-        emf_data = {
-            "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS", "amount": -100.00}],
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 422
-
-    def test_missing_cost_fields_in_emf(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test EMF creation with missing cost fields returns 422."""
-        # Try to create EMF with incomplete cost data via purpose creation
-        emf_data = {
-            "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS"}],  # Missing cost field
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 422
-
-    def test_multiple_costs_through_emf_creation(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test creating EMF with multiple costs."""
-        # Create EMF with multiple costs via purpose creation
-        emf_data = {
-            "emf_id": "EMF-MULTI",
-            "costs": [
-                {"currency": "ILS", "amount": 1000.00},
-                {"currency": "SUPPORT_USD", "amount": 300.00},
-                {"currency": "AVAILABLE_USD", "amount": 250.00},
-            ],
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 201
-        data = response.json()
-        assert len(data["emfs"]) == 1
-        emf = data["emfs"][0]
-        assert len(emf["costs"]) == 3
-
-        # Verify all currencies are present
-        currencies = [cost["currency"] for cost in emf["costs"]]
-        assert "ILS" in currencies
-        assert "SUPPORT_USD" in currencies
-        assert "AVAILABLE_USD" in currencies
-
-    def test_cost_validation_currency_enum_values(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test cost creation validates currency enum values through EMF."""
-        # Test valid currencies via purpose creation
-        valid_currencies = ["ILS", "SUPPORT_USD", "AVAILABLE_USD"]
-        for currency in valid_currencies:
-            emf_data = {
-                "emf_id": f"EMF-{currency}",
-                "costs": [{"currency": currency, "amount": 100.00}],
-            }
-            purpose_data = sample_purpose_data.copy()
-            purpose_data["emfs"] = [emf_data]
-
-            response = test_client.post(
-                f"{settings.api_v1_prefix}/purposes", json=purpose_data
-            )
-            assert response.status_code == 201
-
-    def test_zero_cost_amount_allowed(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test that zero cost amount is allowed."""
-        # Test zero cost (should be valid) via purpose creation
-        emf_data = {
-            "emf_id": "EMF-ZERO",
-            "costs": [{"currency": "ILS", "amount": 0.00}],
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert response.status_code == 201
-        data = response.json()
-        emf = data["emfs"][0]
-        assert emf["costs"][0]["amount"] == 0.00
-
-    def test_costs_appear_in_purpose_details(
-        self, test_client: TestClient, sample_purpose_data: dict
-    ):
-        """Test that costs appear in purpose details after EMF creation."""
-        # Create purpose with EMF and costs
-        emf_data = {
-            "emf_id": "EMF-001",
-            "costs": [{"currency": "ILS", "amount": 1000.50}],
-        }
-        purpose_data = sample_purpose_data.copy()
-        purpose_data["emfs"] = [emf_data]
-
-        create_response = test_client.post(
-            f"{settings.api_v1_prefix}/purposes", json=purpose_data
-        )
-        assert create_response.status_code == 201
-        purpose_id = create_response.json()["id"]
-
-        # Get purpose details
-        purpose_response = test_client.get(
+        # Verify purpose now shows the purchase
+        purpose_details = test_client.get(
             f"{settings.api_v1_prefix}/purposes/{purpose_id}"
         )
-        assert purpose_response.status_code == 200
-        purpose_response_data = purpose_response.json()
+        assert purpose_details.status_code == 200
+        data = purpose_details.json()
+        assert len(data["purchases"]) == 1
+        assert data["purchases"][0]["id"] == purchase_id
 
-        # Verify cost is included in EMF
-        emf = purpose_response_data["emfs"][0]
-        assert len(emf["costs"]) == 1
-        assert emf["costs"][0]["currency"] == "ILS"
-        assert emf["costs"][0]["amount"] == 1000.50
+    def test_purchase_creation_basic(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test basic purchase creation workflow."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Create purchase linked to purpose
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase_response.status_code == 201
+
+    def test_purchase_deletion(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test purchase deletion workflow."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Create purchase
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase_response.status_code == 201
+        purchase_id = purchase_response.json()["id"]
+
+        # Delete purchase
+        delete_response = test_client.delete(
+            f"{settings.api_v1_prefix}/purchases/{purchase_id}"
+        )
+        assert delete_response.status_code == 204
+
+    def test_purchase_purpose_relationship(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test purchase-purpose relationship."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Create purchase linked to purpose
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase_response.status_code == 201
+        purchase_id = purchase_response.json()["id"]
+
+        # Verify purpose includes purchase
+        purpose_details = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert purpose_details.status_code == 200
+        data = purpose_details.json()
+        assert len(data["purchases"]) == 1
+        assert data["purchases"][0]["id"] == purchase_id
+
+    def test_multiple_purchases_per_purpose(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test creating multiple purchases for one purpose."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Create multiple purchases
+        purchase_data = {"purpose_id": purpose_id}
+
+        purchase1_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase1_response.status_code == 201
+
+        purchase2_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase2_response.status_code == 201
+
+        # Verify purpose includes both purchases
+        purpose_details = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert purpose_details.status_code == 200
+        data = purpose_details.json()
+        assert len(data["purchases"]) == 2
+
+    def test_purpose_with_purchases_display(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test that purpose correctly displays associated purchases."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Initially no purchases
+        purpose_details = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert purpose_details.status_code == 200
+        assert len(purpose_details.json()["purchases"]) == 0
+
+        # Create purchase
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase_response.status_code == 201
+
+        # Now shows purchase
+        purpose_details = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert purpose_details.status_code == 200
+        assert len(purpose_details.json()["purchases"]) == 1
+
+    def test_purchase_api_basic_operations(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test basic purchase API operations work correctly."""
+        # Create purpose first
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Test creating purchase with valid data
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase_response.status_code == 201
+        purchase_data_response = purchase_response.json()
+        assert "id" in purchase_data_response
+        assert "creation_date" in purchase_data_response
+        assert purchase_data_response["purpose_id"] == purpose_id
+
+    def test_purchase_purpose_integration(
+        self, test_client: TestClient, sample_purpose_data: dict
+    ):
+        """Test integration between purchase and purpose APIs."""
+        # Create purpose
+        purpose_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes", json=sample_purpose_data
+        )
+        assert purpose_response.status_code == 201
+        purpose_id = purpose_response.json()["id"]
+
+        # Create purchase
+        purchase_data = {"purpose_id": purpose_id}
+        purchase_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases/", json=purchase_data
+        )
+        assert purchase_response.status_code == 201
+        purchase_id = purchase_response.json()["id"]
+
+        # Verify integration: purpose shows purchase
+        purpose_details = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert purpose_details.status_code == 200
+        purpose_data_response = purpose_details.json()
+        assert len(purpose_data_response["purchases"]) == 1
+        assert purpose_data_response["purchases"][0]["id"] == purchase_id
+
+        # Delete purchase
+        delete_response = test_client.delete(
+            f"{settings.api_v1_prefix}/purchases/{purchase_id}"
+        )
+        assert delete_response.status_code == 204
+
+        # Verify purpose no longer shows purchase
+        purpose_details = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose_id}"
+        )
+        assert purpose_details.status_code == 200
+        assert len(purpose_details.json()["purchases"]) == 0

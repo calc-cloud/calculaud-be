@@ -39,8 +39,8 @@ class TestPurposesApi(BaseAPITestClass):
         assert "id" in data
         assert "creation_time" in data
         assert "hierarchy" in data
-        assert "emfs" in data
-        assert isinstance(data["emfs"], list)
+        assert "purchases" in data
+        assert isinstance(data["purchases"], list)
 
         # Verify hierarchy relationship is loaded
         if sample_purpose_data.get("hierarchy_id"):
@@ -56,8 +56,8 @@ class TestPurposesApi(BaseAPITestClass):
 
         # Verify relationships are loaded
         assert "hierarchy" in data
-        assert "emfs" in data
-        assert isinstance(data["emfs"], list)
+        assert "purchases" in data
+        assert isinstance(data["purchases"], list)
 
         # Verify response structure matches created purpose
         assert data["id"] == created_purpose["id"]
@@ -158,26 +158,26 @@ class TestPurposesApi(BaseAPITestClass):
         assert len(response_data["items"]) == 1
         assert "computers" in response_data["items"][0]["description"].lower()
 
-    def test_search_by_emf_id(
-        self, test_client: TestClient, purpose_with_emfs_and_costs
+    def test_search_by_description_content(
+        self, test_client: TestClient, purpose_with_purchases_and_costs
     ):
-        """Test searching purposes by EMF ID."""
+        """Test searching purposes by description content."""
         helper = APITestHelper(test_client, self.resource_endpoint)
 
-        # Test search by emf_id
-        response_data = helper.search_resources("EMF-001")
+        # Test search by specific content in description
+        response_data = helper.search_resources("STAGE-001")
         assert len(response_data["items"]) == 1
-        assert response_data["items"][0]["id"] == purpose_with_emfs_and_costs["id"]
+        assert response_data["items"][0]["id"] == purpose_with_purchases_and_costs["id"]
 
-        # Test search by different emf_id
-        response_data = helper.search_resources("EMF-002")
+        # Test search by partial content
+        response_data = helper.search_resources("Complex")
         assert len(response_data["items"]) == 1
-        assert response_data["items"][0]["id"] == purpose_with_emfs_and_costs["id"]
+        assert response_data["items"][0]["id"] == purpose_with_purchases_and_costs["id"]
 
-        # Test search by partial emf_id
-        response_data = helper.search_resources("EMF")
+        # Test search by another part of description
+        response_data = helper.search_resources("test purpose")
         assert len(response_data["items"]) == 1
-        assert response_data["items"][0]["id"] == purpose_with_emfs_and_costs["id"]
+        assert response_data["items"][0]["id"] == purpose_with_purchases_and_costs["id"]
 
     def test_sorting_by_expected_delivery(
         self, test_client: TestClient, sample_hierarchy

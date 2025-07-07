@@ -6,6 +6,7 @@ from .config import settings
 from .files.router import router as files_router
 from .hierarchies.router import router as hierarchies_router
 from .predefined_flows.router import router as predefined_flows_router
+from .purchases.router import router as purchases_router
 from .purposes.router import router as purposes_router
 from .service_types.router import router as service_types_router
 from .services.router import router as services_router
@@ -14,7 +15,7 @@ from .suppliers.router import router as suppliers_router
 
 app = FastAPI(
     title=settings.app_name,
-    description="Backend API for managing procurement purposes, EMFs, costs, hierarchies,"
+    description="Backend API for managing procurement purposes, purchases, costs, hierarchies,"
     " service types, services, and suppliers",
     version=settings.version,
     debug=settings.debug,
@@ -74,6 +75,12 @@ app.include_router(
     files_router,
     prefix=f"{settings.api_v1_prefix}/files",
     tags=["files"],
+)
+
+app.include_router(
+    purchases_router,
+    prefix=f"{settings.api_v1_prefix}/purchases",
+    tags=["purchases"],
 )
 
 app.include_router(

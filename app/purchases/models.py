@@ -7,6 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.costs.models import Cost
+    from app.predefined_flows.models import PredefinedFlow
     from app.purposes.models import Purpose
     from app.stages.models import Stage
 
@@ -16,18 +18,24 @@ class Purchase(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     purpose_id: Mapped[int] = mapped_column(ForeignKey("purpose.id"), nullable=False)
+    predefined_flow_id: Mapped[int | None] = mapped_column(
+        ForeignKey("predefined_flow.id"), nullable=True
+    )
     creation_date: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now(UTC), nullable=False
     )
 
     # Relationships
     purpose: Mapped["Purpose"] = relationship("Purpose", back_populates="purchases")
+    predefined_flow: Mapped["PredefinedFlow"] = relationship(
+        "PredefinedFlow", back_populates="purchases"
+    )
     stages: Mapped[list["Stage"]] = relationship(
         "Stage", back_populates="purchase", cascade="all, delete-orphan"
     )
-    # costs: Mapped[list["Cost"]] = relationship(
-    #     "Cost", back_populates="purchase", cascade="all, delete-orphan"
-    # ) todo: LINK costs to purchases (change from emf)
+    costs: Mapped[list["Cost"]] = relationship(
+        "Cost", back_populates="purchase", cascade="all, delete-orphan"
+    )
 
     @property
     def flow_stages(self) -> list["Stage | list[Stage]"]:

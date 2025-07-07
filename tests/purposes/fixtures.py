@@ -127,36 +127,15 @@ def multiple_purposes(test_client, sample_hierarchy):
 
 
 @pytest.fixture
-def purpose_with_emfs_and_costs(test_client, sample_hierarchy):
-    """Create a purpose with EMFs and costs for comprehensive testing."""
+def purpose_with_purchases_and_costs(test_client, sample_hierarchy):
+    """Create a purpose with searchable description for testing."""
     purpose_data = {
         "hierarchy_id": sample_hierarchy.id,
         "expected_delivery": "2024-12-31",
-        "comments": "Test purpose with EMFs",
+        "comments": "Test purpose with searchable content",
         "status": "IN_PROGRESS",
-        "description": "Complex test purpose",
-        "emfs": [
-            {
-                "emf_id": "EMF-001",
-                "order_id": "ORD-001",
-                "order_creation_date": "2024-01-15",
-                "demand_id": "DEM-001",
-                "demand_creation_date": "2024-01-10",
-                "bikushit_id": "BIK-001",
-                "bikushit_creation_date": "2024-01-20",
-                "costs": [{"currency": "ILS", "amount": 1000.50}],
-            },
-            {
-                "emf_id": "EMF-002",
-                "order_id": "ORD-002",
-                "order_creation_date": "2024-01-16",
-                "demand_id": "DEM-002",
-                "demand_creation_date": "2024-01-11",
-                "bikushit_id": "BIK-002",
-                "bikushit_creation_date": "2024-01-21",
-                "costs": [{"currency": "SUPPORT_USD", "amount": 2000.00}],
-            },
-        ],
+        "description": "Complex test purpose with STAGE-001 reference",
+        "contents": [],
     }
 
     response = test_client.post(f"{settings.api_v1_prefix}/purposes", json=purpose_data)

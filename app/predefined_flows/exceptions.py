@@ -12,8 +12,8 @@ class PredefinedFlowException(Exception):
 class PredefinedFlowNotFound(PredefinedFlowException):
     """Raised when a predefined flow is not found."""
 
-    def __init__(self, flow_id: int):
-        self.message = f"Predefined flow with ID {flow_id} not found"
+    def __init__(self, flow_name: str):
+        self.message = f"Predefined flow '{flow_name}' not found"
         super().__init__(self.message)
 
 

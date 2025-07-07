@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.costs.models import Cost, CurrencyEnum
-from app.emfs.models import EMF
 from app.hierarchies.models import Hierarchy, HierarchyTypeEnum
+from app.purchases.models import Purchase
 from app.purposes.models import Purpose, PurposeContent, StatusEnum
 from app.service_types.models import ServiceType
 from app.services.models import Service
@@ -82,16 +82,18 @@ class TestAnalyticsAPI:
         db_session.add_all([content1, content2, content3])
         db_session.flush()
 
-        # Create EMFs
-        emf1 = EMF(emf_id="EMF001", purpose_id=purpose1.id)
-        emf2 = EMF(emf_id="EMF002", purpose_id=purpose2.id)
-        db_session.add_all([emf1, emf2])
+        # Create purchases
+        purchase1 = Purchase(purpose_id=purpose1.id)
+        purchase2 = Purchase(purpose_id=purpose2.id)
+        db_session.add_all([purchase1, purchase2])
         db_session.flush()
 
         # Create costs
-        cost1 = Cost(emf_id=emf1.id, currency=CurrencyEnum.ILS, amount=1000.0)
-        cost2 = Cost(emf_id=emf1.id, currency=CurrencyEnum.SUPPORT_USD, amount=200.0)
-        cost3 = Cost(emf_id=emf2.id, currency=CurrencyEnum.ILS, amount=1500.0)
+        cost1 = Cost(purchase_id=purchase1.id, currency=CurrencyEnum.ILS, amount=1000.0)
+        cost2 = Cost(
+            purchase_id=purchase1.id, currency=CurrencyEnum.SUPPORT_USD, amount=200.0
+        )
+        cost3 = Cost(purchase_id=purchase2.id, currency=CurrencyEnum.ILS, amount=1500.0)
         db_session.add_all([cost1, cost2, cost3])
 
         db_session.commit()

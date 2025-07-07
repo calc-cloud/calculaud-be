@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.purchases.models import Purchase
     from app.stage_types.models import StageType
 
 
@@ -24,6 +25,9 @@ class PredefinedFlow(Base):
         "PredefinedFlowStage",
         back_populates="predefined_flow",
         cascade="all, delete-orphan",
+    )
+    purchases: Mapped[list["Purchase"]] = relationship(
+        "Purchase", back_populates="predefined_flow"
     )
 
     @property

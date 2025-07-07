@@ -26,6 +26,23 @@ def get_predefined_flow(db: Session, flow_id: int) -> PredefinedFlow | None:
     return db.execute(stmt).scalars().first()
 
 
+def get_predefined_flow_by_name(db: Session, flow_name: str) -> PredefinedFlow:
+    """Get a single predefined flow by name with eager loaded stages."""
+    stmt = (
+        select(PredefinedFlow)
+        .options(
+            joinedload(PredefinedFlow.predefined_flow_stages).joinedload(
+                PredefinedFlowStage.stage_type
+            )
+        )
+        .where(PredefinedFlow.flow_name == flow_name)
+    )
+    flow = db.execute(stmt).scalars().first()
+    if not flow:
+        raise PredefinedFlowNotFound(flow_name)
+    return flow
+
+
 def get_predefined_flows(
     db: Session, pagination: PaginationParams, search: str | None = None
 ) -> tuple[list[PredefinedFlow], int]:
