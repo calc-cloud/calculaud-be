@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app import CurrencyEnum, Stage
+from app.costs.models import Cost
 from app.predefined_flows import service as predefined_flow_service
 from app.purchases.consts import PredefinedFlowName
 from app.purchases.exceptions import PurchaseNotFound
@@ -13,10 +14,27 @@ from app.purchases.schemas import PurchaseCreate
 
 def create_purchase(db: Session, purchase_data: PurchaseCreate) -> Purchase:
     """Create a new purchase."""
-    db_purchase = Purchase(**purchase_data.model_dump())
-    db.add(db_purchase)
+    # Extract costs data before creating purchase
+    costs_data = purchase_data.costs
+    purchase_dict = purchase_data.model_dump(exclude={"costs"})
 
-    # Get and store the predefined flow
+    db_purchase = Purchase(**purchase_dict)
+    db.add(db_purchase)
+    db.flush()  # Get the purchase ID
+
+    # Create costs
+    costs = [
+        Cost(
+            purchase_id=db_purchase.id,
+            currency=cost_data.currency,
+            amount=cost_data.amount,
+        )
+        for cost_data in costs_data
+    ]
+    db.add_all(costs)
+    db_purchase.costs = costs
+
+    # Get and store the predefined flow based on costs
     flow_name_enum = get_predefined_flow_for_purchase(db_purchase)
     if flow_name_enum is not None:
         predefined_flow = predefined_flow_service.get_predefined_flow_by_name(
