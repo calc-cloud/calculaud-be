@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database seeding script for creating random purposes with EMFs and costs.
+Database seeding script for creating random purposes with purchases and costs.
 Populates data over the last few years with various service types and services.
 """
 
@@ -385,7 +385,7 @@ def create_random_date(start_years_ago: int = 3, end_years_ago: int = 0) -> date
 
 
 def create_random_datetime(
-        start_years_ago: int = 3, end_years_ago: int = 0
+    start_years_ago: int = 3, end_years_ago: int = 0
 ) -> datetime:
     """Create a random datetime within the specified year range."""
     start_date = datetime.now() - timedelta(days=365 * start_years_ago)
@@ -409,7 +409,7 @@ def seed_suppliers(session: Any) -> list[int]:
 
 
 def seed_service_types_and_services(
-        session: Any,
+    session: Any,
 ) -> tuple[list[int], dict[int, list[int]]]:
     """Create service types and services, return service_type_ids and services_by_type_id."""
     service_type_ids = []
@@ -434,9 +434,9 @@ def seed_service_types_and_services(
     return service_type_ids, services_by_type_id
 
 
-def create_random_emf_id() -> str:
-    """Generate a random EMF ID."""
-    return f"EMF-{random.randint(100000, 999999)}"
+def create_random_stage_value() -> str:
+    """Generate a random stage value."""
+    return f"STAGE-{random.randint(100000, 999999)}"
 
 
 def create_random_order_id() -> str:
@@ -454,15 +454,15 @@ def create_random_bikushit_id() -> str:
     return f"BIK-{random.randint(10000, 99999)}"
 
 
-def seed_purposes_with_emfs_and_costs(
-        session: Any,
-        supplier_ids: list[int],
-        hierarchy_ids: list[int],
-        service_type_ids: list[int],
-        services_by_type_id: dict[int, list[int]],
-        num_purposes: int = 100,
+def seed_purposes_with_purchases_and_costs(
+    session: Any,
+    supplier_ids: list[int],
+    hierarchy_ids: list[int],
+    service_type_ids: list[int],
+    services_by_type_id: dict[int, list[int]],
+    num_purposes: int = 100,
 ) -> None:
-    """Create purposes with EMFs and costs."""
+    """Create purposes with purchases and costs."""
 
     for _ in range(num_purposes):
         # Random purpose data
@@ -549,8 +549,8 @@ def main():
         print("🔧 Creating service types and services...")
         service_type_ids, services_by_type_id = seed_service_types_and_services(session)
 
-        print("🎯 Creating purposes with EMFs and costs...")
-        seed_purposes_with_emfs_and_costs(
+        print("🎯 Creating purposes with purchases and costs...")
+        seed_purposes_with_purchases_and_costs(
             session,
             supplier_ids,
             hierarchy_ids,

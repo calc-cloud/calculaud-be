@@ -13,9 +13,9 @@ def sample_cost_data() -> dict:
 
 
 @pytest.fixture
-def sample_cost(db_session, sample_emf) -> Cost:
+def sample_cost(db_session, sample_purchase) -> Cost:
     """Create sample cost."""
-    cost = Cost(emf_id=sample_emf.id, currency="ILS", cost=1000.50)
+    cost = Cost(purchase_id=sample_purchase.id, currency="ILS", amount=1000.50)
     db_session.add(cost)
     db_session.commit()
     db_session.refresh(cost)

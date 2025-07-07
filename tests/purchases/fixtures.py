@@ -10,10 +10,7 @@ from app.purchases.schemas import PurchaseCreate
 @pytest.fixture
 def sample_purchase_data():
     """Sample purchase creation data."""
-    return {
-        "purpose_id": 1,
-        "description": "Test purchase"
-    }
+    return {"purpose_id": 1}
 
 
 @pytest.fixture

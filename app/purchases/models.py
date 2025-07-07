@@ -8,9 +8,9 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.costs.models import Cost
+    from app.predefined_flows.models import PredefinedFlow
     from app.purposes.models import Purpose
     from app.stages.models import Stage
-    from app.predefined_flows.models import PredefinedFlow
 
 
 class Purchase(Base):

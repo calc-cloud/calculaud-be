@@ -3,11 +3,11 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app import Stage, CurrencyEnum
+from app import CurrencyEnum, Stage
 from app.predefined_flows import service as predefined_flow_service
+from app.purchases.consts import PredefinedFlowName
 from app.purchases.exceptions import PurchaseNotFound
 from app.purchases.models import Purchase
-from app.purchases.consts import PredefinedFlowName
 from app.purchases.schemas import PurchaseCreate
 
 
@@ -30,7 +30,8 @@ def create_purchase(db: Session, purchase_data: PurchaseCreate) -> Purchase:
                 stage_type_id=predefined_stage.stage_type_id,
                 priority=predefined_stage.priority,
                 purchase_id=db_purchase.id,
-            ) for predefined_stage in predefined_flow.predefined_flow_stages
+            )
+            for predefined_stage in predefined_flow.predefined_flow_stages
         ]
         db.add_all(stages)
 
@@ -47,7 +48,7 @@ def get_purchase(db: Session, purchase_id: int) -> Purchase:
         .options(
             joinedload(Purchase.stages).joinedload(Stage.stage_type),
             joinedload(Purchase.predefined_flow),
-            joinedload(Purchase.costs)
+            joinedload(Purchase.costs),
         )
         .where(Purchase.id == purchase_id)
     )

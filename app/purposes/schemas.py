@@ -8,6 +8,7 @@ from app import StatusEnum
 from app.files.schemas import FileAttachment
 from app.hierarchies.schemas import Hierarchy
 from app.pagination import PaginationParams
+from app.purchases.schemas import PurchaseResponse
 
 
 class PurposeContentBase(BaseModel):
@@ -69,6 +70,7 @@ class Purpose(PurposeBase):
 
     file_attachments: Annotated[list[FileAttachment], Field(default_factory=list)]
     contents: Annotated[list[PurposeContent], Field(default_factory=list)]
+    purchases: Annotated[list[PurchaseResponse], Field(default_factory=list)]
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -29,10 +29,8 @@ def _get_base_purpose_select():
         joinedload(Purpose.purchases)
         .joinedload(Purchase.stages)
         .joinedload(Stage.stage_type),
-        joinedload(Purpose.purchases)
-        .joinedload(Purchase.predefined_flow),
-        joinedload(Purpose.purchases)
-        .joinedload(Purchase.costs),
+        joinedload(Purpose.purchases).joinedload(Purchase.predefined_flow),
+        joinedload(Purpose.purchases).joinedload(Purchase.costs),
     )
 
 
@@ -58,7 +56,7 @@ def _validate_unique_services_in_purpose(services: list[PurposeContentBase]) -> 
 
 
 def _create_purpose_content(
-        db: Session, purpose_id: int, content_data
+    db: Session, purpose_id: int, content_data
 ) -> PurposeContent:
     """Create a purpose content entry with validation."""
     _validate_service_exists(db, content_data.service_id)
@@ -77,8 +75,7 @@ def _build_search_filter(search: str):
     """Build search filter for purpose queries."""
     return or_(
         Purpose.description.ilike(f"%{search}%"),
-        Purpose.purchases.any(Purchase.stages.any(
-            Stage.value.ilike(f"%{search}%"))),
+        Purpose.purchases.any(Purchase.stages.any(Stage.value.ilike(f"%{search}%"))),
         Purpose.contents.any(
             PurposeContent.service.has(Service.name.ilike(f"%{search}%"))
         ),
@@ -86,7 +83,7 @@ def _build_search_filter(search: str):
 
 
 def _set_file_attachments(
-        db: Session, db_purpose: Purpose, file_attachment_ids: list[int]
+    db: Session, db_purpose: Purpose, file_attachment_ids: list[int]
 ) -> None:
     """Handle file attachment updates for a purpose using many-to-many relationship."""
     files = (
@@ -143,9 +140,7 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
     if purpose.contents:
         _validate_unique_services_in_purpose(purpose.contents)
 
-    purpose_data = purpose.model_dump(
-        exclude={"file_attachment_ids", "contents"}
-    )
+    purpose_data = purpose.model_dump(exclude={"file_attachment_ids", "contents"})
     db_purpose = Purpose(**purpose_data)
     db.add(db_purpose)
     db.flush()
@@ -163,7 +158,7 @@ def create_purpose(db: Session, purpose: PurposeCreate) -> Purpose:
 
 
 def patch_purpose(
-        db: Session, purpose_id: int, purpose_update: PurposeUpdate
+    db: Session, purpose_id: int, purpose_update: PurposeUpdate
 ) -> Purpose | None:
     """Patch an existing purpose."""
     db_purpose = get_purpose(db, purpose_id)
@@ -176,7 +171,7 @@ def patch_purpose(
 
     # Update basic fields
     for field, value in purpose_update.model_dump(
-            exclude_unset=True, exclude={"file_attachment_ids", "contents"}
+        exclude_unset=True, exclude={"file_attachment_ids", "contents"}
     ).items():
         setattr(db_purpose, field, value)
 

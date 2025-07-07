@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Procurement Management System backend built with FastAPI. Manages Purposes, EMFs (procurement forms), Costs, and
+Procurement Management System backend built with FastAPI. Manages Purposes, Purchases, Stages, Costs, and
 Hierarchies with full CRUD operations, advanced filtering, and search capabilities.
 
 ## Technology Stack
@@ -135,9 +135,10 @@ All three must pass without errors.
 
 **Core Entities:**
 
-- **Purpose** - Main procurement request (links to Hierarchy, contains EMFs)
-- **EMF** - Procurement form details (belongs to Purpose, contains Costs)
-- **Cost** - Financial entries (belongs to EMF)
+- **Purpose** - Main procurement request (links to Hierarchy, contains Purchases)
+- **Purchase** - Procurement form details (belongs to Purpose, contains Stages and Costs)
+- **Stage** - Workflow stages with values (belongs to Purchase)
+- **Cost** - Financial entries (belongs to Purchase)
 - **Hierarchy** - Self-referencing organizational tree structure
 
 ## API Patterns
@@ -145,15 +146,15 @@ All three must pass without errors.
 **Main Resources:**
 
 - `/purposes` - Full CRUD, filtering, search, pagination
-- `/costs` - Managed through EMFs within purposes
+- `/costs` - Managed through purchases within purposes
 - `/hierarchies` - Organizational structure
 - `/files` - File upload and management
 
-**EMF Operations:**
+**Purchase Operations:**
 
 - Create: Include in `POST /purposes` or `PATCH /purposes/{id}`
-- Update: Use `PATCH /purposes/{id}` with updated EMF data
-- Delete: Use `PATCH /purposes/{id}` without the EMF
+- Update: Use `PATCH /purposes/{id}` with updated purchase data
+- Delete: Use `PATCH /purposes/{id}` without the purchase
 
 **File Upload Workflow:**
 

@@ -15,7 +15,7 @@ from .suppliers.router import router as suppliers_router
 
 app = FastAPI(
     title=settings.app_name,
-    description="Backend API for managing procurement purposes, EMFs, costs, hierarchies,"
+    description="Backend API for managing procurement purposes, purchases, costs, hierarchies,"
     " service types, services, and suppliers",
     version=settings.version,
     debug=settings.debug,
