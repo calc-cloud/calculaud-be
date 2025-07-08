@@ -57,33 +57,24 @@ class PurchaseResponse(PurchaseBase):
         if not self.flow_stages:
             return None
 
-        last_completed_priority = None
-        most_recent_completion = self.current_pending_stages(π)
-
-        # Find the most recent completion date from the last completed priority
-        for stages in self.flow_stages:
-            if isinstance(stages, list):
-                # If multiple stages at this priority, check each one
-                for stage in stages:
-                    if stage.completion_date is not None:
-                        if (
-                            most_recent_completion is None
-                            or stage.completion_date > most_recent_completion
-                        ):
-                            most_recent_completion = stage.completion_date
-            else:
-                # Single stage at this priority
-                if stages.completion_date is not None:
-                    if (
-                        most_recent_completion is None
-                        or stages.completion_date > most_recent_completion
-                    ):
-                        most_recent_completion = stages.completion_date
-
-        if most_recent_completion is None:
+        current_pending_stages = self.current_pending_stages
+        if not current_pending_stages:
             return None
 
-        return datetime.now() - most_recent_completion
+        current_pending_priority = current_pending_stages[0].priority
 
+        if current_pending_priority == 1:
+            most_recent_completion_date = self.creation_date
+        else:
+            # Get the previous completed stages at the current pending priority
+            last_completed_stages = self.flow_stages[current_pending_priority - 2]
+            if isinstance(last_completed_stages, list):
+                most_recent_completion_date = max(
+                    stage.completion_date for stage in last_completed_stages
+                )
+            else:
+                most_recent_completion_date = last_completed_stages.completion_date
+
+        return datetime.now() - most_recent_completion_date
 
     model_config = ConfigDict(from_attributes=True)

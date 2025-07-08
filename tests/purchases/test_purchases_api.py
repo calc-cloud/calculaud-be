@@ -127,3 +127,24 @@ class TestPurchaseAPI:
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
+
+    def test_get_purchase(self, test_client: TestClient, sample_purchase):
+        """Test getting a purchase by ID."""
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purchases/{sample_purchase.id}"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == sample_purchase.id
+        assert data["purpose_id"] == sample_purchase.purpose_id
+        assert "creation_date" in data
+        assert "current_pending_stages" in data
+        assert "time_since_last_completion" in data
+
+    def test_get_nonexistent_purchase(self, test_client: TestClient):
+        """Test getting a non-existent purchase."""
+        response = test_client.get(f"{settings.api_v1_prefix}/purchases/999")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()

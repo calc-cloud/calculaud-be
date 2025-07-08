@@ -20,6 +20,18 @@ def create_purchase(
     return service.create_purchase(db, purchase_data)
 
 
+@router.get("/{purchase_id}", response_model=PurchaseResponse)
+def get_purchase(
+    purchase_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get a purchase by ID."""
+    try:
+        return service.get_purchase(db, purchase_id)
+    except PurchaseNotFound as e:
+        raise HTTPException(status_code=404, detail=e.message)
+
+
 @router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_purchase(
     purchase_id: int,
