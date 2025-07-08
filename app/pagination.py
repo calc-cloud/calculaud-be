@@ -30,14 +30,17 @@ class PaginatedResult(BaseModel, Generic[T]):
     limit: int = Field(ge=1)
 
     @computed_field
+    @property
     def pages(self) -> int:
         return (self.total + self.limit - 1) // self.limit
 
     @computed_field
+    @property
     def has_next(self) -> bool:
         return self.page < self.pages
 
     @computed_field
+    @property
     def has_prev(self) -> bool:
         return self.page > 1
 
