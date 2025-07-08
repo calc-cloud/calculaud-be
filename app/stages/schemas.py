@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,7 +18,7 @@ class StageCreate(StageBase):
 
 class StageUpdate(BaseModel):
     value: Annotated[str | None, Field(default=None)]
-    completion_date: Annotated[datetime | None, Field(default=None)]
+    completion_date: Annotated[date | None, Field(default=None)]
 
 
 class StageCompletion(BaseModel):
@@ -29,6 +29,6 @@ class StageResponse(StageBase):
     id: int
     purchase_id: int
     stage_type: StageTypeResponse  # full stage type object relationship
-    completion_date: datetime | None
+    completion_date: date | None
 
     model_config = ConfigDict(from_attributes=True)

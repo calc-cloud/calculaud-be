@@ -66,7 +66,7 @@ class PurchaseResponse(PurchaseBase):
         current_pending_priority = current_pending_stages[0].priority
 
         if current_pending_priority == 1:
-            most_recent_completion_date = self.creation_date
+            most_recent_completion_date = self.creation_date.date()
         else:
             # Get the previous completed stages at the current pending priority
             last_completed_stages = self.flow_stages[current_pending_priority - 2]
@@ -77,6 +77,6 @@ class PurchaseResponse(PurchaseBase):
             else:
                 most_recent_completion_date = last_completed_stages.completion_date
 
-        return datetime.now() - most_recent_completion_date
+        return datetime.now().date() - most_recent_completion_date
 
     model_config = ConfigDict(from_attributes=True)

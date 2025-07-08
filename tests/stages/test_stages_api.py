@@ -1,6 +1,6 @@
 """Tests for stage API endpoints."""
 
-from datetime import datetime
+from datetime import date
 
 from fastapi.testclient import TestClient
 
@@ -48,8 +48,8 @@ class TestStageAPI:
         self, test_client: TestClient, sample_stage
     ):
         """Test updating only the completion date."""
-        completion_time = datetime.now().isoformat()
-        update_data = {"completion_date": completion_time}
+        completion_date = date.today().isoformat()
+        update_data = {"completion_date": completion_date}
 
         response = test_client.patch(
             f"{settings.api_v1_prefix}/stages/{sample_stage.id}", json=update_data
@@ -62,10 +62,10 @@ class TestStageAPI:
 
     def test_update_stage_both_fields(self, test_client: TestClient, sample_stage):
         """Test updating both value and completion date."""
-        completion_time = datetime.now().isoformat()
+        completion_date = date.today().isoformat()
         update_data = {
             "value": "COMPLETED-VALUE-001",
-            "completion_date": completion_time,
+            "completion_date": completion_date,
         }
 
         response = test_client.patch(
@@ -174,8 +174,8 @@ class TestStageAPI:
         original_value = sample_stage.value
 
         # Update only completion date
-        completion_time = datetime.now().isoformat()
-        update_data = {"completion_date": completion_time}
+        completion_date = date.today().isoformat()
+        update_data = {"completion_date": completion_date}
 
         response = test_client.patch(
             f"{settings.api_v1_prefix}/stages/{sample_stage.id}", json=update_data

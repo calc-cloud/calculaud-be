@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Text
+from sqlalchemy import Date, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -21,7 +21,7 @@ class Stage(Base):
     purchase_id: Mapped[int] = mapped_column(ForeignKey("purchase.id"), nullable=False)
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
-    completion_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completion_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Relationships
     stage_type: Mapped["StageType"] = relationship("StageType", back_populates="stages")

@@ -1,6 +1,6 @@
 """Test cases for Purchase computed fields."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -97,9 +97,9 @@ class TestPurchaseComputedFields:
         if current_pending and current_pending[0]["priority"] == 1:
             time_since = data["time_since_last_completion"]
             assert time_since is not None
-            # Should be a short time since creation (ISO 8601 duration format)
-            # Format like "PT0.123456S" or "PT1H2M3.456S"
-            assert time_since.startswith("PT") and time_since.endswith("S")
+            # Should be 0 days since creation happened today
+            # Format like "PT0S" for 0 days difference in ISO 8601 duration
+            assert time_since == "PT0S" or "0 days" in time_since
 
     def test_stage_completion_updates_computed_fields(
         self,
@@ -125,12 +125,12 @@ class TestPurchaseComputedFields:
         # Complete first stage if it exists
         if initial_pending:
             first_stage_id = initial_pending[0]["id"]
-            completion_time = datetime.now(UTC)
+            completion_date = date.today()
 
             # Update via API endpoint (more realistic test)
             update_response = test_client.patch(
                 f"{settings.api_v1_prefix}/stages/{first_stage_id}",
-                json={"completion_date": completion_time.isoformat()},
+                json={"completion_date": completion_date.isoformat()},
             )
             assert update_response.status_code == 200
 
