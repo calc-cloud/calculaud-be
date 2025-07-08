@@ -24,10 +24,7 @@ def update_stage(db: Session, stage_id: int, stage_update: StageUpdate) -> Stage
         raise StageNotFound(stage_id)
 
     # Validate value if provided
-    if (
-        stage_update.value is not None
-        and not stage.stage_type.value_required
-    ):
+    if stage_update.value is not None and not stage.stage_type.value_required:
         raise InvalidStageValue(
             stage.stage_type.name, "values are not allowed for this stage type"
         )

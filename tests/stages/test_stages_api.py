@@ -45,7 +45,7 @@ class TestStageAPI:
         assert data["completion_date"] is None  # Should remain unchanged
 
     def test_update_stage_completion_date_only(
-            self, test_client: TestClient, sample_stage
+        self, test_client: TestClient, sample_stage
     ):
         """Test updating only the completion date."""
         completion_time = datetime.now().isoformat()
@@ -78,7 +78,7 @@ class TestStageAPI:
         assert data["completion_date"] is not None
 
     def test_update_stage_clear_completion_date(
-            self, test_client: TestClient, completed_stage
+        self, test_client: TestClient, completed_stage
     ):
         """Test clearing the completion date."""
         update_data = {"completion_date": None}
@@ -103,11 +103,11 @@ class TestStageAPI:
         assert "not found" in response.json()["detail"].lower()
 
     def test_update_stage_empty_value_allowed(
-            self,
-            test_client: TestClient,
-            db_session,
-            required_value_stage_type,
-            sample_purchase,
+        self,
+        test_client: TestClient,
+        db_session,
+        required_value_stage_type,
+        sample_purchase,
     ):
         """Test updating stage with empty value is allowed."""
         from app.stages.models import Stage
@@ -136,11 +136,11 @@ class TestStageAPI:
         assert data["value"] == ""
 
     def test_update_stage_no_value_allowed(
-            self,
-            test_client: TestClient,
-            db_session,
-            optional_value_stage_type,
-            sample_purchase,
+        self,
+        test_client: TestClient,
+        db_session,
+        optional_value_stage_type,
+        sample_purchase,
     ):
         """Test updating stage with value when values are not allowed."""
         from app.stages.models import Stage
@@ -168,7 +168,7 @@ class TestStageAPI:
         assert "values are not allowed" in response.json()["detail"].lower()
 
     def test_update_stage_partial_update_behavior(
-            self, test_client: TestClient, sample_stage
+        self, test_client: TestClient, sample_stage
     ):
         """Test that only provided fields are updated (partial update)."""
         original_value = sample_stage.value
@@ -187,7 +187,7 @@ class TestStageAPI:
         assert data["completion_date"] is not None
 
     def test_update_stage_invalid_datetime_format(
-            self, test_client: TestClient, sample_stage
+        self, test_client: TestClient, sample_stage
     ):
         """Test updating stage with invalid datetime format."""
         update_data = {"completion_date": "invalid-datetime"}
@@ -199,7 +199,7 @@ class TestStageAPI:
         assert response.status_code == 422  # Validation error
 
     def test_update_stage_empty_request_body(
-            self, test_client: TestClient, sample_stage
+        self, test_client: TestClient, sample_stage
     ):
         """Test updating stage with empty request body."""
         response = test_client.patch(
