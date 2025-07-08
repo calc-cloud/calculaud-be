@@ -40,7 +40,9 @@ class PurchaseResponse(PurchaseBase):
         for stages in self.flow_stages:
             if isinstance(stages, list):
                 # If multiple stages at this priority, check if any is incomplete
-                incomplete_stages = [stage.completion_date is None for stage in stages]
+                incomplete_stages = [
+                    stage for stage in stages if stage.completion_date is None
+                ]
                 if incomplete_stages:
                     return incomplete_stages
             else:
