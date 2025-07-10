@@ -31,3 +31,4 @@ python-multipart==0.0.20
 black~=25.1
 flake8~=7.1
 isort~=5.13
+PyJWT[crypto]==2.8.0

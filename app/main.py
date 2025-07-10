@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .analytics.router import router as analytics_router
+from .auth.dependencies import require_auth
 from .config import settings
 from .files.router import router as files_router
 from .hierarchies.router import router as hierarchies_router
@@ -14,12 +15,20 @@ from .stage_types.router import router as stage_types_router
 from .stages.router import router as stages_router
 from .suppliers.router import router as suppliers_router
 
+# Swagger UI OAuth configuration
+swagger_ui_init_oauth = {
+    "clientId": settings.oauth_client_id,
+    "scopes": settings.oauth_scopes.split(),
+    "appName": settings.app_name,
+}
+
 app = FastAPI(
     title=settings.app_name,
     description="Backend API for managing procurement purposes, purchases, costs, hierarchies,"
     " service types, services, and suppliers",
     version=settings.version,
     debug=settings.debug,
+    swagger_ui_init_oauth=swagger_ui_init_oauth,
 )
 
 # Add CORS middleware
@@ -31,67 +40,83 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Common authentication dependency for all protected routes
+protected_dependencies = [Depends(require_auth)]
+
+# Include routers - all protected by authentication
 app.include_router(
     hierarchies_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/hierarchies",
     tags=["hierarchies"],
 )
 
 app.include_router(
     predefined_flows_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/predefined-flows",
     tags=["predefined-flows"],
 )
 
 app.include_router(
-    purposes_router, prefix=f"{settings.api_v1_prefix}/purposes", tags=["purposes"]
+    purposes_router,
+    dependencies=protected_dependencies,
+    prefix=f"{settings.api_v1_prefix}/purposes",
+    tags=["purposes"],
 )
 
 app.include_router(
     service_types_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/service-types",
     tags=["service-types"],
 )
 
 app.include_router(
     services_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/services",
     tags=["services"],
 )
 
 app.include_router(
     stage_types_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/stage-types",
     tags=["stage-types"],
 )
 
 app.include_router(
     stages_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/stages",
     tags=["stages"],
 )
 
 app.include_router(
     suppliers_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/suppliers",
     tags=["suppliers"],
 )
 
 app.include_router(
     files_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/files",
     tags=["files"],
 )
 
 app.include_router(
     purchases_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/purchases",
     tags=["purchases"],
 )
 
 app.include_router(
     analytics_router,
+    dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/analytics",
     tags=["analytics"],
 )

@@ -7,8 +7,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.auth.dependencies import require_auth
 from app.database import Base, get_db
 from app.main import app
+from tests.auth_mock import mock_auth_dependency, mock_auth_dependency_no_admin
 
 pytest_plugins = [
     "tests.hierarchies.fixtures",
@@ -40,6 +42,15 @@ def test_db() -> Generator:
     Base.metadata.drop_all(bind=engine)
 
 
+def override_get_db():
+    """Shared database override function for tests."""
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
 @pytest.fixture(scope="function")
 def db_session(test_db):
     """Create database session for tests."""
@@ -51,15 +62,28 @@ def db_session(test_db):
 
 
 @pytest.fixture(scope="function")
-def test_client(test_db) -> TestClient:
-    """Create test client with test database."""
-
-    def override_get_db():
-        session = TestingSessionLocal()
-        try:
-            yield session
-        finally:
-            session.close()
-
+def test_client(test_db):
+    """Create test client with test database and mock authentication."""
+    # Override dependencies for testing
     app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
+    app.dependency_overrides[require_auth] = mock_auth_dependency
+
+    client = TestClient(app)
+
+    # Clean up overrides after test
+    yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def test_client_no_admin(test_db):
+    """Create test client with test database and mock regular user authentication."""
+    # Override dependencies for testing with regular user
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[require_auth] = mock_auth_dependency_no_admin
+
+    client = TestClient(app)
+
+    # Clean up overrides after test
+    yield client
+    app.dependency_overrides.clear()

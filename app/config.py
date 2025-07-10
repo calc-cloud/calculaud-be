@@ -27,13 +27,22 @@ class Settings(BaseSettings):
     aws_secret_access_key: Annotated[str, Field(default="")]
     aws_region: Annotated[str, Field(default="eu-central-1")]
     s3_bucket_name: Annotated[str, Field(default="calcloud-files")]
-    s3_bucket_url: Annotated[
-        str, Field(default="https://calcloud-files.s3.eu-central-1.amazonaws.com")
-    ]
+    s3_bucket_url: Annotated[str, Field(default="")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
 
     # Currency Configuration
     usd_to_ils_rate: Annotated[float, Field(default=3.7)]
+
+    # Authentication Configuration
+    auth_jwks_url: str
+    auth_issuer: str
+    auth_audience: str | None = None
+    auth_algorithm: Annotated[str, Field(default="RS256")]
+    auth_oidc_url: str
+
+    # OAuth2 Client Configuration (for Swagger UI authorization)
+    oauth_client_id: str | None = None
+    oauth_scopes: Annotated[str, Field(default="openid")]
 
     model_config = SettingsConfigDict(env_file=find_dotenv())
 
