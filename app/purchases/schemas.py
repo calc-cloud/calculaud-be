@@ -1,6 +1,6 @@
 """Pydantic schemas for purchase data validation."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, computed_field
@@ -54,8 +54,8 @@ class PurchaseResponse(PurchaseBase):
 
     @computed_field
     @property
-    def time_since_last_completion(self) -> timedelta | None:
-        """Calculate time elapsed since the last completed stage."""
+    def days_since_last_completion(self) -> int | None:
+        """Calculate days elapsed since the last completed stage."""
         if not self.flow_stages:
             return None
 
@@ -77,6 +77,6 @@ class PurchaseResponse(PurchaseBase):
             else:
                 most_recent_completion_date = last_completed_stages.completion_date
 
-        return datetime.now().date() - most_recent_completion_date
+        return (datetime.now().date() - most_recent_completion_date).days
 
     model_config = ConfigDict(from_attributes=True)

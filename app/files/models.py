@@ -32,7 +32,9 @@ class FileAttachment(Base):
     s3_key: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, server_default=func.now()
+    )
 
     # Many-to-many relationship with purposes
     purposes: Mapped[list["Purpose"]] = relationship(

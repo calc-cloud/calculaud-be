@@ -1,7 +1,7 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,7 +17,7 @@ class PredefinedFlow(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     flow_name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(UTC), nullable=False
+        DateTime, default=datetime.now, server_default=func.now(), nullable=False
     )
 
     # Relationships

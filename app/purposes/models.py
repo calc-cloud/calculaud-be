@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
 
@@ -39,14 +39,17 @@ class Purpose(Base):
     description: Mapped[str | None] = mapped_column(
         String(2000), nullable=True, index=True
     )
-    creation_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    creation_time: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, server_default=func.now()
+    )
     status: Mapped[StatusEnum] = mapped_column(
         Enum(StatusEnum), nullable=False, index=True
     )
     comments: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     last_modified: Mapped[datetime] = mapped_column(
         DateTime,
-        onupdate=datetime.now(UTC),
+        default=datetime.now,
+        onupdate=datetime.now,
         server_default=func.now(),
         server_onupdate=func.now(),
     )

@@ -140,7 +140,7 @@ class TestPurchaseAPI:
         assert data["purpose_id"] == sample_purchase.purpose_id
         assert "creation_date" in data
         assert "current_pending_stages" in data
-        assert "time_since_last_completion" in data
+        assert "days_since_last_completion" in data
 
     def test_get_nonexistent_purchase(self, test_client: TestClient):
         """Test getting a non-existent purchase."""

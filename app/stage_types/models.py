@@ -1,7 +1,7 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,7 +20,7 @@ class StageType(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(UTC), nullable=False
+        DateTime, default=datetime.now, server_default=func.now(), nullable=False
     )
 
     # Relationships

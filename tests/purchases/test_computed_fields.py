@@ -1,13 +1,10 @@
 """Test cases for Purchase computed fields."""
 
-from datetime import date, timedelta
+from datetime import date
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
-from app.stages.schemas import StageUpdate
-from app.stages.service import update_stage
 
 
 class TestPurchaseComputedFields:
@@ -24,7 +21,7 @@ class TestPurchaseComputedFields:
         assert response.status_code == 201
         data = response.json()
         assert data["current_pending_stages"] == []
-        assert data["time_since_last_completion"] is None
+        assert data["days_since_last_completion"] is None
 
     def test_current_pending_stages_all_pending(
         self,
@@ -62,7 +59,7 @@ class TestPurchaseComputedFields:
 
         # Verify computed fields are present
         assert "current_pending_stages" in data
-        assert "time_since_last_completion" in data
+        assert "days_since_last_completion" in data
 
         # Verify structure
         assert isinstance(data["current_pending_stages"], list)
@@ -74,17 +71,17 @@ class TestPurchaseComputedFields:
             assert "completion_date" in stage
             assert "stage_type" in stage
 
-        # time_since_last_completion can be None or a string
-        time_since = data["time_since_last_completion"]
-        assert time_since is None or isinstance(time_since, str)
+        # days_since_last_completion can be None or an integer
+        days_since = data["days_since_last_completion"]
+        assert days_since is None or isinstance(days_since, int)
 
-    def test_time_since_last_completion_all_pending(
+    def test_days_since_last_completion_all_pending(
         self,
         test_client: TestClient,
         sample_purchase_data_with_costs,
         predefined_flows_for_purchases,
     ):
-        """Test time_since_last_completion when all stages are pending."""
+        """Test days_since_last_completion when all stages are pending."""
         response = test_client.post(
             f"{settings.api_v1_prefix}/purchases/", json=sample_purchase_data_with_costs
         )
@@ -95,11 +92,10 @@ class TestPurchaseComputedFields:
         # Should return time since creation when first priority is pending
         current_pending = data["current_pending_stages"]
         if current_pending and current_pending[0]["priority"] == 1:
-            time_since = data["time_since_last_completion"]
-            assert time_since is not None
+            days_since = data["days_since_last_completion"]
+            assert days_since is not None
             # Should be 0 days since creation happened today
-            # Format like "PT0S" for 0 days difference in ISO 8601 duration
-            assert time_since == "PT0S" or "0 days" in time_since
+            assert days_since == 0
 
     def test_stage_completion_updates_computed_fields(
         self,
@@ -144,7 +140,7 @@ class TestPurchaseComputedFields:
 
             # Verify computed fields updated
             assert "current_pending_stages" in updated_data
-            assert "time_since_last_completion" in updated_data
+            assert "days_since_last_completion" in updated_data
 
     def test_computed_fields_with_different_flow_types(
         self,
@@ -163,7 +159,7 @@ class TestPurchaseComputedFields:
 
         # Verify computed fields exist and have correct structure
         assert "current_pending_stages" in purchase_data
-        assert "time_since_last_completion" in purchase_data
+        assert "days_since_last_completion" in purchase_data
 
         current_pending = purchase_data["current_pending_stages"]
         if current_pending:
@@ -196,7 +192,7 @@ class TestPurchaseComputedFields:
 
             # Verify fields are consistent
             assert "current_pending_stages" in data
-            assert "time_since_last_completion" in data
+            assert "days_since_last_completion" in data
 
             # Structure should be consistent
             if data["current_pending_stages"]:
