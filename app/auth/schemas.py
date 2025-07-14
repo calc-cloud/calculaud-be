@@ -77,6 +77,10 @@ class TokenRequest(BaseModel):
     code: str | None = None
     redirect_uri: str | None = None
     scope: str | None = None
+    code_verifier: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
 
 
 class TokenResponse(BaseModel):
