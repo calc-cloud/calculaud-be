@@ -27,9 +27,6 @@ def proxy_oauth_token(data: Annotated[TokenRequest, Form()]) -> TokenResponse:
     allowing the frontend to avoid CORS restrictions when requesting tokens.
     """
     try:
-        # Construct the OAuth token endpoint URL
-        oauth_token_url = f"{settings.auth_oidc_url}/oauth2/token"
-
         # Prepare headers for the request
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -44,7 +41,7 @@ def proxy_oauth_token(data: Annotated[TokenRequest, Form()]) -> TokenResponse:
 
         # Make the request to OAuth server
         response = requests.post(
-            oauth_token_url,
+            settings.auth_token_endpoint_url,
             data=form_data,
             headers=headers,
             timeout=30.0,

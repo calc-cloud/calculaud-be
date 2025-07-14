@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     auth_issuer: str
     auth_audience: str | None = None
     auth_algorithm: Annotated[str, Field(default="RS256")]
+    auth_token_endpoint_url: str
     auth_oidc_url: str
 
     # OAuth2 Client Configuration (for Swagger UI authorization)
