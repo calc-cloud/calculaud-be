@@ -1,10 +1,12 @@
+from typing import Annotated
+
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Form
 from pydantic import ValidationError
 
 from app.config import settings
 
-from .schemas import TokenRequest, TokenResponse
+from .schemas import TokenResponse, TokenRequest
 
 router = APIRouter(
     responses={
@@ -17,7 +19,7 @@ router = APIRouter(
 
 
 @router.post("/token", response_model=TokenResponse)
-def proxy_oauth_token(token_request: TokenRequest) -> TokenResponse:
+def proxy_oauth_token(data: Annotated[TokenRequest, Form()]) -> TokenResponse:
     """
     Proxy endpoint for OAuth token requests to avoid CORS issues.
 
@@ -36,7 +38,7 @@ def proxy_oauth_token(token_request: TokenRequest) -> TokenResponse:
 
         # Convert Pydantic model to form data
         form_data = {}
-        for key, value in token_request.model_dump(exclude_none=True).items():
+        for key, value in data.model_dump(exclude_none=True).items():
             if value is not None:
                 form_data[key] = str(value)
 

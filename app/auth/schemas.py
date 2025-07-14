@@ -82,7 +82,6 @@ class TokenRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-
 class TokenResponse(BaseModel):
     """Schema for OAuth token response."""
 
