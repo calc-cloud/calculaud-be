@@ -1,0 +1,75 @@
+import requests
+from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
+
+from app.config import settings
+
+from .schemas import TokenRequest, TokenResponse
+
+router = APIRouter(
+    responses={
+        200: {"description": "Token response"},
+        408: {"description": "Request timeout"},
+        502: {"description": "Bad gateway"},
+        500: {"description": "Internal server error"},
+    }
+)
+
+
+@router.post("/token", response_model=TokenResponse)
+def proxy_oauth_token(token_request: TokenRequest) -> TokenResponse:
+    """
+    Proxy endpoint for OAuth token requests to avoid CORS issues.
+
+    This endpoint forwards token requests to the OAuth server and returns the response,
+    allowing the frontend to avoid CORS restrictions when requesting tokens.
+    """
+    try:
+        # Construct the OAuth token endpoint URL
+        oauth_token_url = f"{settings.auth_oidc_url}/oauth2/token"
+
+        # Prepare headers for the request
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        }
+
+        # Convert Pydantic model to form data
+        form_data = {}
+        for key, value in token_request.model_dump(exclude_none=True).items():
+            if value is not None:
+                form_data[key] = str(value)
+
+        # Make the request to OAuth server
+        response = requests.post(
+            oauth_token_url,
+            data=form_data,
+            headers=headers,
+            timeout=30.0,
+            verify=False,  # todo: check what to do with the certificate
+        )
+
+        response.raise_for_status()
+
+        # Return the response as TokenResponse
+        return TokenResponse.model_validate(response.json())
+
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=408, detail="Request to OAuth server timed out")
+    except requests.exceptions.HTTPError as e:
+        # Handle 4xx/5xx HTTP status codes from OAuth server
+        status_code = e.response.status_code if e.response else 502
+        raise HTTPException(
+            status_code=status_code, detail=f"OAuth server returned error: {str(e)}"
+        )
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=502, detail=f"Error connecting to OAuth server: {str(e)}"
+        )
+    except (ValueError, ValidationError) as e:
+        # Handle JSON parsing errors
+        raise HTTPException(
+            status_code=502, detail=f"Invalid response from OAuth server: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

@@ -1,8 +1,8 @@
 """Authentication-related models and schemas."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class User(BaseModel):
@@ -61,3 +61,34 @@ class TokenInfo(BaseModel):
         )
 
         return cls(raw_token=token, claims=claims, user=user)
+
+
+class TokenRequest(BaseModel):
+    """Schema for OAuth token request."""
+
+    grant_type: Annotated[
+        Literal["authorization_code"],
+        Field(description="OAuth2 grant type - must be 'authorization_code'"),
+    ]
+    client_id: str
+    client_secret: str | None = None
+    username: str | None = None
+    password: str | None = None
+    code: str | None = None
+    redirect_uri: str | None = None
+    scope: str | None = None
+
+
+class TokenResponse(BaseModel):
+    """Schema for OAuth token response."""
+
+    access_token: str | None = None
+    token_type: str | None = None
+    expires_in: int | None = None
+    refresh_token: str | None = None
+    id_token: str | None = None
+    scope: str | None = None
+    error: str | None = None
+    error_description: str | None = None
+
+    model_config = ConfigDict(extra="allow")

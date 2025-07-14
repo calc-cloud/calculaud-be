@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .analytics.router import router as analytics_router
 from .auth.dependencies import require_auth
+from .auth.router import router as auth_router
 from .config import settings
 from .files.router import router as files_router
 from .hierarchies.router import router as hierarchies_router
@@ -42,6 +43,13 @@ app.add_middleware(
 
 # Common authentication dependency for all protected routes
 protected_dependencies = [Depends(require_auth)]
+
+# Include auth router - no authentication required for proxy endpoints
+app.include_router(
+    auth_router,
+    prefix=f"{settings.api_v1_prefix}/auth",
+    tags=["auth"],
+)
 
 # Include routers - all protected by authentication
 app.include_router(
