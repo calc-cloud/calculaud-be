@@ -1,12 +1,11 @@
 from typing import Annotated
 
 import requests
-from fastapi import APIRouter, HTTPException, Request, Form
+from fastapi import APIRouter, Form, HTTPException
 from pydantic import ValidationError
 
 from app.config import settings
-
-from .schemas import TokenResponse, TokenRequest
+from .schemas import TokenRequest, TokenResponse
 
 router = APIRouter(
     responses={

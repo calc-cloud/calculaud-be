@@ -67,8 +67,10 @@ class TokenRequest(BaseModel):
     """Schema for OAuth token request."""
 
     grant_type: Annotated[
-        Literal["authorization_code"],
-        Field(description="OAuth2 grant type - must be 'authorization_code'"),
+        Literal["authorization_code", "refresh_token"],
+        Field(
+            description="OAuth2 grant type - 'authorization_code' or 'refresh_token'"
+        ),
     ]
     client_id: str
     client_secret: str | None = None
@@ -78,6 +80,7 @@ class TokenRequest(BaseModel):
     redirect_uri: str | None = None
     scope: str | None = None
     code_verifier: str | None = None
+    refresh_token: str | None = None
 
     model_config = ConfigDict(extra="allow")
 
