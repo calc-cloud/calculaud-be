@@ -5,6 +5,7 @@ from fastapi import APIRouter, Form, HTTPException
 from pydantic import ValidationError
 
 from app.config import settings
+
 from .schemas import TokenRequest, TokenResponse
 
 router = APIRouter(

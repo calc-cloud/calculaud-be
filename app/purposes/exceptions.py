@@ -27,3 +27,22 @@ class FileAttachmentsNotFound(Exception):
         super().__init__(
             f"File attachment with ID(s) {file_attachment_ids} were not found"
         )
+
+
+class PurposeNotFound(Exception):
+    """Raised when a purpose is not found."""
+
+    def __init__(self, purpose_id: int):
+        self.purpose_id = purpose_id
+        super().__init__(f"Purpose with ID {purpose_id} not found")
+
+
+class FileNotAttachedToPurpose(Exception):
+    """Raised when a file is not attached to a specific purpose."""
+
+    def __init__(self, file_id: int, purpose_id: int):
+        self.file_id = file_id
+        self.purpose_id = purpose_id
+        super().__init__(
+            f"File with ID {file_id} is not attached to purpose with ID {purpose_id}"
+        )

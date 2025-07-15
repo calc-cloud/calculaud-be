@@ -318,3 +318,172 @@ class TestPurposeFileAttachments:
         file2_response = test_client.get(f"{settings.api_v1_prefix}/files/{file2_id}")
         assert file1_response.status_code == 200
         assert file2_response.status_code == 200
+
+
+class TestPurposeFileEndpoints:
+    """Test the upload_file_to_purpose and delete_file_from_purpose endpoints."""
+
+    @patch("app.files.service.s3_service.upload_file")
+    def test_upload_file_to_purpose_success(
+        self, mock_s3_upload, test_client: TestClient, sample_purpose
+    ):
+        """Test successful file upload to purpose."""
+        mock_s3_upload.return_value = "files/test-uuid.pdf"
+
+        # Upload file to purpose
+        file_content = b"test file content"
+        files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}/files", files=files
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert "file_id" in data
+        assert data["original_filename"] == "test.pdf"
+        assert data["mime_type"] == "application/pdf"
+
+        # Verify file was attached to purpose
+        purpose_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}"
+        )
+        assert purpose_response.status_code == 200
+        purpose_data = purpose_response.json()
+        assert len(purpose_data["file_attachments"]) == 1
+        assert purpose_data["file_attachments"][0]["id"] == data["file_id"]
+
+    def test_upload_file_to_purpose_no_filename(
+        self, test_client: TestClient, sample_purpose
+    ):
+        """Test upload file with no filename - FastAPI validates this case."""
+        file_content = b"test file content"
+        files = {"file": ("", io.BytesIO(file_content), "application/pdf")}
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}/files", files=files
+        )
+
+        # FastAPI returns 422 for empty filename validation
+        assert response.status_code == 422
+
+    def test_upload_file_to_purpose_nonexistent_purpose(self, test_client: TestClient):
+        """Test upload file to non-existent purpose."""
+        file_content = b"test file content"
+        files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
+
+        response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes/99999/files", files=files
+        )
+
+        assert response.status_code == 404
+        assert "Purpose with ID 99999 not found" in response.json()["detail"]
+
+    @patch("app.files.service.s3_service.upload_file")
+    @patch("app.files.service.s3_service.delete_file")
+    def test_delete_file_from_purpose_success(
+        self, mock_s3_delete, mock_s3_upload, test_client: TestClient, sample_purpose
+    ):
+        """Test successful file deletion from purpose."""
+        mock_s3_upload.return_value = "files/test-uuid.pdf"
+
+        # First upload a file
+        file_content = b"test file content"
+        files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
+
+        upload_response = test_client.post(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}/files", files=files
+        )
+        assert upload_response.status_code == 201
+        file_id = upload_response.json()["file_id"]
+
+        # Delete the file
+        delete_response = test_client.delete(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}/files/{file_id}"
+        )
+        assert delete_response.status_code == 204
+
+        # Verify file is no longer attached to purpose
+        purpose_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}"
+        )
+        assert purpose_response.status_code == 200
+        purpose_data = purpose_response.json()
+        assert len(purpose_data["file_attachments"]) == 0
+
+        # Verify S3 delete was called
+        mock_s3_delete.assert_called_once()
+
+    def test_delete_file_from_purpose_nonexistent_purpose(
+        self, test_client: TestClient
+    ):
+        """Test delete file from non-existent purpose."""
+        response = test_client.delete(
+            f"{settings.api_v1_prefix}/purposes/99999/files/1"
+        )
+
+        assert response.status_code == 404
+        assert "Purpose with ID 99999 not found" in response.json()["detail"]
+
+    def test_delete_file_from_purpose_file_not_attached(
+        self, test_client: TestClient, sample_purpose, sample_file_attachment
+    ):
+        """Test delete file that is not attached to the purpose."""
+        response = test_client.delete(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}/files/{sample_file_attachment.id}"
+        )
+
+        assert response.status_code == 404
+        assert (
+            f"File with ID {sample_file_attachment.id} is not attached to purpose with ID {sample_purpose.id}"
+            in response.json()["detail"]
+        )
+
+    @patch("app.files.service.s3_service.upload_file")
+    @patch("app.files.service.s3_service.delete_file")
+    def test_delete_file_from_purpose_shared_file(
+        self,
+        mock_s3_delete,
+        mock_s3_upload,
+        test_client: TestClient,
+        sample_purpose_data,
+    ):
+        """Test deleting a file that is shared between multiple purposes."""
+        helper = APITestHelper(test_client, f"{settings.api_v1_prefix}/purposes")
+        mock_s3_upload.return_value = "files/test-uuid.pdf"
+
+        # Upload a file first
+        file_content = b"test file content"
+        files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
+        upload_response = test_client.post(
+            f"{settings.api_v1_prefix}/files/upload", files=files
+        )
+        assert upload_response.status_code == 201
+        file_id = upload_response.json()["file_id"]
+
+        # Create two purposes with the same file
+        purpose1_data = sample_purpose_data.copy()
+        purpose1_data["description"] = "Purpose 1"
+        purpose1_data["file_attachment_ids"] = [file_id]
+        purpose1 = helper.create_resource(purpose1_data)
+
+        purpose2_data = sample_purpose_data.copy()
+        purpose2_data["description"] = "Purpose 2"
+        purpose2_data["file_attachment_ids"] = [file_id]
+        helper.create_resource(purpose2_data)
+
+        # Delete file from first purpose using the endpoint
+        delete_response = test_client.delete(
+            f"{settings.api_v1_prefix}/purposes/{purpose1['id']}/files/{file_id}"
+        )
+        assert delete_response.status_code == 204
+
+        # Verify file is removed from first purpose
+        purpose1_response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{purpose1['id']}"
+        )
+        assert len(purpose1_response.json()["file_attachments"]) == 0
+
+        # File should be completely deleted (this is the behavior of the endpoint)
+        # Verify S3 delete was called
+        mock_s3_delete.assert_called_once()

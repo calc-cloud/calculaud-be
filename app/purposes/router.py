@@ -1,15 +1,19 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi import status as statuses
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.files.exceptions import FileNotFoundError, FileUploadError
+from app.files.schemas import FileUploadResponse
 from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
     FileAttachmentsNotFound,
+    FileNotAttachedToPurpose,
+    PurposeNotFound,
     ServiceNotFound,
 )
 from app.purposes.schemas import (
@@ -87,3 +91,54 @@ def delete_purpose(purpose_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=statuses.HTTP_404_NOT_FOUND, detail="Purpose not found"
         )
+
+
+@router.post(
+    "/{purpose_id}/files",
+    response_model=FileUploadResponse,
+    status_code=statuses.HTTP_201_CREATED,
+)
+def upload_file_to_purpose(
+    purpose_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload a file and attach it to a specific purpose."""
+    if not file.filename:
+        raise HTTPException(
+            status_code=statuses.HTTP_400_BAD_REQUEST, detail="No file provided"
+        )
+
+    try:
+        return service.upload_file_to_purpose(
+            db=db,
+            purpose_id=purpose_id,
+            file_obj=file.file,
+            filename=file.filename,
+            content_type=file.content_type or "application/octet-stream",
+        )
+    except PurposeNotFound as e:
+        raise HTTPException(status_code=statuses.HTTP_404_NOT_FOUND, detail=str(e))
+    except FileUploadError as e:
+        raise HTTPException(
+            status_code=statuses.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.delete(
+    "/{purpose_id}/files/{file_id}", status_code=statuses.HTTP_204_NO_CONTENT
+)
+def delete_file_from_purpose(
+    purpose_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+):
+    """Remove a file from a purpose and delete the file entirely."""
+    try:
+        service.delete_file_from_purpose(db, purpose_id, file_id)
+    except PurposeNotFound as e:
+        raise HTTPException(status_code=statuses.HTTP_404_NOT_FOUND, detail=str(e))
+    except FileNotAttachedToPurpose as e:
+        raise HTTPException(status_code=statuses.HTTP_404_NOT_FOUND, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=statuses.HTTP_404_NOT_FOUND, detail=str(e))
