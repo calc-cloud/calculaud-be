@@ -55,6 +55,47 @@ class TestFileUpload:
         assert response.status_code == 500
         assert "Failed to upload file" in response.json()["detail"]
 
+    @patch("app.config.settings.max_file_size_mb", 1)  # 1MB limit
+    def test_upload_file_size_exceeds_limit(self, test_client: TestClient):
+        """Test file upload that exceeds size limit."""
+        # Create a file larger than 1MB
+        large_content = b"x" * (1024 * 1024 + 1)  # 1MB + 1 byte
+
+        response = test_client.post(
+            "/api/v1/files/upload",
+            files={
+                "file": ("large_file.pdf", io.BytesIO(large_content), "application/pdf")
+            },
+        )
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "File size" in data["detail"]
+        assert "exceeds maximum allowed size" in data["detail"]
+        assert "1 MB" in data["detail"]
+
+    @patch("app.config.settings.max_file_size_mb", 2)  # 2MB limit
+    @patch("app.files.service.s3_service.upload_file")
+    def test_upload_file_size_within_limit(
+        self, mock_s3_upload, test_client: TestClient
+    ):
+        """Test file upload within size limit."""
+        mock_s3_upload.return_value = f"files/router-upload-{uuid.uuid4()}.pdf"
+
+        # Create a file smaller than 2MB
+        content = b"x" * (1024 * 1024)  # Exactly 1MB
+
+        response = test_client.post(
+            "/api/v1/files/upload",
+            files={"file": ("medium_file.pdf", io.BytesIO(content), "application/pdf")},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["original_filename"] == "medium_file.pdf"
+        assert data["file_size"] == len(content)
+        assert data["message"] == "File uploaded successfully"
+
 
 class TestFileDownload:
     @patch("app.files.router.service.get_file_download_url")

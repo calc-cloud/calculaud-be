@@ -49,6 +49,46 @@ class TestUploadFile:
         file_record = db_session.execute(stmt).scalar_one_or_none()
         assert file_record is None
 
+    @patch("app.config.settings.max_file_size_mb", 1)  # 1MB limit
+    def test_upload_file_size_exceeds_limit(self, db_session):
+        """Test file upload that exceeds size limit."""
+        # Create a file larger than 1MB
+        large_content = b"x" * (1024 * 1024 + 1)  # 1MB + 1 byte
+        file_obj = io.BytesIO(large_content)
+
+        with pytest.raises(FileUploadError) as exc_info:
+            upload_file(db_session, file_obj, "large_file.pdf", "application/pdf")
+
+        error_message = str(exc_info.value)
+        assert "File size" in error_message
+        assert "exceeds maximum allowed size" in error_message
+        assert "1 MB" in error_message
+
+        # Check no database record was created
+        stmt = select(FileAttachment)
+        file_record = db_session.execute(stmt).scalar_one_or_none()
+        assert file_record is None
+
+    @patch("app.config.settings.max_file_size_mb", 2)  # 2MB limit
+    @patch("app.files.service.s3_service.upload_file")
+    def test_upload_file_size_within_limit(self, mock_s3_upload, db_session):
+        """Test file upload within size limit."""
+        mock_s3_upload.return_value = f"files/service-upload-{uuid.uuid4()}.pdf"
+
+        # Create a file smaller than 2MB
+        content = b"x" * (1024 * 1024)  # Exactly 1MB
+        file_obj = io.BytesIO(content)
+
+        result = upload_file(db_session, file_obj, "medium_file.pdf", "application/pdf")
+
+        assert result.original_filename == "medium_file.pdf"
+        assert result.file_size == len(content)
+
+        # Check database record was created
+        stmt = select(FileAttachment).where(FileAttachment.id == result.file_id)
+        file_record = db_session.execute(stmt).scalar_one_or_none()
+        assert file_record is not None
+
 
 class TestGetFileDownloadUrl:
     @patch("app.files.service.s3_service.generate_presigned_url")

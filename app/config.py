@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     s3_bucket_url: Annotated[str, Field(default="")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
 
+    # File Upload Configuration
+    max_file_size_mb: Annotated[int, Field(default=1024)]  # 1GB in MB
+
     # Currency Configuration
     usd_to_ils_rate: Annotated[float, Field(default=3.7)]
 

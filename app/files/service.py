@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.aws.exceptions import S3DeleteError
 from app.aws.service import s3_service
+from app.config import settings
 from app.files.exceptions import FileNotFoundError, FileUploadError
 from app.files.models import FileAttachment
 from app.files.schemas import FileDownloadResponse, FileUploadResponse
@@ -35,6 +36,13 @@ def upload_file(
         file_obj.seek(0, 2)
         file_size = file_obj.tell()
         file_obj.seek(0)
+
+        # Validate file size
+        max_size_bytes = settings.max_file_size_mb * 1024 * 1024
+        if file_size > max_size_bytes:
+            raise FileUploadError(
+                f"File size ({file_size / 1024 / 1024:.1f} MB) exceeds maximum allowed size ({settings.max_file_size_mb} MB)"
+            )
 
         # Upload to S3
         s3_key = s3_service.upload_file(file_obj, filename)
