@@ -162,3 +162,6 @@ cython_debug/
 test.db
 *.db
 
+# Database backups
+backup/
+
