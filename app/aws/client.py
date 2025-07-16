@@ -8,7 +8,7 @@ def get_s3_client():
     """Get configured S3 client."""
     return boto3.client(
         "s3",
-        use_ssl=False,
+        use_ssl=True,
         aws_access_key_id=settings.aws_access_key_id,
         aws_secret_access_key=settings.aws_secret_access_key,
         endpoint_url=settings.s3_endpoint_url,
