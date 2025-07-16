@@ -5,7 +5,7 @@ from fastapi.params import Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app import StatusEnum
-from app.files.schemas import FileAttachment
+from app.files.schemas import FileAttachmentResponse
 from app.hierarchies.schemas import Hierarchy
 from app.pagination import PaginationParams
 from app.purchases.schemas import PurchaseResponse
@@ -68,7 +68,9 @@ class Purpose(PurposeBase):
     service_type: str | None = None
     hierarchy: Hierarchy | None = None
 
-    file_attachments: Annotated[list[FileAttachment], Field(default_factory=list)]
+    file_attachments: Annotated[
+        list[FileAttachmentResponse], Field(default_factory=list)
+    ]
     contents: Annotated[list[PurposeContent], Field(default_factory=list)]
     purchases: Annotated[list[PurchaseResponse], Field(default_factory=list)]
 

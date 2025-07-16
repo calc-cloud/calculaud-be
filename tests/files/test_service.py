@@ -24,7 +24,6 @@ class TestUploadFile:
         assert result.original_filename == "test.pdf"
         assert result.mime_type == "application/pdf"
         assert result.file_size == len(b"test content")
-        assert result.message == "File uploaded successfully"
 
         # Check database record was created
         stmt = select(FileAttachment).where(FileAttachment.id == result.file_id)

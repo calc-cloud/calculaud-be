@@ -9,12 +9,12 @@ from app.aws.service import s3_service
 from app.config import settings
 from app.files.exceptions import FileNotFoundError, FileUploadError
 from app.files.models import FileAttachment
-from app.files.schemas import FileDownloadResponse, FileUploadResponse
+from app.files.schemas import FileAttachmentResponse, FileDownloadResponse
 
 
 def upload_file(
     db: Session, file_obj: BinaryIO, filename: str, content_type: str
-) -> FileUploadResponse:
+) -> FileAttachmentResponse:
     """
     Upload file to S3 and save metadata to database.
 
@@ -25,7 +25,7 @@ def upload_file(
         content_type: MIME type of the file
 
     Returns:
-        FileUploadResponse with file metadata
+        FileAttachmentResponse with file metadata
 
     Raises:
         FileUploadError: If upload fails
@@ -41,7 +41,8 @@ def upload_file(
         max_size_bytes = settings.max_file_size_mb * 1024 * 1024
         if file_size > max_size_bytes:
             raise FileUploadError(
-                f"File size ({file_size / 1024 / 1024:.1f} MB) exceeds maximum allowed size ({settings.max_file_size_mb} MB)"
+                f"File size ({file_size / 1024 / 1024:.1f} MB) exceeds maximum allowed size "
+                f"({settings.max_file_size_mb} MB)"
             )
 
         # Upload to S3
@@ -59,13 +60,7 @@ def upload_file(
         db.commit()
         db.refresh(file_attachment)
 
-        return FileUploadResponse(
-            file_id=file_attachment.id,
-            original_filename=file_attachment.original_filename,
-            mime_type=file_attachment.mime_type,
-            file_size=file_attachment.file_size,
-            uploaded_at=file_attachment.uploaded_at,
-        )
+        return FileAttachmentResponse.model_validate(file_attachment)
     except ClientError as e:
         raise FileUploadError(f"Failed to upload file: {str(e)}")
 

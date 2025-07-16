@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.files.exceptions import FileNotFoundError, FileUploadError
-from app.files.schemas import FileUploadResponse
+from app.files.schemas import FileAttachmentResponse
 from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
 from app.purposes.exceptions import (
@@ -95,7 +95,7 @@ def delete_purpose(purpose_id: int, db: Session = Depends(get_db)):
 
 @router.post(
     "/{purpose_id}/files",
-    response_model=FileUploadResponse,
+    response_model=FileAttachmentResponse,
     status_code=statuses.HTTP_201_CREATED,
 )
 def upload_file_to_purpose(

@@ -27,7 +27,6 @@ class TestFileUpload:
         assert data["original_filename"] == "test.pdf"
         assert data["mime_type"] == "application/pdf"
         assert data["file_size"] == 12  # len(b"test content")
-        assert data["message"] == "File uploaded successfully"
         assert "file_id" in data
 
     def test_upload_file_no_file(self, test_client: TestClient):
@@ -94,7 +93,6 @@ class TestFileUpload:
         data = response.json()
         assert data["original_filename"] == "medium_file.pdf"
         assert data["file_size"] == len(content)
-        assert data["message"] == "File uploaded successfully"
 
 
 class TestFileDownload:

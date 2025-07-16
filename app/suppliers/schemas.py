@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.files.schemas import FileAttachment
+from app.files.schemas import FileAttachmentResponse
 
 
 class SupplierBase(BaseModel):
@@ -21,6 +21,6 @@ class SupplierUpdate(BaseModel):
 
 class Supplier(SupplierBase):
     id: int
-    file_icon: FileAttachment | None = None
+    file_icon: FileAttachmentResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)

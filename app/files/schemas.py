@@ -12,7 +12,7 @@ class FileAttachmentBase(BaseModel):
     file_size: int
 
 
-class FileAttachment(FileAttachmentBase):
+class FileAttachmentResponse(FileAttachmentBase):
     id: int
     s3_key: str
     uploaded_at: datetime
@@ -21,16 +21,11 @@ class FileAttachment(FileAttachmentBase):
     def file_url(self) -> str:
         return f"{settings.s3_bucket_url}/{self.s3_key}"
 
+    @computed_field
+    def file_id(self) -> int:
+        return self.id
+
     model_config = ConfigDict(from_attributes=True)
-
-
-class FileUploadResponse(BaseModel):
-    file_id: int
-    original_filename: str
-    mime_type: str
-    file_size: int
-    uploaded_at: datetime
-    message: str = "File uploaded successfully"
 
 
 class FileDownloadResponse(BaseModel):

@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.files import service
 from app.files.exceptions import FileNotFoundError, FileUploadError
-from app.files.schemas import FileDownloadResponse, FileUploadResponse
+from app.files.schemas import FileAttachmentResponse, FileDownloadResponse
 
 router = APIRouter()
 
 
 @router.post(
-    "/upload", response_model=FileUploadResponse, status_code=statuses.HTTP_201_CREATED
+    "/upload",
+    response_model=FileAttachmentResponse,
+    status_code=statuses.HTTP_201_CREATED,
 )
 def upload_file(
     file: UploadFile = File(...),
