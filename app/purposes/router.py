@@ -1,7 +1,9 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi import status as statuses
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -38,6 +40,27 @@ def get_purposes(
     )
 
     return create_paginated_result(purposes, total, params)
+
+
+@router.get("/export_csv")
+def export_purposes_csv(
+    params: Annotated[GetPurposesRequest, Query()],
+    db: Session = Depends(get_db),
+):
+    """Export all purposes as CSV with the same filtering, searching, and sorting as get_purposes."""
+    csv_content = service.export_purposes_csv(db=db, params=params)
+    
+    # Generate filename with current date
+    current_date = datetime.now().strftime("%d-%m-%Y")
+    filename = f"purposes_export_{current_date}.csv"
+    
+    # Create streaming response for CSV download
+    response = StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+    return response
 
 
 @router.get("/{purpose_id}", response_model=Purpose)

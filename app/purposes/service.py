@@ -1,4 +1,6 @@
-from typing import BinaryIO
+import csv
+import io
+from typing import BinaryIO, Sequence
 
 from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -47,7 +49,7 @@ def _validate_service_exists(db: Session, service_id: int) -> None:
         raise ServiceNotFound(service_id)
 
 
-def _validate_unique_services_in_purpose(services: list[PurposeContentBase]) -> None:
+def _validate_unique_services_in_purpose(services: Sequence[PurposeContentBase]) -> None:
     """Validate that all services in purpose contents are unique."""
     service_ids = [content.service_id for content in services]
 
@@ -102,7 +104,7 @@ def _set_file_attachments(
     missing_ids = set(file_attachment_ids) - found_ids
     if missing_ids:
         raise FileAttachmentsNotFound(list(missing_ids))
-    db_purpose.file_attachments = files
+    db_purpose.file_attachments = list(files)
 
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
@@ -265,3 +267,132 @@ def delete_file_from_purpose(db: Session, purpose_id: int, file_id: int) -> None
     file_service.delete_file(db, file_id)
 
     db.commit()
+
+
+def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
+    """
+    Export purposes as CSV with filtering, searching, and sorting.
+    Returns all purposes without pagination.
+    """
+    stmt = _get_base_purpose_select()
+
+    # Apply universal filters using the centralized filtering method
+    stmt = apply_filters(stmt, params, db)
+
+    # Apply search
+    if params.search:
+        search_filter = _build_search_filter(params.search)
+        stmt = stmt.where(search_filter)
+
+    # Apply sorting
+    sort_column = getattr(Purpose, params.sort_by, Purpose.creation_time)
+    if params.sort_order == "desc":
+        stmt = stmt.order_by(desc(sort_column))
+    else:
+        stmt = stmt.order_by(sort_column)
+
+    # Execute query without pagination to get all results
+    purposes = db.execute(stmt).unique().scalars().all()
+
+    # Convert to CSV with proper quoting for multi-line content
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    
+    # Write header row
+    header = [
+        'ID',
+        'Description',
+        'Status',
+        'Creation Time',
+        'Last Modified',
+        'Expected Delivery',
+        'Comments',
+        'Hierarchy',
+        'Supplier',
+        'Service Type',
+        'Services',
+        'Purchases',
+        'EMF IDs',
+        'Bikushit IDs',
+        'Demand IDs',
+        'Order IDs',
+        'File Attachments'
+    ]
+    writer.writerow(header)
+    
+    # Write data rows
+    for purpose in purposes:
+        # Aggregate services with quantity before service name
+        services = '\n'.join([
+            f"{content.quantity} {content.service_name}"
+            for content in purpose.contents
+        ])
+        
+        # Get purchase IDs (each on its own line)
+        purchase_ids = [str(purchase.id) for purchase in purpose.purchases]
+        purchase_ids_str = '\n'.join(purchase_ids)
+        
+        # Extract IDs from purchases stages, maintaining purchase order and relationship
+        emf_ids = []
+        bikushit_ids = []
+        demand_ids = []
+        order_ids = []
+        
+        # Process purchases in order to maintain relationships between IDs
+        for purchase in purpose.purchases:
+            # Find IDs for this specific purchase
+            purchase_emf_id = ""
+            purchase_bikushit_id = ""
+            purchase_demand_id = ""
+            purchase_order_id = ""
+            
+            for stage in purchase.stages:
+                if stage.stage_type_id == 6 and stage.value:  # EMF ID
+                    purchase_emf_id = stage.value
+                elif stage.stage_type_id == 10 and stage.value:  # Bikushit ID
+                    purchase_bikushit_id = stage.value
+                elif stage.stage_type_id == 11 and stage.value:  # Demand ID
+                    purchase_demand_id = stage.value
+                elif stage.stage_type_id == 18 and stage.value:  # Order ID
+                    purchase_order_id = stage.value
+            
+            # Only add entries if at least one ID exists for this purchase
+            if purchase_emf_id or purchase_bikushit_id or purchase_demand_id or purchase_order_id:
+                emf_ids.append(purchase_emf_id)
+                bikushit_ids.append(purchase_bikushit_id)
+                demand_ids.append(purchase_demand_id)
+                order_ids.append(purchase_order_id)
+        
+        # Join IDs with newlines (each on its own line, maintaining purchase order)
+        emf_ids_str = '\n'.join(emf_ids)
+        bikushit_ids_str = '\n'.join(bikushit_ids)
+        demand_ids_str = '\n'.join(demand_ids)
+        order_ids_str = '\n'.join(order_ids)
+        
+        # Get file attachment names
+        file_attachments = '\n'.join([
+            file.original_filename for file in purpose.file_attachments
+        ])
+        
+        row = [
+            purpose.id,
+            purpose.description or '',
+            purpose.status.value if purpose.status else '',
+            purpose.creation_time.isoformat() if purpose.creation_time else '',
+            purpose.last_modified.isoformat() if purpose.last_modified else '',
+            purpose.expected_delivery.isoformat() if purpose.expected_delivery else '',
+            purpose.comments or '',
+            purpose.hierarchy.path if purpose.hierarchy else '',
+            purpose.supplier or '',
+            purpose.service_type or '',
+            services,
+            purchase_ids_str,
+            emf_ids_str,
+            bikushit_ids_str,
+            demand_ids_str,
+            order_ids_str,
+            file_attachments
+        ]
+        writer.writerow(row)
+    
+    return output.getvalue()
