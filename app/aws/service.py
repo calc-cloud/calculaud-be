@@ -35,7 +35,13 @@ class S3Service:
         s3_key = f"{self.key_prefix}{uuid.uuid4()}{file_extension}"
 
         try:
-            self.s3_client.upload_fileobj(file_obj, self.bucket_name, s3_key)
+            # Add content disposition header with original filename
+            extra_args = {
+                "ContentDisposition": f'attachment; filename="{original_filename}"'
+            }
+            self.s3_client.upload_fileobj(
+                file_obj, self.bucket_name, s3_key, ExtraArgs=extra_args
+            )
             return s3_key
         except ClientError as e:
             raise e
