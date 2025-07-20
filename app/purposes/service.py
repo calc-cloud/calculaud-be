@@ -72,7 +72,7 @@ def _create_purpose_content(
     return db_content
 
 
-def _build_search_filter(search: str):
+def build_search_filter(search: str):
     """Build search filter for purpose queries."""
     return or_(
         Purpose.description.ilike(f"%{search}%"),
@@ -121,7 +121,7 @@ def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose]
 
     # Apply search
     if params.search:
-        search_filter = _build_search_filter(params.search)
+        search_filter = build_search_filter(params.search)
         stmt = stmt.where(search_filter)
 
     # Apply sorting

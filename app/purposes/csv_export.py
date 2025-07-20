@@ -10,6 +10,8 @@ from app.pagination import paginate_select
 from app.purposes.filters import apply_filters
 from app.purposes.models import Purpose, PurposeContent
 from app.purposes.schemas import GetPurposesRequest
+from app.purposes.service import build_search_filter
+from app.purchases.schemas import PurchaseResponse
 from app.services.models import Service
 
 # Stage type name constants
@@ -33,15 +35,7 @@ def _get_base_purpose_select():
     )
 
 
-def _build_search_filter(search: str):
-    """Build search filter for purpose queries."""
-    return or_(
-        Purpose.description.ilike(f"%{search}%"),
-        Purpose.purchases.any(Purchase.stages.any(Stage.value.ilike(f"%{search}%"))),
-        Purpose.contents.any(
-            PurposeContent.service.has(Service.name.ilike(f"%{search}%"))
-        ),
-    )
+
 
 
 def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
@@ -56,7 +50,7 @@ def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
 
     # Apply search
     if params.search:
-        search_filter = _build_search_filter(params.search)
+        search_filter = build_search_filter(params.search)
         stmt = stmt.where(search_filter)
 
     # Apply sorting
@@ -169,52 +163,18 @@ def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
         order_ids_str = '\n'.join(order_ids)
         order_completion_dates_str = '\n'.join(order_completion_dates)
         
-        # Calculate pending stages for all purchases
+        # Calculate pending stages using existing computed fields
         pending_stages_list = []
         for purchase in purpose.purchases:
-            # Get current pending stages and days since last completion
-            flow_stages = purchase.flow_stages
-            if not flow_stages:
+            # Use existing computed fields from Purchase model properties
+            purchase_response = PurchaseResponse.model_validate(purchase)
+            
+            current_pending_stages = purchase_response.current_pending_stages
+            days_since_last_completion = purchase_response.days_since_last_completion
+            
+            if not current_pending_stages or days_since_last_completion is None:
                 pending_stages_list.append("")
                 continue
-            
-            # Find the first priority level with incomplete stages
-            current_pending_stages = []
-            for stages in flow_stages:
-                if isinstance(stages, list):
-                    # Multiple stages at this priority, check if any is incomplete
-                    incomplete_stages = [
-                        stage for stage in stages if stage.completion_date is None
-                    ]
-                    if incomplete_stages:
-                        current_pending_stages = incomplete_stages
-                        break
-                else:
-                    # Single stage at this priority
-                    if stages.completion_date is None:
-                        current_pending_stages = [stages]
-                        break
-            
-            if not current_pending_stages:
-                pending_stages_list.append("")
-                continue
-            
-            # Calculate days since last completion
-            current_pending_priority = current_pending_stages[0].priority
-            
-            if current_pending_priority == 1:
-                most_recent_completion_date = purchase.creation_date.date()
-            else:
-                # Get the previous completed stages
-                last_completed_stages = flow_stages[current_pending_priority - 2]
-                if isinstance(last_completed_stages, list):
-                    most_recent_completion_date = max(
-                        stage.completion_date for stage in last_completed_stages
-                    )
-                else:
-                    most_recent_completion_date = last_completed_stages.completion_date
-            
-            days_since_last_completion = (datetime.now().date() - most_recent_completion_date).days
             
             # Format pending stages names
             pending_stage_names = [stage.stage_type.name for stage in current_pending_stages]
