@@ -1,5 +1,6 @@
 import csv
 import io
+from datetime import datetime
 from typing import BinaryIO, Sequence
 
 from sqlalchemy import desc, or_, select
@@ -313,9 +314,14 @@ def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
         'Services',
         'Purchases',
         'EMF IDs',
+        'EMF IDs Completion Date',
         'Bikushit IDs',
+        'Bikushit IDs Completion Date',
         'Demand IDs',
+        'Demand IDs Completion Date',
         'Order IDs',
+        'Order IDs Completion Date',
+        'Pending Stages',
         'File Attachments'
     ]
     writer.writerow(header)
@@ -332,42 +338,117 @@ def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
         purchase_ids = [str(purchase.id) for purchase in purpose.purchases]
         purchase_ids_str = '\n'.join(purchase_ids)
         
-        # Extract IDs from purchases stages, maintaining purchase order and relationship
+        # Extract IDs and completion dates from purchases stages, maintaining purchase order and relationship
         emf_ids = []
+        emf_completion_dates = []
         bikushit_ids = []
+        bikushit_completion_dates = []
         demand_ids = []
+        demand_completion_dates = []
         order_ids = []
+        order_completion_dates = []
         
-        # Process purchases in order to maintain relationships between IDs
+        # Process purchases in order to maintain relationships between IDs and completion dates
         for purchase in purpose.purchases:
-            # Find IDs for this specific purchase
+            # Find IDs and completion dates for this specific purchase
             purchase_emf_id = ""
+            purchase_emf_completion_date = ""
             purchase_bikushit_id = ""
+            purchase_bikushit_completion_date = ""
             purchase_demand_id = ""
+            purchase_demand_completion_date = ""
             purchase_order_id = ""
+            purchase_order_completion_date = ""
             
             for stage in purchase.stages:
                 if stage.stage_type_id == 6 and stage.value:  # EMF ID
                     purchase_emf_id = stage.value
+                    purchase_emf_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
                 elif stage.stage_type_id == 10 and stage.value:  # Bikushit ID
                     purchase_bikushit_id = stage.value
+                    purchase_bikushit_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
                 elif stage.stage_type_id == 11 and stage.value:  # Demand ID
                     purchase_demand_id = stage.value
+                    purchase_demand_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
                 elif stage.stage_type_id == 18 and stage.value:  # Order ID
                     purchase_order_id = stage.value
+                    purchase_order_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
             
             # Only add entries if at least one ID exists for this purchase
             if purchase_emf_id or purchase_bikushit_id or purchase_demand_id or purchase_order_id:
                 emf_ids.append(purchase_emf_id)
+                emf_completion_dates.append(purchase_emf_completion_date)
                 bikushit_ids.append(purchase_bikushit_id)
+                bikushit_completion_dates.append(purchase_bikushit_completion_date)
                 demand_ids.append(purchase_demand_id)
+                demand_completion_dates.append(purchase_demand_completion_date)
                 order_ids.append(purchase_order_id)
+                order_completion_dates.append(purchase_order_completion_date)
         
-        # Join IDs with newlines (each on its own line, maintaining purchase order)
+        # Join IDs and completion dates with newlines (each on its own line, maintaining purchase order)
         emf_ids_str = '\n'.join(emf_ids)
+        emf_completion_dates_str = '\n'.join(emf_completion_dates)
         bikushit_ids_str = '\n'.join(bikushit_ids)
+        bikushit_completion_dates_str = '\n'.join(bikushit_completion_dates)
         demand_ids_str = '\n'.join(demand_ids)
+        demand_completion_dates_str = '\n'.join(demand_completion_dates)
         order_ids_str = '\n'.join(order_ids)
+        order_completion_dates_str = '\n'.join(order_completion_dates)
+        
+        # Calculate pending stages for all purchases
+        pending_stages_list = []
+        for purchase in purpose.purchases:
+            # Get current pending stages and days since last completion
+            flow_stages = purchase.flow_stages
+            if not flow_stages:
+                pending_stages_list.append("")
+                continue
+            
+            # Find the first priority level with incomplete stages
+            current_pending_stages = []
+            for stages in flow_stages:
+                if isinstance(stages, list):
+                    # Multiple stages at this priority, check if any is incomplete
+                    incomplete_stages = [
+                        stage for stage in stages if stage.completion_date is None
+                    ]
+                    if incomplete_stages:
+                        current_pending_stages = incomplete_stages
+                        break
+                else:
+                    # Single stage at this priority
+                    if stages.completion_date is None:
+                        current_pending_stages = [stages]
+                        break
+            
+            if not current_pending_stages:
+                pending_stages_list.append("")
+                continue
+            
+            # Calculate days since last completion
+            current_pending_priority = current_pending_stages[0].priority
+            
+            if current_pending_priority == 1:
+                most_recent_completion_date = purchase.creation_date.date()
+            else:
+                # Get the previous completed stages
+                last_completed_stages = flow_stages[current_pending_priority - 2]
+                if isinstance(last_completed_stages, list):
+                    most_recent_completion_date = max(
+                        stage.completion_date for stage in last_completed_stages
+                    )
+                else:
+                    most_recent_completion_date = last_completed_stages.completion_date
+            
+            days_since_last_completion = (datetime.now().date() - most_recent_completion_date).days
+            
+            # Format pending stages names
+            pending_stage_names = [stage.stage_type.name for stage in current_pending_stages]
+            pending_stages_text = f"{days_since_last_completion} days in {', '.join(pending_stage_names)}"
+            pending_stages_list.append(pending_stages_text)
+        
+        # Join pending stages info with newlines
+        pending_stages_str = '\n'.join(pending_stages_list)
         
         # Get file attachment names
         file_attachments = '\n'.join([
@@ -388,9 +469,14 @@ def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
             services,
             purchase_ids_str,
             emf_ids_str,
+            emf_completion_dates_str,
             bikushit_ids_str,
+            bikushit_completion_dates_str,
             demand_ids_str,
+            demand_completion_dates_str,
             order_ids_str,
+            order_completion_dates_str,
+            pending_stages_str,
             file_attachments
         ]
         writer.writerow(row)
