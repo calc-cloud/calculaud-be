@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     aws_region: Annotated[str | None, Field(default=None)]
     s3_endpoint_url: Annotated[str | None, Field(default=None)]
     s3_use_ssl: Annotated[bool, Field(default=True)]
-    s3_bucket_name: Annotated[str, Field(default="calcloud-files")]
+    s3_bucket_name: Annotated[str, Field(default="calculaud-files")]
     s3_bucket_url: Annotated[str, Field(default="")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
 

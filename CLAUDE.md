@@ -53,7 +53,7 @@ alembic upgrade head
 
 ```bash
 # Run tests with Docker (recommended)
-docker run --rm -v $(pwd):/app -w /app calcloud-back python -m pytest
+docker run --rm -v $(pwd):/app -w /app calculaud-be python -m pytest
 
 # Local testing (if environment is set up)
 pytest -v                    # Verbose output
