@@ -1,5 +1,10 @@
 """Global test fixtures for database setup and common utilities."""
 
+import os
+
+# Set testing environment variable
+os.environ["TESTING"] = "1"
+
 from typing import Generator
 
 import pytest

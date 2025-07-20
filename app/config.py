@@ -1,3 +1,4 @@
+import os
 from typing import Annotated
 
 from dotenv import find_dotenv
@@ -50,7 +51,9 @@ class Settings(BaseSettings):
     oauth_client_id: str | None = None
     oauth_scopes: Annotated[str, Field(default="openid")]
 
-    model_config = SettingsConfigDict(env_file=find_dotenv())
+    model_config = SettingsConfigDict(
+        env_file=".test.env" if os.getenv("TESTING") else find_dotenv()
+    )
 
 
 settings = Settings()  # type: ignore
