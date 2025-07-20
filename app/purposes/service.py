@@ -27,6 +27,12 @@ from app.purposes.schemas import (
 )
 from app.services.models import Service
 
+# Stage type name constants
+EMF_ID_STAGE_NAME = "emf_id"
+BIKUSHIT_ID_STAGE_NAME = "bikushit_id"
+DEMAND_ID_STAGE_NAME = "demand_id"
+ORDER_ID_STAGE_NAME = "order_id"
+
 
 def _get_base_purpose_select():
     """Get base purpose select statement with all necessary joins."""
@@ -361,16 +367,16 @@ def export_purposes_csv(db: Session, params: GetPurposesRequest) -> str:
             purchase_order_completion_date = ""
             
             for stage in purchase.stages:
-                if stage.stage_type_id == 6 and stage.value:  # EMF ID
+                if stage.stage_type.name == EMF_ID_STAGE_NAME and stage.value:
                     purchase_emf_id = stage.value
                     purchase_emf_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
-                elif stage.stage_type_id == 10 and stage.value:  # Bikushit ID
+                elif stage.stage_type.name == BIKUSHIT_ID_STAGE_NAME and stage.value:
                     purchase_bikushit_id = stage.value
                     purchase_bikushit_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
-                elif stage.stage_type_id == 11 and stage.value:  # Demand ID
+                elif stage.stage_type.name == DEMAND_ID_STAGE_NAME and stage.value:
                     purchase_demand_id = stage.value
                     purchase_demand_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
-                elif stage.stage_type_id == 18 and stage.value:  # Order ID
+                elif stage.stage_type.name == ORDER_ID_STAGE_NAME and stage.value:
                     purchase_order_id = stage.value
                     purchase_order_completion_date = stage.completion_date.isoformat() if stage.completion_date else ""
             
