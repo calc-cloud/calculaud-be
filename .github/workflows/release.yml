@@ -70,25 +70,14 @@ jobs:
         build-args: |
           VERSION=${{ steps.version.outputs.version_number }}
     
-    - name: Export and upload Docker image tar
+    - name: Export Docker image tar
       run: |
         # Export Docker image as compressed tar
         docker save ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }} | gzip > calculaud-be-${{ steps.version.outputs.version }}.tar.gz
         
-        # Upload to S3 public releases folder
-        aws s3 cp calculaud-be-${{ steps.version.outputs.version }}.tar.gz s3://${{ secrets.S3_BUCKET_NAME }}/public-releases/
-        
-        # Make it publicly accessible
-        aws s3api put-object-acl --bucket ${{ secrets.S3_BUCKET_NAME }} --key public-releases/calculaud-be-${{ steps.version.outputs.version }}.tar.gz --acl public-read
-        
         # Get file size for summary
         FILE_SIZE=$(ls -lh calculaud-be-${{ steps.version.outputs.version }}.tar.gz | awk '{print $5}')
         echo "DOCKER_TAR_SIZE=$FILE_SIZE" >> $GITHUB_ENV
-        echo "DOCKER_TAR_URL=https://${{ secrets.S3_BUCKET_NAME }}.s3.eu-central-1.amazonaws.com/public-releases/calculaud-be-${{ steps.version.outputs.version }}.tar.gz" >> $GITHUB_ENV
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'eu-central-1' }}
     
     - name: Upload tar to GitHub Release
       uses: softprops/action-gh-release@v1
@@ -108,16 +97,12 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 📦 Docker Image Archive:" >> $GITHUB_STEP_SUMMARY
         echo "- **Size:** ${{ env.DOCKER_TAR_SIZE }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Public Download:** [${{ env.DOCKER_TAR_URL }}](${{ env.DOCKER_TAR_URL }})" >> $GITHUB_STEP_SUMMARY
-        echo "- **GitHub Release:** Attached to this release" >> $GITHUB_STEP_SUMMARY
+        echo "- **Download:** Available as release asset" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🔧 Usage:" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-        echo "# Download and load the image" >> $GITHUB_STEP_SUMMARY
-        echo "curl -L ${{ env.DOCKER_TAR_URL }} | gunzip | docker load" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "# Or download first, then load" >> $GITHUB_STEP_SUMMARY
-        echo "wget ${{ env.DOCKER_TAR_URL }}" >> $GITHUB_STEP_SUMMARY
+        echo "# Download from GitHub releases and load" >> $GITHUB_STEP_SUMMARY
+        echo "# First download the tar.gz file from the release assets" >> $GITHUB_STEP_SUMMARY
         echo "gunzip calculaud-be-${{ steps.version.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
         echo "docker load < calculaud-be-${{ steps.version.outputs.version }}.tar" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
