@@ -11,6 +11,8 @@ from app.files.exceptions import FileNotFoundError, FileUploadError
 from app.files.schemas import FileAttachmentResponse
 from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
+from app.purposes.csv_export import export_purposes_csv as _export_purposes_csv
+from app.purposes.file_service import delete_file_from_purpose as _delete_file_from_purpose, upload_file_to_purpose as _upload_file_to_purpose
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
     FileAttachmentsNotFound,
@@ -48,7 +50,7 @@ def export_purposes_csv(
     db: Session = Depends(get_db),
 ):
     """Export all purposes as CSV with the same filtering, searching, and sorting as get_purposes."""
-    csv_content = service.export_purposes_csv(db=db, params=params)
+    csv_content = _export_purposes_csv(db=db, params=params)
     
     # Generate filename with current date
     current_date = datetime.now().strftime("%d-%m-%Y")
@@ -133,7 +135,7 @@ def upload_file_to_purpose(
         )
 
     try:
-        return service.upload_file_to_purpose(
+        return _upload_file_to_purpose(
             db=db,
             purpose_id=purpose_id,
             file_obj=file.file,
@@ -158,7 +160,7 @@ def delete_file_from_purpose(
 ):
     """Remove a file from a purpose and delete the file entirely."""
     try:
-        service.delete_file_from_purpose(db, purpose_id, file_id)
+        _delete_file_from_purpose(db, purpose_id, file_id)
     except PurposeNotFound as e:
         raise HTTPException(status_code=statuses.HTTP_404_NOT_FOUND, detail=str(e))
     except FileNotAttachedToPurpose as e:
