@@ -50,9 +50,9 @@ docker run -p 8000:8000 username/calculaud-be:v[VERSION]
 
 ## 🔗 Links
 
-- [Full Changelog](https://github.com/username/calculaud-be/compare/v[PREVIOUS_VERSION]...v[VERSION])
-- [Documentation](https://github.com/username/calculaud-be/blob/main/README.md)
-- [Issues](https://github.com/username/calculaud-be/issues)
+- [Full Changelog](https://github.com/calc-cloud/calculaud-be/compare/v[PREVIOUS_VERSION]...v[VERSION])
+- [Documentation](https://github.com/calc-cloud/calculaud-be/blob/main/README.md)
+- [Issues](https://github.com/calc-cloud/calculaud-be/issues)
 
 ## 👥 Contributors
 
@@ -68,4 +68,4 @@ Thanks to all contributors who made this release possible!
 
 ---
 
-**Full Changelog**: https://github.com/username/calculaud-be/compare/v[PREVIOUS_VERSION]...v[VERSION]
+**Full Changelog**: https://github.com/calc-cloud/calculaud-be/compare/v[PREVIOUS_VERSION]...v[VERSION]
