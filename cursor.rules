@@ -1,4 +1,4 @@
-# Cursor Rules for CalCloud Backend - Procurement Management System
+# Cursor Rules for Calculaud Backend - Procurement Management System
 
 ## Project Context
 This is a FastAPI-based backend for a Procurement Management System that manages Purposes, EMFs (procurement forms), Costs, and Hierarchies. The system handles Israeli procurement workflows with multi-currency support (ILS, USD, EUR).
