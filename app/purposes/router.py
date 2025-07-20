@@ -11,8 +11,8 @@ from app.files.exceptions import FileNotFoundError, FileUploadError
 from app.files.schemas import FileAttachmentResponse
 from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
-from app.purposes.csv_export import export_purposes_csv as _export_purposes_csv
-from app.purposes.file_service import delete_file_from_purpose as _delete_file_from_purpose, upload_file_to_purpose as _upload_file_to_purpose
+from app.purposes.csv_export import export_purposes_csv
+from app.purposes.file_service import delete_file_from_purpose, upload_file_to_purpose
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
     FileAttachmentsNotFound,
@@ -45,12 +45,12 @@ def get_purposes(
 
 
 @router.get("/export_csv")
-def export_purposes_csv(
+def export_csv(
     params: Annotated[GetPurposesRequest, Query()],
     db: Session = Depends(get_db),
 ):
     """Export all purposes as CSV with the same filtering, searching, and sorting as get_purposes."""
-    csv_content = _export_purposes_csv(db=db, params=params)
+    csv_content = export_purposes_csv(db=db, params=params)
     
     # Generate filename with current date
     current_date = datetime.now().strftime("%d-%m-%Y")
@@ -123,7 +123,7 @@ def delete_purpose(purpose_id: int, db: Session = Depends(get_db)):
     response_model=FileAttachmentResponse,
     status_code=statuses.HTTP_201_CREATED,
 )
-def upload_file_to_purpose(
+def upload_file(
     purpose_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -135,7 +135,7 @@ def upload_file_to_purpose(
         )
 
     try:
-        return _upload_file_to_purpose(
+        return upload_file_to_purpose(
             db=db,
             purpose_id=purpose_id,
             file_obj=file.file,
@@ -153,14 +153,14 @@ def upload_file_to_purpose(
 @router.delete(
     "/{purpose_id}/files/{file_id}", status_code=statuses.HTTP_204_NO_CONTENT
 )
-def delete_file_from_purpose(
+def delete_file(
     purpose_id: int,
     file_id: int,
     db: Session = Depends(get_db),
 ):
     """Remove a file from a purpose and delete the file entirely."""
     try:
-        _delete_file_from_purpose(db, purpose_id, file_id)
+        delete_file_from_purpose(db, purpose_id, file_id)
     except PurposeNotFound as e:
         raise HTTPException(status_code=statuses.HTTP_404_NOT_FOUND, detail=str(e))
     except FileNotAttachedToPurpose as e:

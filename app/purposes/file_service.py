@@ -10,12 +10,7 @@ from app.purposes.exceptions import (
     FileNotAttachedToPurpose,
     PurposeNotFound,
 )
-
-
-def get_purpose(db: Session, purpose_id: int):
-    """Get a single purpose by ID - imported from main service."""
-    from app.purposes.service import get_purpose as _get_purpose
-    return _get_purpose(db, purpose_id)
+from app.purposes.service import get_purpose
 
 
 def upload_file_to_purpose(

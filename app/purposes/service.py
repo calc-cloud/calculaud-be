@@ -21,7 +21,7 @@ from app.purposes.schemas import (
 from app.services.models import Service
 
 
-def _get_base_purpose_select():
+def get_base_purpose_select():
     """Get base purpose select statement with all necessary joins."""
     return select(Purpose).options(
         joinedload(Purpose.file_attachments),
@@ -103,7 +103,7 @@ def _set_file_attachments(
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
     """Get a single purpose by ID."""
-    stmt = _get_base_purpose_select().where(Purpose.id == purpose_id)
+    stmt = get_base_purpose_select().where(Purpose.id == purpose_id)
     return db.execute(stmt).unique().scalars().first()
 
 
@@ -114,7 +114,7 @@ def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose]
     Returns:
         Tuple of (purposes list, total count)
     """
-    stmt = _get_base_purpose_select()
+    stmt = get_base_purpose_select()
 
     # Apply universal filters using the centralized filtering method
     stmt = apply_filters(stmt, params, db)
