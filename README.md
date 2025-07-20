@@ -1,8 +1,8 @@
 # calculaud-be
 
-[![CI](https://github.com/username/calculaud-be/actions/workflows/ci.yml/badge.svg)](https://github.com/username/calculaud-be/actions/workflows/ci.yml)
-[![CD](https://github.com/username/calculaud-be/actions/workflows/cd.yml/badge.svg)](https://github.com/username/calculaud-be/actions/workflows/cd.yml)
-[![Release](https://github.com/username/calculaud-be/actions/workflows/release.yml/badge.svg)](https://github.com/username/calculaud-be/actions/workflows/release.yml)
+[![CI](https://github.com/calc-cloud/calculaud-be/actions/workflows/ci.yml/badge.svg)](https://github.com/calc-cloud/calculaud-be/actions/workflows/ci.yml)
+[![CD](https://github.com/calc-cloud/calculaud-be/actions/workflows/cd.yml/badge.svg)](https://github.com/calc-cloud/calculaud-be/actions/workflows/cd.yml)
+[![Release](https://github.com/calc-cloud/calculaud-be/actions/workflows/release.yml/badge.svg)](https://github.com/calc-cloud/calculaud-be/actions/workflows/release.yml)
 
 Procurement Management System backend built with FastAPI.
 
