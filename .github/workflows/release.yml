@@ -72,6 +72,9 @@ jobs:
     
     - name: Export Docker image tar
       run: |
+        # Pull the image first (since buildx doesn't keep it locally)
+        docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }}
+        
         # Export Docker image as uncompressed tar
         docker save ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }} > calculaud-be-${{ steps.version.outputs.version }}.tar
         
