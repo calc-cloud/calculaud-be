@@ -43,7 +43,9 @@ def _validate_service_exists(db: Session, service_id: int) -> None:
         raise ServiceNotFound(service_id)
 
 
-def _validate_unique_services_in_purpose(services: Sequence[PurposeContentBase]) -> None:
+def _validate_unique_services_in_purpose(
+    services: Sequence[PurposeContentBase],
+) -> None:
     """Validate that all services in purpose contents are unique."""
     service_ids = [content.service_id for content in services]
 
@@ -209,6 +211,3 @@ def delete_purpose(db: Session, purpose_id: int) -> bool:
     db.delete(db_purpose)
     db.commit()
     return True
-
-
-

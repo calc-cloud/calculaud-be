@@ -12,7 +12,6 @@ from app.files.schemas import FileAttachmentResponse
 from app.pagination import PaginatedResult, create_paginated_result
 from app.purposes import service
 from app.purposes.csv_export import export_purposes_csv
-from app.purposes.file_service import delete_file_from_purpose, upload_file_to_purpose
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
     FileAttachmentsNotFound,
@@ -20,6 +19,7 @@ from app.purposes.exceptions import (
     PurposeNotFound,
     ServiceNotFound,
 )
+from app.purposes.file_service import delete_file_from_purpose, upload_file_to_purpose
 from app.purposes.schemas import (
     GetPurposesRequest,
     Purpose,
@@ -51,16 +51,16 @@ def export_csv(
 ):
     """Export all purposes as CSV with the same filtering, searching, and sorting as get_purposes."""
     csv_content = export_purposes_csv(db=db, params=params)
-    
+
     # Generate filename with current date
     current_date = datetime.now().strftime("%d-%m-%Y")
     filename = f"purposes_export_{current_date}.csv"
-    
+
     # Create streaming response for CSV download
     response = StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
     return response
 

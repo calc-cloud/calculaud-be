@@ -6,10 +6,7 @@ from sqlalchemy.orm import Session
 from app import FileAttachment
 from app.files import service as file_service
 from app.files.models import purpose_file_attachment
-from app.purposes.exceptions import (
-    FileNotAttachedToPurpose,
-    PurposeNotFound,
-)
+from app.purposes.exceptions import FileNotAttachedToPurpose, PurposeNotFound
 from app.purposes.service import get_purpose
 
 
@@ -62,4 +59,4 @@ def delete_file_from_purpose(db: Session, purpose_id: int, file_id: int) -> None
     # Delete the file entirely using existing file service
     file_service.delete_file(db, file_id)
 
-    db.commit() 
+    db.commit()
