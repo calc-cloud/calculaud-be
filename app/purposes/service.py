@@ -1,17 +1,13 @@
-from typing import BinaryIO
+from typing import Sequence
 
 from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app import FileAttachment, Purchase, Stage
-from app.files import service as file_service
-from app.files.models import purpose_file_attachment
 from app.pagination import paginate_select
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
     FileAttachmentsNotFound,
-    FileNotAttachedToPurpose,
-    PurposeNotFound,
     ServiceNotFound,
 )
 from app.purposes.filters import apply_filters
@@ -25,7 +21,7 @@ from app.purposes.schemas import (
 from app.services.models import Service
 
 
-def _get_base_purpose_select():
+def get_base_purpose_select():
     """Get base purpose select statement with all necessary joins."""
     return select(Purpose).options(
         joinedload(Purpose.file_attachments),
@@ -47,7 +43,9 @@ def _validate_service_exists(db: Session, service_id: int) -> None:
         raise ServiceNotFound(service_id)
 
 
-def _validate_unique_services_in_purpose(services: list[PurposeContentBase]) -> None:
+def _validate_unique_services_in_purpose(
+    services: Sequence[PurposeContentBase],
+) -> None:
     """Validate that all services in purpose contents are unique."""
     service_ids = [content.service_id for content in services]
 
@@ -76,7 +74,7 @@ def _create_purpose_content(
     return db_content
 
 
-def _build_search_filter(search: str):
+def build_search_filter(search: str):
     """Build search filter for purpose queries."""
     return or_(
         Purpose.description.ilike(f"%{search}%"),
@@ -102,12 +100,12 @@ def _set_file_attachments(
     missing_ids = set(file_attachment_ids) - found_ids
     if missing_ids:
         raise FileAttachmentsNotFound(list(missing_ids))
-    db_purpose.file_attachments = files
+    db_purpose.file_attachments = list(files)
 
 
 def get_purpose(db: Session, purpose_id: int) -> Purpose | None:
     """Get a single purpose by ID."""
-    stmt = _get_base_purpose_select().where(Purpose.id == purpose_id)
+    stmt = get_base_purpose_select().where(Purpose.id == purpose_id)
     return db.execute(stmt).unique().scalars().first()
 
 
@@ -118,14 +116,14 @@ def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose]
     Returns:
         Tuple of (purposes list, total count)
     """
-    stmt = _get_base_purpose_select()
+    stmt = get_base_purpose_select()
 
     # Apply universal filters using the centralized filtering method
     stmt = apply_filters(stmt, params, db)
 
     # Apply search
     if params.search:
-        search_filter = _build_search_filter(params.search)
+        search_filter = build_search_filter(params.search)
         stmt = stmt.where(search_filter)
 
     # Apply sorting
@@ -213,55 +211,3 @@ def delete_purpose(db: Session, purpose_id: int) -> bool:
     db.delete(db_purpose)
     db.commit()
     return True
-
-
-def upload_file_to_purpose(
-    db: Session, purpose_id: int, file_obj: BinaryIO, filename: str, content_type: str
-):
-    """Upload a file and attach it to a specific purpose."""
-    # Check if purpose exists
-    db_purpose = get_purpose(db, purpose_id)
-    if not db_purpose:
-        raise PurposeNotFound(purpose_id)
-
-    # Upload file using existing file service
-    file_response = file_service.upload_file(db, file_obj, filename, content_type)
-
-    # Get the file attachment and add it to the purpose
-    stmt = select(FileAttachment).where(FileAttachment.id == file_response.file_id)
-    file_attachment = db.execute(stmt).scalar_one()
-
-    # Add file to purpose's file_attachments
-    db_purpose.file_attachments.append(file_attachment)
-    db.commit()
-
-    return file_response
-
-
-def delete_file_from_purpose(db: Session, purpose_id: int, file_id: int) -> None:
-    """Remove a file from a purpose and delete the file entirely."""
-    # Check if purpose exists
-    db_purpose = get_purpose(db, purpose_id)
-    if not db_purpose:
-        raise PurposeNotFound(purpose_id)
-
-    stmt = select(purpose_file_attachment.c.file_attachment_id).where(
-        purpose_file_attachment.c.purpose_id == purpose_id,
-        purpose_file_attachment.c.file_attachment_id == file_id,
-    )
-    attachment_exists = db.execute(stmt).scalar_one_or_none()
-
-    if not attachment_exists:
-        raise FileNotAttachedToPurpose(file_id, purpose_id)
-
-    # Get the file attachment to remove it from the purpose
-    stmt = select(FileAttachment).where(FileAttachment.id == file_id)
-    file_attachment = db.execute(stmt).scalar_one()
-
-    # Remove file from purpose's file_attachments
-    db_purpose.file_attachments.remove(file_attachment)
-
-    # Delete the file entirely using existing file service
-    file_service.delete_file(db, file_id)
-
-    db.commit()
