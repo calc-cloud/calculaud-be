@@ -1,178 +1,322 @@
 # Cursor Rules for Calculaud Backend - Procurement Management System
 
-## Project Context
-This is a FastAPI-based backend for a Procurement Management System that manages Purposes, EMFs (procurement forms), Costs, and Hierarchies. The system handles Israeli procurement workflows with multi-currency support (ILS, USD, EUR).
+Procurement Management System backend built with FastAPI. Manages Purposes, Purchases, Stages, Costs, and
+Hierarchies with full CRUD operations, advanced filtering, and search capabilities.
 
 ## Technology Stack
-- **Python 3.11+** with modern typing (use `str | None` not `Optional[str]`)
-- **FastAPI** with Pydantic v2 and Annotated syntax
-- **SQLAlchemy v2** with Mapped/mapped_column
-- **PostgreSQL** (SQLite for development)
-- **Alembic** for migrations
-- **Pytest** for testing
-- **Black, isort, flake8** for code quality
 
-## Code Style & Quality Standards
+- **Language**: Python 3.11+
+- **Framework**: FastAPI
+- **ORM**: SQLAlchemy (v2 mode)
+- **Migrations**: Alembic
+- **Database**: PostgreSQL
+- **Testing**: Pytest
+- **Deployment**: Docker with .env configuration
 
-### Python Typing (Modern Syntax Only)
-```python
-# ✅ Use modern syntax
-list[str]           # not List[str]
-dict[str, int]      # not Dict[str, int]
-str | None          # not Optional[str]
-int | str | None    # not Union[int, str, None]
+## Quick Start
 
-# ✅ Use Annotated for Pydantic fields
-field: Annotated[str, Field(min_length=1, max_length=100)]
-nullable_field: Annotated[str | None, Field(default=None)]
-```
+### Environment Setup
 
-### SQLAlchemy v2 Patterns
-```python
-# ✅ Use Mapped and mapped_column
-id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-name: Mapped[str] = mapped_column(String(100), nullable=False)
-nullable_field: Mapped[str | None] = mapped_column(String(100), nullable=True)
-created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-```
-
-### Pydantic v2 Patterns
-```python
-# ✅ Use ConfigDict and from_attributes
-class ResponseModel(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    
-# ✅ Use Annotated for field validation
-field: Annotated[str, Field(min_length=1, max_length=100)]
-```
-
-## Project Structure Rules
-
-### File Organization
-- All domain modules go in `app/` folder
-- Each module should have: `router.py`, `schemas.py`, `models.py`, `service.py`, `exceptions.py`
-- Use singular table names: `purpose`, `emf`, `cost`, `hierarchy`
-- Follow snake_case for files and variables, PascalCase for classes
-
-### Database Naming Conventions
-- Use `lower_case_snake` for table and column names
-- Use singular form: `purpose`, `emf`, `cost`, `hierarchy`, `service_type`, `supplier`
-- Use `_at` suffix for datetime fields
-- Use `_date` suffix for date fields
-- Use `_id` suffix for foreign keys
-
-## Business Logic Rules
-
-### Entity Relationships
-- **Purpose** → **Hierarchy** (many-to-one, nullable)
-- **Purpose** → **EMF** (one-to-many, cascade delete)
-- **EMF** → **Cost** (one-to-many, cascade delete)
-- **Hierarchy** → **Hierarchy** (self-referencing tree)
-- **Purpose** → **ServiceType** (many-to-one)
-- **Purpose** → **Supplier** (many-to-one)
-
-### API Design Patterns
-- EMF operations are integrated within Purpose routes
-- Costs are managed exclusively through EMF operations
-- Use nested resources: `/purposes/{id}/emfs`
-- Support filtering, searching, sorting, and pagination
-
-### Status Management
-- Purpose status: `IN_PROGRESS`, `COMPLETED`
-- Hierarchy types: `UNIT`, `CENTER`, `ANAF`, `TEAM`
-- Currency types: `SUPPORT_USD`, `AVAILABLE_USD`, `ILS`
-
-## Development Workflow
-
-### Code Quality Commands (Run in Order)
 ```bash
-isort .      # Sort imports first
-black .      # Format code
-flake8 .     # Lint and check quality
+# Install dependencies
+pip install -r requirements.txt
+
+# Run development server
+uvicorn main:app --reload
+
+# Run tests  
+pytest
 ```
 
-### Testing
-- Write comprehensive Pytest tests for all endpoints
-- Test CRUD operations, filtering, search, and pagination
-- Test cascade delete operations
-- Use SQLite for test database
+### Essential Commands
 
-### Database Migrations
-- Use descriptive migration names: `2024-01-15_add_user_authentication.py`
-- Make migrations static and revertible
-- Test migrations in both directions
+**Code Quality (ALWAYS run before commit):**
 
-## Error Handling
-- Use custom exceptions for domain-specific errors
-- Implement proper HTTP status codes
-- Provide meaningful error messages
-- Handle validation errors with Pydantic
-
-## Security Considerations
-- Validate all input data with Pydantic schemas
-- Use proper SQL injection prevention (SQLAlchemy ORM)
-- Implement proper authentication/authorization when needed
-- Sanitize user inputs
-
-## Performance Guidelines
-- Use database indexes for frequently queried fields
-- Implement pagination for large datasets
-- Use SQL joins for complex queries (SQL-first approach)
-- Aggregate JSONs in database when possible
-
-## Documentation
-- Use Google-style docstrings
-- Document all API endpoints with FastAPI decorators
-- Include example request/response schemas
-- Document business rules and constraints
-
-## Deployment
-- Use Docker for containerization
-- Use environment variables for configuration
-- Implement proper logging
-- Use Gunicorn/Uvicorn for production
-
-## Common Patterns to Follow
-
-### Service Layer Pattern
-```python
-# app/purposes/service.py
-class PurposeService:
-    def __init__(self, db: Session):
-        self.db = db
-    
-    def create_purpose(self, purpose_data: PurposeCreate) -> Purpose:
-        # Business logic here
-        pass
+```bash
+isort .     # Sort imports first
+black .     # Format code  
+flake8 .    # Lint code
 ```
 
-### Router Pattern
-```python
-# app/purposes/router.py
-@router.post("/", response_model=PurposeResponse)
-def create_purpose(
-    purpose: PurposeCreate,
-    db: Session = Depends(get_db)
-) -> Purpose:
-    service = PurposeService(db)
-    return service.create_purpose(purpose)
+**Database:**
+
+```bash
+alembic revision --autogenerate -m "description"
+alembic upgrade head
 ```
 
-### Schema Pattern
-```python
-# app/purposes/schemas.py
-class PurposeCreate(BaseModel):
-    hierarchy_id: Annotated[int | None, Field(default=None)]
-    excepted_delivery: Annotated[date | None, Field(default=None)]
-    status: StatusEnum
-    # ... other fields
+**Testing:**
 
-class PurposeResponse(PurposeCreate):
-    id: int
-    creation_time: datetime
-    last_modified: datetime
+```bash
+# Run tests with Docker (recommended)
+docker run --rm -v $(pwd):/app -w /app calcloud-back python -m pytest
+
+# Local testing (if environment is set up)
+pytest -v                    # Verbose output
+pytest tests/suppliers/      # Test specific domain
+pytest -k "test_name"        # Pattern matching
+pytest tests/suppliers/test_suppliers_api.py::TestSuppliersApi::test_create_resource  # Specific test
+```
+
+## Do Not Touch
+
+- Never use legacy SQLAlchemy `db.query()` - use `select()` statements only
+- Never import old typing (`List`, `Dict`, `Optional`, `Union`) - use modern syntax
+- Never skip the code quality workflow (isort → black → flake8)
+- Never commit without running tests
+- Never use generic exceptions - always create custom exceptions
+- Never inherit from existing test classes that already test the same functionality - this causes duplicate test execution
+
+## Code Standards
+
+### Must Use Modern Syntax
+
+**Python Typing (3.10+):**
+
+```python
+# ✅ Use
+list[str]  # not List[str]  
+dict[str, int]  # not Dict[str, int]
+str | None  # not Optional[str]
+
+# ✅ Pydantic v2
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class User(BaseModel):
+    name: Annotated[str, Field(min_length=1)]
+    email: Annotated[str | None, Field(default=None)]
     
     model_config = ConfigDict(from_attributes=True)
 ```
 
-Remember: Always prioritize code quality, maintainability, and following the established patterns in this codebase.
+**SQLAlchemy v2:**
+
+```python
+# ✅ Use
+from sqlalchemy import select
+from sqlalchemy.orm import Mapped, mapped_column
+
+
+# Model definition with Mapped types
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+def get_user(db: Session, user_id: int) -> User | None:
+    stmt = select(User).where(User.id == user_id)
+    return db.execute(stmt).scalars().first()
+
+
+# ❌ Never use
+return db.query(User).filter(User.id == user_id).first()
+```
+
+### Code Quality Workflow
+
+**REQUIRED before every commit:**
+
+1. `isort .` - Sort imports
+2. `black .` - Format code
+3. `flake8 .` - Lint code
+
+All three must pass without errors.
+
+## Data Model
+
+**Core Entities:**
+
+- **Purpose** - Main procurement request (links to Hierarchy, contains Purchases)
+- **Purchase** - Procurement form details (belongs to Purpose, contains Stages and Costs)
+- **Stage** - Workflow stages with values (belongs to Purchase)
+- **Cost** - Financial entries (belongs to Purchase)
+- **Hierarchy** - Self-referencing organizational tree structure
+
+## API Patterns
+
+**Main Resources:**
+
+- `/purposes` - Full CRUD, filtering, search, pagination
+- `/costs` - Managed through purchases within purposes
+- `/hierarchies` - Organizational structure
+- `/files` - File upload and management
+
+**Purchase Operations:**
+
+- Create: Include in `POST /purposes` or `PATCH /purposes/{id}`
+- Update: Use `PATCH /purposes/{id}` with updated purchase data
+- Delete: Use `PATCH /purposes/{id}` without the purchase
+
+**File Upload Workflow:**
+
+1. `POST /api/v1/files/upload` → get `file_id`
+2. Include `file_attachment_ids` in purpose create/update
+3. Files automatically linked to purpose
+
+## Configuration
+
+- Use Pydantic `BaseSettings` for all config
+- Global config: `src/config.py`
+- Import: `from app.config import settings`
+- Environment variables as class attributes
+
+## Project Structure
+
+```
+app/
+├── __init__.py            # Import all models for SQLAlchemy registration
+├── domain_module/          # Each domain has:
+│   ├── router.py          # Endpoints
+│   ├── schemas.py         # Pydantic models  
+│   ├── models.py          # DB models (use Mapped types)
+│   ├── service.py         # Business logic
+│   ├── dependencies.py    # Router dependencies
+│   ├── exceptions.py      # Custom exceptions
+│   └── utils.py           # Helper functions
+├── config.py              # Global config
+├── database.py            # DB connection
+├── pagination.py          # Pagination utilities
+└── main.py                # FastAPI app init
+```
+
+**Model Registration:**  
+All SQLAlchemy models must be imported in `app/__init__.py` to ensure proper registration:
+
+```python
+# app/__init__.py - Import all models for SQLAlchemy registration
+from .costs.models import Cost, CurrencyEnum  # noqa: F401
+from .emfs.models import EMF  # noqa: F401
+from .purposes.models import Purpose, StatusEnum  # noqa: F401
+# ... import all other models
+```
+
+## Custom Exceptions Pattern
+
+```python
+# exceptions.py
+class ModuleException(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+
+class ResourceNotFound(ModuleException):
+    def __init__(self, resource_id: int):
+        self.message = f"Resource with ID {resource_id} not found"
+        super().__init__(self.message)
+
+
+# service.py  
+def get_resource(db: Session, resource_id: int):
+    resource = db.execute(select(Resource).where(Resource.id == resource_id)).scalar_one_or_none()
+    if not resource:
+        raise ResourceNotFound(resource_id)
+    return resource
+
+
+# router.py
+@router.get("/{resource_id}")
+def get_resource(resource_id: int, db: Session = Depends(get_db)):
+    try:
+        return service.get_resource(db, resource_id)
+    except ResourceNotFound as e:
+        raise HTTPException(status_code=404, detail=e.message)
+```
+
+## Database Guidelines
+
+**Naming Conventions:**
+
+- `lower_case_snake` for all names
+- Singular table names (`user`, not `users`)
+- `_at` suffix for datetime fields
+- `_date` suffix for date fields
+- **String field lengths**: Always use `String(255)` for name fields, `Text` for longer content
+
+**Query Rules:**
+
+1. Always use `select()` statements, never `db.query()`
+2. Use `.where()` instead of `.filter()`
+3. Use `db.execute(stmt).scalars().first/all()`
+4. Use `paginate_select()` for pagination
+5. Use `.unique()` with `joinedload`
+
+## Git Workflow
+
+```bash
+# Feature branch workflow
+git checkout main && git pull origin main
+git checkout -b feature/your-feature-name
+
+# Commit with proper format
+git add . && git commit -m "feat: description"
+
+# Create PR
+git push -u origin feature/your-feature-name
+gh pr create --title "Feature: Description" --body "Details"
+
+# Cleanup after merge  
+git checkout main && git pull origin main
+git branch -d feature/your-feature-name
+```
+
+## Development Guidelines
+
+**Required Features:**
+
+- Advanced filtering by hierarchy_id, emf_id, supplier, service_type, status
+- Full-text search across description, content, emf_id
+- Sorting by creation_time, last_modified, expected_delivery
+- Pagination for large datasets
+- Proper cascade deletion handling
+
+**Implementation Checklist:**
+
+1. FastAPI project structure with dependency injection
+2. SQLAlchemy v2 configuration
+3. Alembic database migrations
+4. Comprehensive Pytest test suite
+5. Docker deployment configuration
+6. Proper error handling and validation
+
+## Style Guidelines
+
+- **PEP 8** compliance
+- **Type hints** for all functions and classes
+- **Google-style docstrings**
+- **snake_case** for variables/functions, **PascalCase** for classes
+- Line length: 120 characters
+
+## Testing Guidelines
+
+### Structure
+
+- **Domain-based organization**: Each domain has `tests/domain_name/fixtures.py` for fixtures and `test_*.py` for tests
+- **Fixture registration**: Global `conftest.py` uses `pytest_plugins` to register domain fixtures
+- **Base test classes**: Inherit from `BaseAPITestClass` in `tests/base.py` for standard CRUD/pagination/search tests
+- **Test utilities**: Use helpers from `tests/utils.py` for consistent assertions
+
+### Test Class Pattern
+
+```python
+class TestResourceAPI(BaseAPITestClass):
+    resource_name = "resources"
+    resource_endpoint = f"{settings.api_v1_prefix}/resources"
+    create_data_fixture = "sample_resource_data"
+    instance_fixture = "sample_resource"
+
+    # Configure other fixture names as needed
+
+    def _get_update_data(self) -> dict:
+        return {"name": "Updated Name"}
+
+    # Add only resource-specific tests here
+    # CRUD/pagination/search inherited automatically
+```
+
+**Reference**: See `tests/suppliers/test_suppliers_api.py` for complete example pattern.

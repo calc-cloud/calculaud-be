@@ -499,8 +499,6 @@ def complete_stages_for_purchase(session: Any, purchase_id: int) -> None:
 
             for stage in stages_to_complete:
                 # Load stage_type to check if value is required
-                from app.stage_types.models import StageType
-
                 stage_type = session.get(StageType, stage.stage_type_id)
 
                 # Set value if required
