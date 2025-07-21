@@ -75,17 +75,17 @@ jobs:
         # Pull the image first (since buildx doesn't keep it locally)
         docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }}
         
-        # Export Docker image as uncompressed tar
-        docker save ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }} > calculaud-be-${{ steps.version.outputs.version }}.tar
+        # Export Docker image as compressed tar
+        docker save ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }} | gzip > calculaud-be-${{ steps.version.outputs.version }}.tar.gz
         
         # Get file size for summary
-        FILE_SIZE=$(ls -lh calculaud-be-${{ steps.version.outputs.version }}.tar | awk '{print $5}')
+        FILE_SIZE=$(ls -lh calculaud-be-${{ steps.version.outputs.version }}.tar.gz | awk '{print $5}')
         echo "DOCKER_TAR_SIZE=$FILE_SIZE" >> $GITHUB_ENV
     
     - name: Upload tar to GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: calculaud-be-${{ steps.version.outputs.version }}.tar
+        files: calculaud-be-${{ steps.version.outputs.version }}.tar.gz
         tag_name: ${{ steps.version.outputs.version }}
     
     - name: Generate release summary
@@ -105,7 +105,8 @@ jobs:
         echo "### 🔧 Usage:" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
         echo "# Download from GitHub releases and load" >> $GITHUB_STEP_SUMMARY
-        echo "# First download the tar file from the release assets" >> $GITHUB_STEP_SUMMARY
+        echo "# First download the tar.gz file from the release assets" >> $GITHUB_STEP_SUMMARY
+        echo "gunzip calculaud-be-${{ steps.version.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
         echo "docker load < calculaud-be-${{ steps.version.outputs.version }}.tar" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
