@@ -1,6 +1,4 @@
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
+# Cursor Rules for Calculaud Backend - Procurement Management System
 
 Procurement Management System backend built with FastAPI. Manages Purposes, Purchases, Stages, Costs, and
 Hierarchies with full CRUD operations, advanced filtering, and search capabilities.

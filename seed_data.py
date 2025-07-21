@@ -819,7 +819,7 @@ def seed_mock_data(num_purposes: int = 100):
 def main():
     """Main entry point with command line argument parsing."""
     parser = argparse.ArgumentParser(
-        description="Database seeding script for CalCloud backend"
+        description="Database seeding script for Calculaud backend"
     )
     parser.add_argument(
         "--base-data-only",

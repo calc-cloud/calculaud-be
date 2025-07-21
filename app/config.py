@@ -1,3 +1,4 @@
+import os
 from typing import Annotated
 
 from dotenv import find_dotenv
@@ -28,7 +29,7 @@ class Settings(BaseSettings):
     aws_region: Annotated[str | None, Field(default=None)]
     s3_endpoint_url: Annotated[str | None, Field(default=None)]
     s3_use_ssl: Annotated[bool, Field(default=True)]
-    s3_bucket_name: Annotated[str, Field(default="calcloud-files")]
+    s3_bucket_name: Annotated[str, Field(default="calculaud-files")]
     s3_bucket_url: Annotated[str, Field(default="")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
 
@@ -50,7 +51,9 @@ class Settings(BaseSettings):
     oauth_client_id: str | None = None
     oauth_scopes: Annotated[str, Field(default="openid")]
 
-    model_config = SettingsConfigDict(env_file=find_dotenv())
+    model_config = SettingsConfigDict(
+        env_file=".test.env" if os.getenv("TESTING") else find_dotenv()
+    )
 
 
 settings = Settings()  # type: ignore
