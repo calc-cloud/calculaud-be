@@ -3,6 +3,7 @@
 import pytest
 
 from app import Purpose
+from app.purposes.models import StatusEnum
 from app.config import settings
 
 
@@ -14,7 +15,7 @@ def sample_purpose_data(sample_hierarchy) -> dict:
         "hierarchy_id": sample_hierarchy.id,
         "expected_delivery": "2024-12-31",
         "comments": "Test comments",
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
         "description": "Test description",
         "contents": [],  # Empty contents for basic test data
     }
@@ -24,7 +25,7 @@ def sample_purpose_data(sample_hierarchy) -> dict:
 def minimal_purpose_data() -> dict:
     """Minimal purpose data with nullable fields as None."""
     return {
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
     }
 
 
@@ -33,7 +34,7 @@ def purpose_data_no_hierarchy() -> dict:
     """Purpose data without hierarchy_id."""
     return {
         "expected_delivery": "2024-12-31",
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
         "description": "Test description",
         "contents": [],
     }
@@ -44,7 +45,7 @@ def purpose_data_no_delivery(sample_hierarchy) -> dict:
     """Purpose data without expected_delivery."""
     return {
         "hierarchy_id": sample_hierarchy.id,
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
         "description": "Test description",
         "contents": [],
     }
@@ -59,7 +60,7 @@ def sample_purpose(db_session, sample_hierarchy) -> Purpose:
         hierarchy_id=sample_hierarchy.id,
         expected_delivery=date(2024, 12, 31),
         comments="Test comments",
-        status="IN_PROGRESS",
+        status=StatusEnum.IN_PROGRESS,
         description="Test description",
     )
     db_session.add(purpose)
@@ -72,7 +73,7 @@ def sample_purpose(db_session, sample_hierarchy) -> Purpose:
 def minimal_purpose(db_session) -> Purpose:
     """Create minimal purpose with only required fields."""
     purpose = Purpose(
-        status="IN_PROGRESS",
+        status=StatusEnum.IN_PROGRESS,
     )
     db_session.add(purpose)
     db_session.commit()
@@ -87,7 +88,7 @@ def sample_purpose_data_with_contents(sample_hierarchy, sample_service) -> dict:
         "hierarchy_id": sample_hierarchy.id,
         "expected_delivery": "2024-12-31",
         "comments": "Test comments",
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
         "description": "Test description",
         "contents": [{"service_id": sample_service.id, "quantity": 2}],
     }
@@ -111,7 +112,7 @@ def multiple_purposes(test_client, sample_hierarchy):
     base_data = {
         "hierarchy_id": sample_hierarchy.id,
         "expected_delivery": "2024-12-31",
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
         "contents": [],
     }
 
@@ -133,7 +134,7 @@ def purpose_with_purchases_and_costs(test_client, sample_hierarchy):
         "hierarchy_id": sample_hierarchy.id,
         "expected_delivery": "2024-12-31",
         "comments": "Test purpose with searchable content",
-        "status": "IN_PROGRESS",
+        "status": StatusEnum.IN_PROGRESS.value,
         "description": "Complex test purpose with STAGE-001 reference",
         "contents": [],
     }

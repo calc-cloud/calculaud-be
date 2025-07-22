@@ -303,7 +303,7 @@ class TestAnalyticsAPI:
         # Test with IN_PROGRESS status only
         response = test_client.get(
             "/api/v1/analytics/service-types/distribution",
-            params={"status": ["IN_PROGRESS"]},
+            params={"status": [StatusEnum.IN_PROGRESS.value]},
         )
 
         assert response.status_code == 200
