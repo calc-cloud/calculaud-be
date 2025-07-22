@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     s3_bucket_name: Annotated[str, Field(default="calculaud-files")]
     s3_bucket_url: Annotated[str, Field(default="")]
     s3_key_prefix: Annotated[str, Field(default="files/")]
+    s3_storage_class: Annotated[str | None, Field(default=None)]
 
     # File Upload Configuration
     max_file_size_mb: Annotated[int, Field(default=1024)]  # 1GB in MB

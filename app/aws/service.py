@@ -39,6 +39,11 @@ class S3Service:
             extra_args = {
                 "ContentDisposition": f'attachment; filename="{original_filename}"'
             }
+
+            # Add StorageClass if configured
+            if settings.s3_storage_class:
+                extra_args["StorageClass"] = settings.s3_storage_class
+
             self.s3_client.upload_fileobj(
                 file_obj, self.bucket_name, s3_key, ExtraArgs=extra_args
             )
