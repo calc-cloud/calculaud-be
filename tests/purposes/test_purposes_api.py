@@ -79,13 +79,25 @@ class TestPurposesApi(BaseAPITestClass):
         }
 
         helper.create_resource(
-            {**base_data, "status": StatusEnum.IN_PROGRESS.value, "description": "In Progress Purpose"}
+            {
+                **base_data,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "In Progress Purpose",
+            }
         )
         helper.create_resource(
-            {**base_data, "status": StatusEnum.COMPLETED.value, "description": "Completed Purpose"}
+            {
+                **base_data,
+                "status": StatusEnum.COMPLETED.value,
+                "description": "Completed Purpose",
+            }
         )
         helper.create_resource(
-            {**base_data, "status": StatusEnum.IN_PROGRESS.value, "description": "Another In Progress"}
+            {
+                **base_data,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "Another In Progress",
+            }
         )
 
         # Test status filter
@@ -308,7 +320,9 @@ class TestPurposesApi(BaseAPITestClass):
         helper = APITestHelper(test_client, self.resource_endpoint)
 
         # Test paginated results with filters
-        response_data = helper.list_resources(status=StatusEnum.IN_PROGRESS.value, page=1, limit=3)
+        response_data = helper.list_resources(
+            status=StatusEnum.IN_PROGRESS.value, page=1, limit=3
+        )
 
         assert_paginated_response(
             response_data,

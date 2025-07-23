@@ -3,8 +3,8 @@
 import pytest
 
 from app import Purpose
-from app.purposes.models import StatusEnum
 from app.config import settings
+from app.purposes.models import StatusEnum
 
 
 # Purpose fixtures
