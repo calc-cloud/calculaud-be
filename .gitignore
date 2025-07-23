@@ -165,3 +165,6 @@ test.db
 # Database backups
 backup/
 
+# Claude Code settings
+.claude/settings.local.json
+

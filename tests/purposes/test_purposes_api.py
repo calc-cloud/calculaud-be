@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from app.purposes.models import StatusEnum
 from tests.base import BaseAPITestClass
 from tests.utils import APITestHelper, assert_paginated_response
 
@@ -23,7 +24,7 @@ class TestPurposesApi(BaseAPITestClass):
         """Get data for update operations."""
         return {
             "description": "Updated Purpose Description",
-            "status": "IN_PROGRESS",
+            "status": StatusEnum.IN_PROGRESS.value,
             "comments": "Updated comments",
         }
 
@@ -73,25 +74,37 @@ class TestPurposesApi(BaseAPITestClass):
 
         # Create purposes with different statuses
         base_data = {
-            "status": "IN_PROGRESS",
+            "status": StatusEnum.IN_PROGRESS.value,
             "expected_delivery": "2024-12-31",
         }
 
         helper.create_resource(
-            {**base_data, "status": "IN_PROGRESS", "description": "In Progress Purpose"}
+            {
+                **base_data,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "In Progress Purpose",
+            }
         )
         helper.create_resource(
-            {**base_data, "status": "COMPLETED", "description": "Completed Purpose"}
+            {
+                **base_data,
+                "status": StatusEnum.COMPLETED.value,
+                "description": "Completed Purpose",
+            }
         )
         helper.create_resource(
-            {**base_data, "status": "IN_PROGRESS", "description": "Another In Progress"}
+            {
+                **base_data,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "Another In Progress",
+            }
         )
 
         # Test status filter
-        response_data = helper.list_resources(status="IN_PROGRESS")
+        response_data = helper.list_resources(status=StatusEnum.IN_PROGRESS.value)
         assert len(response_data["items"]) == 2
         for item in response_data["items"]:
-            assert item["status"] == "IN_PROGRESS"
+            assert item["status"] == StatusEnum.IN_PROGRESS.value
 
     def test_filter_by_supplier(
         self, test_client: TestClient, multiple_suppliers_for_filtering
@@ -103,7 +116,7 @@ class TestPurposesApi(BaseAPITestClass):
         supplier_b_id = multiple_suppliers_for_filtering["supplier_b"]["id"]
 
         base_data = {
-            "status": "IN_PROGRESS",
+            "status": StatusEnum.IN_PROGRESS.value,
             "expected_delivery": "2024-12-31",
         }
 
@@ -134,7 +147,7 @@ class TestPurposesApi(BaseAPITestClass):
 
         base_data = {
             "hierarchy_id": sample_hierarchy.id,
-            "status": "IN_PROGRESS",
+            "status": StatusEnum.IN_PROGRESS.value,
             "expected_delivery": "2024-12-31",
         }
 
@@ -187,7 +200,7 @@ class TestPurposesApi(BaseAPITestClass):
 
         base_data = {
             "hierarchy_id": sample_hierarchy.id,
-            "status": "IN_PROGRESS",
+            "status": StatusEnum.IN_PROGRESS.value,
             "description": "Test purpose",
         }
 
@@ -226,25 +239,25 @@ class TestPurposesApi(BaseAPITestClass):
             {
                 **base_data,
                 "description": "Project Alpha",
-                "status": "IN_PROGRESS",
+                "status": StatusEnum.IN_PROGRESS.value,
                 "expected_delivery": "2024-03-01",
             },
             {
                 **base_data,
                 "description": "Project Beta",
-                "status": "COMPLETED",
+                "status": StatusEnum.COMPLETED.value,
                 "expected_delivery": "2024-01-01",
             },
             {
                 **base_data,
                 "description": "Project Gamma",
-                "status": "IN_PROGRESS",
+                "status": StatusEnum.IN_PROGRESS.value,
                 "expected_delivery": "2024-05-01",
             },
             {
                 **base_data,
                 "description": "Task Alpha",
-                "status": "IN_PROGRESS",
+                "status": StatusEnum.IN_PROGRESS.value,
                 "expected_delivery": "2024-02-01",
             },
         ]
@@ -254,7 +267,7 @@ class TestPurposesApi(BaseAPITestClass):
 
         # Test combined filters: status + search + sorting
         response_data = helper.list_resources(
-            status="IN_PROGRESS",
+            status=StatusEnum.IN_PROGRESS.value,
             search="Project",
             sort_by="expected_delivery",
             sort_order="asc",
@@ -262,7 +275,7 @@ class TestPurposesApi(BaseAPITestClass):
 
         assert len(response_data["items"]) == 2  # Only IN_PROGRESS projects
         for item in response_data["items"]:
-            assert item["status"] == "IN_PROGRESS"
+            assert item["status"] == StatusEnum.IN_PROGRESS.value
             assert "Project" in item["description"]
 
         # Verify sorting
@@ -278,7 +291,7 @@ class TestPurposesApi(BaseAPITestClass):
         child2_id = hierarchy_tree["children"][1]["id"]
 
         base_data = {
-            "status": "IN_PROGRESS",
+            "status": StatusEnum.IN_PROGRESS.value,
             "expected_delivery": "2024-12-31",
         }
 
@@ -307,7 +320,9 @@ class TestPurposesApi(BaseAPITestClass):
         helper = APITestHelper(test_client, self.resource_endpoint)
 
         # Test paginated results with filters
-        response_data = helper.list_resources(status="IN_PROGRESS", page=1, limit=3)
+        response_data = helper.list_resources(
+            status=StatusEnum.IN_PROGRESS.value, page=1, limit=3
+        )
 
         assert_paginated_response(
             response_data,
@@ -320,4 +335,4 @@ class TestPurposesApi(BaseAPITestClass):
 
         # Verify all items match filter
         for item in response_data["items"]:
-            assert item["status"] == "IN_PROGRESS"
+            assert item["status"] == StatusEnum.IN_PROGRESS.value

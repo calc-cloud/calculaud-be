@@ -20,7 +20,7 @@ Data Models:
 - Expected Delivery: Date (nullable)
 - Last Modified: DateTime (auto-updated)
 - Comments: String (max 1000 chars, nullable)
-- Status: Enum (IN_PROGRESS, COMPLETED)
+- Status: Enum (IN_PROGRESS, COMPLETED, SIGNED, PARTIALLY_SUPPLIED)
 - Creation Time: DateTime (auto-generated)
 - Supplier: String (max 200 chars, nullable)
 - EMFs: List of EMF objects (One-to-Many relationship)

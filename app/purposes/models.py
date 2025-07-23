@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 class StatusEnum(PyEnum):
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
+    SIGNED = "SIGNED"
+    PARTIALLY_SUPPLIED = "PARTIALLY_SUPPLIED"
 
 
 class Purpose(Base):
