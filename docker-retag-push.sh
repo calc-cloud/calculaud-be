@@ -4,7 +4,7 @@
 # Usage: ./docker-retag-push.sh [tar.gz-file|zip-file] [new-prefix] [original-image-name]
 # If no arguments provided, script will prompt for interactive input
 
-set -e
+# Note: removed 'set -e' to allow better error handling in interactive mode
 
 # Default values
 DEFAULT_REPO_PREFIX="defaultrepo"
@@ -95,47 +95,15 @@ if [ $# -eq 0 ]; then
         ARCHIVE_FILE=$(prompt_for_file "Enter path to archive file (.tar.gz or .zip)")
     done
     
-    # Extract image name from filename for default prefix suggestion
-    if [[ "$ARCHIVE_FILE" == *.tar.gz ]]; then
-        BASENAME=$(basename "$ARCHIVE_FILE" .tar.gz)
-    elif [[ "$ARCHIVE_FILE" == *.zip ]]; then
-        BASENAME=$(basename "$ARCHIVE_FILE" .zip)
-    else
-        BASENAME=$(basename "$ARCHIVE_FILE")
-    fi
-    
-    if [[ $BASENAME =~ ^(.+)-(v[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
-        IMAGE_NAME="${BASH_REMATCH[1]}"
-        DEFAULT_FULL_PREFIX="$DEFAULT_REPO_PREFIX/$IMAGE_NAME"
-    else
-        DEFAULT_FULL_PREFIX="$DEFAULT_REPO_PREFIX"
-    fi
-    
-    # Get new prefix
-    NEW_PREFIX=$(prompt_with_default "Enter new registry/prefix" "$DEFAULT_FULL_PREFIX")
+    # Get new registry prefix (repository only, image name will be preserved from loaded image)
+    NEW_PREFIX=$(prompt_with_default "Enter new registry/prefix" "$DEFAULT_REPO_PREFIX")
     
     # Get original image name (optional)
     ORIGINAL_IMAGE_NAME=$(prompt_with_default "Enter original image name (optional)" "")
     
 elif [ $# -eq 1 ]; then
     ARCHIVE_FILE="$1"
-    
-    # Extract image name for default prefix
-    if [[ "$ARCHIVE_FILE" == *.tar.gz ]]; then
-        BASENAME=$(basename "$ARCHIVE_FILE" .tar.gz)
-    elif [[ "$ARCHIVE_FILE" == *.zip ]]; then
-        BASENAME=$(basename "$ARCHIVE_FILE" .zip)
-    else
-        BASENAME=$(basename "$ARCHIVE_FILE")
-    fi
-    
-    if [[ $BASENAME =~ ^(.+)-(v[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
-        IMAGE_NAME="${BASH_REMATCH[1]}"
-        NEW_PREFIX="$DEFAULT_REPO_PREFIX/$IMAGE_NAME"
-    else
-        NEW_PREFIX="$DEFAULT_REPO_PREFIX"
-    fi
-    
+    NEW_PREFIX="$DEFAULT_REPO_PREFIX"
     ORIGINAL_IMAGE_NAME=""
     
 elif [ $# -eq 2 ]; then
@@ -226,14 +194,22 @@ echo "✓ Extracted to $TAR_FILE"
 # Step 2: Load the Docker image
 echo ""
 echo "Step 2: Loading Docker image from $TAR_FILE..."
-LOAD_OUTPUT=$(docker load < "$TAR_FILE")
+LOAD_OUTPUT=$(docker load < "$TAR_FILE" 2>&1)
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to load Docker image"
+    echo "$LOAD_OUTPUT"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
 echo "$LOAD_OUTPUT"
 
 # Extract the loaded image name from docker load output
 LOADED_IMAGE=$(echo "$LOAD_OUTPUT" | grep "Loaded image:" | sed 's/Loaded image: //')
 
 if [ -z "$LOADED_IMAGE" ]; then
-    echo "Error: Could not determine loaded image name"
+    echo "Error: Could not determine loaded image name from output:"
+    echo "$LOAD_OUTPUT"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
 
@@ -243,15 +219,39 @@ echo "✓ Loaded image: $LOADED_IMAGE"
 echo ""
 echo "Step 3: Tagging image with new prefix..."
 
-# Create new image name with custom prefix
-NEW_IMAGE_NAME="$NEW_PREFIX:$VERSION"
-NEW_IMAGE_LATEST="$NEW_PREFIX:latest"
+# Extract original image name and tag from loaded image
+if [[ "$LOADED_IMAGE" =~ ^(.*/)?([^:/]+):(.+)$ ]]; then
+    ORIGINAL_REPO="${BASH_REMATCH[1]}"
+    IMAGE_NAME="${BASH_REMATCH[2]}"
+    IMAGE_TAG="${BASH_REMATCH[3]}"
+    echo "Detected image components: repo='${ORIGINAL_REPO}', name='${IMAGE_NAME}', tag='${IMAGE_TAG}'"
+elif [[ "$LOADED_IMAGE" =~ ^([^:/]+):(.+)$ ]]; then
+    IMAGE_NAME="${BASH_REMATCH[1]}"
+    IMAGE_TAG="${BASH_REMATCH[2]}"
+    echo "Detected image components: name='${IMAGE_NAME}', tag='${IMAGE_TAG}'"
+else
+    echo "Error: Could not parse loaded image name: $LOADED_IMAGE"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
+
+# Create new image name preserving original name and tag, only changing repository
+NEW_IMAGE_NAME="$NEW_PREFIX/$IMAGE_NAME:$IMAGE_TAG"
+NEW_IMAGE_LATEST="$NEW_PREFIX/$IMAGE_NAME:latest"
 
 echo "Tagging as: $NEW_IMAGE_NAME"
-docker tag "$LOADED_IMAGE" "$NEW_IMAGE_NAME"
+if ! docker tag "$LOADED_IMAGE" "$NEW_IMAGE_NAME" 2>&1; then
+    echo "Error: Failed to tag image as $NEW_IMAGE_NAME"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
 
 echo "Tagging as: $NEW_IMAGE_LATEST"
-docker tag "$LOADED_IMAGE" "$NEW_IMAGE_LATEST"
+if ! docker tag "$LOADED_IMAGE" "$NEW_IMAGE_LATEST" 2>&1; then
+    echo "Error: Failed to tag image as $NEW_IMAGE_LATEST"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
 
 echo "✓ Tagged successfully"
 
@@ -260,10 +260,18 @@ echo ""
 echo "Step 4: Pushing images to registry..."
 
 echo "Pushing $NEW_IMAGE_NAME..."
-docker push "$NEW_IMAGE_NAME"
+if ! docker push "$NEW_IMAGE_NAME" 2>&1; then
+    echo "Error: Failed to push $NEW_IMAGE_NAME"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
 
 echo "Pushing $NEW_IMAGE_LATEST..."
-docker push "$NEW_IMAGE_LATEST"
+if ! docker push "$NEW_IMAGE_LATEST" 2>&1; then
+    echo "Error: Failed to push $NEW_IMAGE_LATEST"
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
 
 echo "✓ Push completed successfully"
 
