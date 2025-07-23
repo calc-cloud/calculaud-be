@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script to extract Docker image from tar.gz, retag with custom prefix, and push
-# Usage: ./docker-retag-push.sh [tar.gz-file] [new-prefix] [original-image-name]
+# Script to extract Docker image from tar.gz or zip file, retag with custom prefix, and push
+# Usage: ./docker-retag-push.sh [tar.gz-file|zip-file] [new-prefix] [original-image-name]
 # If no arguments provided, script will prompt for interactive input
 
 set -e
@@ -11,16 +11,17 @@ DEFAULT_REPO_PREFIX="defaultrepo"
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [tar.gz-file] [new-prefix] [original-image-name]"
+    echo "Usage: $0 [file] [new-prefix] [original-image-name]"
     echo ""
     echo "Arguments (all optional - will prompt if not provided):"
-    echo "  tar.gz-file         Path to the Docker image tar.gz file"
+    echo "  file                Path to Docker image file (.tar.gz or .zip containing .tar.gz)"
     echo "  new-prefix          New registry/prefix for the image (default: $DEFAULT_REPO_PREFIX)"
-    echo "  original-image-name Optional: Original image name if different from tar.gz filename"
+    echo "  original-image-name Optional: Original image name if different from filename"
     echo ""
     echo "Examples:"
     echo "  $0                                              # Interactive mode"
-    echo "  $0 calculaud-be-v1.0.0.tar.gz                  # Uses default prefix 'eyalg'"
+    echo "  $0 calculaud-be-v1.0.0.tar.gz                  # Uses default prefix"
+    echo "  $0 calculaud-be-v1.0.0.zip                     # Zip file containing tar.gz"
     echo "  $0 calculaud-be-v1.0.0.tar.gz myregistry       # Custom prefix"
     echo "  $0 app-v2.1.0.tar.gz localhost:5000/myapp original-app-name"
     echo ""
@@ -34,22 +35,46 @@ prompt_with_default() {
     local result
     
     if [ -n "$default" ]; then
-        read -p "$prompt [$default]: " result
+        read -e -p "$prompt [$default]: " result
         echo "${result:-$default}"
     else
-        read -p "$prompt: " result
+        read -e -p "$prompt: " result
         echo "$result"
     fi
 }
 
-# Function to get available tar.gz files in current directory
-list_tar_gz_files() {
-    local files=(*.tar.gz)
-    if [ -e "${files[0]}" ]; then
+# Function to prompt for file path with tab completion
+prompt_for_file() {
+    local prompt="$1"
+    local result
+    
+    read -e -p "$prompt: " result
+    echo "$result"
+}
+
+# Function to get available archive files in current directory
+list_archive_files() {
+    local tar_files=(*.tar.gz)
+    local zip_files=(*.zip)
+    local found_files=false
+    
+    if [ -e "${tar_files[0]}" ]; then
         echo "Available tar.gz files:"
-        for i in "${!files[@]}"; do
-            echo "  $((i+1)). ${files[i]}"
+        for i in "${!tar_files[@]}"; do
+            echo "  $((i+1)). ${tar_files[i]}"
         done
+        found_files=true
+    fi
+    
+    if [ -e "${zip_files[0]}" ]; then
+        echo "Available zip files:"
+        for i in "${!zip_files[@]}"; do
+            echo "  $((i+1)). ${zip_files[i]}"
+        done
+        found_files=true
+    fi
+    
+    if [ "$found_files" = true ]; then
         echo ""
     fi
 }
@@ -60,18 +85,25 @@ if [ $# -eq 0 ]; then
     echo "Interactive mode - you'll be prompted for each parameter"
     echo ""
     
-    # Show available tar.gz files
-    list_tar_gz_files
+    # Show available archive files
+    list_archive_files
     
-    # Get tar.gz file
-    TAR_GZ_FILE=$(prompt_with_default "Enter path to tar.gz file" "")
-    while [ ! -f "$TAR_GZ_FILE" ]; do
-        echo "Error: File '$TAR_GZ_FILE' not found"
-        TAR_GZ_FILE=$(prompt_with_default "Enter path to tar.gz file" "")
+    # Get archive file
+    ARCHIVE_FILE=$(prompt_for_file "Enter path to archive file (.tar.gz or .zip)")
+    while [ ! -f "$ARCHIVE_FILE" ]; do
+        echo "Error: File '$ARCHIVE_FILE' not found"
+        ARCHIVE_FILE=$(prompt_for_file "Enter path to archive file (.tar.gz or .zip)")
     done
     
     # Extract image name from filename for default prefix suggestion
-    BASENAME=$(basename "$TAR_GZ_FILE" .tar.gz)
+    if [[ "$ARCHIVE_FILE" == *.tar.gz ]]; then
+        BASENAME=$(basename "$ARCHIVE_FILE" .tar.gz)
+    elif [[ "$ARCHIVE_FILE" == *.zip ]]; then
+        BASENAME=$(basename "$ARCHIVE_FILE" .zip)
+    else
+        BASENAME=$(basename "$ARCHIVE_FILE")
+    fi
+    
     if [[ $BASENAME =~ ^(.+)-(v[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
         IMAGE_NAME="${BASH_REMATCH[1]}"
         DEFAULT_FULL_PREFIX="$DEFAULT_REPO_PREFIX/$IMAGE_NAME"
@@ -86,10 +118,17 @@ if [ $# -eq 0 ]; then
     ORIGINAL_IMAGE_NAME=$(prompt_with_default "Enter original image name (optional)" "")
     
 elif [ $# -eq 1 ]; then
-    TAR_GZ_FILE="$1"
+    ARCHIVE_FILE="$1"
     
     # Extract image name for default prefix
-    BASENAME=$(basename "$TAR_GZ_FILE" .tar.gz)
+    if [[ "$ARCHIVE_FILE" == *.tar.gz ]]; then
+        BASENAME=$(basename "$ARCHIVE_FILE" .tar.gz)
+    elif [[ "$ARCHIVE_FILE" == *.zip ]]; then
+        BASENAME=$(basename "$ARCHIVE_FILE" .zip)
+    else
+        BASENAME=$(basename "$ARCHIVE_FILE")
+    fi
+    
     if [[ $BASENAME =~ ^(.+)-(v[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
         IMAGE_NAME="${BASH_REMATCH[1]}"
         NEW_PREFIX="$DEFAULT_REPO_PREFIX/$IMAGE_NAME"
@@ -100,19 +139,43 @@ elif [ $# -eq 1 ]; then
     ORIGINAL_IMAGE_NAME=""
     
 elif [ $# -eq 2 ]; then
-    TAR_GZ_FILE="$1"
+    ARCHIVE_FILE="$1"
     NEW_PREFIX="$2"
     ORIGINAL_IMAGE_NAME=""
     
 else
-    TAR_GZ_FILE="$1"
+    ARCHIVE_FILE="$1"
     NEW_PREFIX="$2"
     ORIGINAL_IMAGE_NAME="$3"
 fi
 
-# Check if tar.gz file exists
-if [ ! -f "$TAR_GZ_FILE" ]; then
-    echo "Error: File '$TAR_GZ_FILE' not found"
+# Check if archive file exists
+if [ ! -f "$ARCHIVE_FILE" ]; then
+    echo "Error: File '$ARCHIVE_FILE' not found"
+    exit 1
+fi
+
+# Determine file type and handle accordingly
+if [[ "$ARCHIVE_FILE" == *.tar.gz ]]; then
+    TAR_GZ_FILE="$ARCHIVE_FILE"
+    FILE_TYPE="tar.gz"
+elif [[ "$ARCHIVE_FILE" == *.zip ]]; then
+    FILE_TYPE="zip"
+    # Extract tar.gz from zip file
+    echo "Detected zip file, extracting..."
+    TEMP_DIR=$(mktemp -d)
+    unzip -q "$ARCHIVE_FILE" -d "$TEMP_DIR"
+    
+    # Find the tar.gz file in the extracted contents
+    TAR_GZ_FILE=$(find "$TEMP_DIR" -name "*.tar.gz" | head -1)
+    if [ -z "$TAR_GZ_FILE" ]; then
+        echo "Error: No .tar.gz file found in zip archive"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
+    echo "Found tar.gz file: $(basename "$TAR_GZ_FILE")"
+else
+    echo "Error: Unsupported file type. Only .tar.gz and .zip files are supported."
     exit 1
 fi
 
@@ -141,7 +204,8 @@ else
 fi
 
 echo "=== Docker Image Retag and Push Script ==="
-echo "Source file: $TAR_GZ_FILE"
+echo "Source file: $ARCHIVE_FILE"
+echo "File type: $FILE_TYPE"
 echo "Original image: $ORIGINAL_IMAGE_NAME"
 echo "Version: $VERSION"
 echo "New prefix: $NEW_PREFIX"
@@ -208,6 +272,12 @@ echo ""
 echo "Step 5: Cleaning up temporary files..."
 rm -f "$TAR_FILE"
 echo "✓ Removed $TAR_FILE"
+
+# Cleanup temp directory if it was created for zip extraction
+if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
+    rm -rf "$TEMP_DIR"
+    echo "✓ Removed temp directory $TEMP_DIR"
+fi
 
 # Optional: Remove loaded image to save space
 read -p "Remove loaded image '$LOADED_IMAGE' to save space? (y/N): " -n 1 -r
