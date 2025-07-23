@@ -36,43 +36,57 @@ show_spinner() {
     echo -e "${GREEN}✓${NC}"
 }
 
-# Progress bar function
-show_progress() {
+# Real spinner that waits for command completion
+show_spinner_with_command() {
     local message="$1"
-    local duration="$2"
-    local width=30
-    local step_duration=$(echo "scale=2; $duration / $width" | bc -l 2>/dev/null || echo "0.1")
+    local command="$2"
+    local spinner_chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    local delay=0.1
+    local spin=0
     
-    echo -e "${CYAN}${message}${NC}"
-    printf "["
-    for ((i=0; i<width; i++)); do
-        printf "${GREEN}█${NC}"
-        sleep "$step_duration"
+    echo -n "${CYAN}${message}${NC} "
+    
+    # Start the command in background and capture its PID
+    eval "$command" &
+    local cmd_pid=$!
+    
+    # Show spinner while command is running
+    while kill -0 $cmd_pid 2>/dev/null; do
+        printf "${YELLOW}%c${NC}" "${spinner_chars:$((spin % ${#spinner_chars})):1}"
+        sleep $delay
+        printf "\b"
+        ((spin++))
     done
-    echo -e "] ${GREEN}Complete!${NC}"
+    
+    # Wait for command to complete and get exit status
+    wait $cmd_pid
+    local exit_status=$?
+    
+    if [ $exit_status -eq 0 ]; then
+        echo -e "${GREEN}✓${NC}"
+        return 0
+    else
+        echo -e "${RED}✗${NC}"
+        return $exit_status
+    fi
 }
 
 # Cool welcome screen
 show_welcome() {
     clear
     echo -e "${PURPLE}"
-    echo "╔══════════════════════════════════════════════════════════════════════════════════════╗"
-    echo "║                                                                                      ║"
-    echo "║ ██████╗  █████╗ ███╗   ██╗██████╗ ███████╗██████╗ ██╗      ██████╗ ██╗   ██╗        ║"
-    echo "║ ██╔══██╗██╔══██╗████╗  ██║██╔══██╗██╔════╝██╔══██╗██║     ██╔═══██╗╚██╗ ██╔╝        ║"
-    echo "║ ██║  ██║███████║██╔██╗ ██║██║  ██║█████╗  ██████╔╝██║     ██║   ██║ ╚████╔╝         ║"
-    echo "║ ██║  ██║██╔══██║██║╚██╗██║██║  ██║██╔══╝  ██╔═══╝ ██║     ██║   ██║  ╚██╔╝          ║"
-    echo "║ ██████╔╝██║  ██║██║ ╚████║██████╔╝███████╗██║     ███████╗╚██████╔╝   ██║           ║"
-    echo "║ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝     ╚══════╝ ╚═════╝    ╚═╝           ║"
-    echo "║                                                                                      ║"
-    echo "║                      🚀 Docker Image Retag & Deploy Tool 🚀                          ║"
-    echo "║                                                                                      ║"
-    echo "║                          Made with ❤️  by Danorama Team                              ║"
-    echo "║                                                                                      ║"
-    echo "╚══════════════════════════════════════════════════════════════════════════════════════╝"
+    echo "██████╗  █████╗ ███╗   ██╗    ██████╗ ███████╗██████╗ "
+    echo "██╔══██╗██╔══██╗████╗  ██║    ██╔══██╗██╔════╝██╔══██╗"
+    echo "██║  ██║███████║██╔██╗ ██║    ██║  ██║█████╗  ██████╔╝"
+    echo "██║  ██║██╔══██║██║╚██╗██║    ██║  ██║██╔══╝  ██╔═══╝ "
+    echo "██████╔╝██║  ██║██║ ╚████║    ██████╔╝███████╗██║     "
+    echo "╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝    ╚═════╝ ╚══════╝╚═╝     "
     echo -e "${NC}"
     echo ""
-    echo -e "${YELLOW}🌟 Welcome to DanDeploy - The Ultimate Docker Image Manager! 🌟${NC}"
+    echo -e "${YELLOW}🚀 Docker Image Retag & Deploy Tool 🚀${NC}"
+    echo -e "${CYAN}Made with ❤️  by Danorama Team${NC}"
+    echo ""
+    echo -e "${YELLOW}🌟 Welcome to Dan Dep - The Ultimate Docker Image Manager! 🌟${NC}"
     echo ""
     sleep 2
 }
@@ -257,9 +271,7 @@ else
 fi
 
 echo ""
-echo -e "${PURPLE}╔══════════════════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${PURPLE}║                           🚀 DANDEPLOY DEPLOYMENT STARTED 🚀                        ║${NC}"
-echo -e "${PURPLE}╚══════════════════════════════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${PURPLE}🚀 DAN DEP DEPLOYMENT STARTED 🚀${NC}"
 echo ""
 echo -e "${CYAN}📋 Deployment Summary:${NC}"
 echo -e "   📁 Source file: ${YELLOW}$ARCHIVE_FILE${NC}"
@@ -285,14 +297,16 @@ echo ""
 
 # Step 2: Load the Docker image
 echo -e "${BLUE}🐳 Step 2: Loading Docker Image${NC}"
-show_progress "📥 Loading Docker image from archive" 3
-LOAD_OUTPUT=$(docker load < "$TAR_FILE" 2>&1)
-if [ $? -ne 0 ]; then
+if ! show_spinner_with_command "📥 Loading Docker image from archive" "docker load < '$TAR_FILE' --quiet 2>/tmp/docker_load_output.txt"; then
     echo -e "${RED}❌ Error: Failed to load Docker image${NC}"
+    LOAD_OUTPUT=$(cat /tmp/docker_load_output.txt 2>/dev/null || echo "No output captured")
     echo "$LOAD_OUTPUT"
     read -p "Press Enter to continue or Ctrl+C to exit..."
+    rm -f /tmp/docker_load_output.txt
     exit 1
 fi
+LOAD_OUTPUT=$(cat /tmp/docker_load_output.txt)
+rm -f /tmp/docker_load_output.txt
 echo -e "${CYAN}📤 Docker load output:${NC}"
 echo "$LOAD_OUTPUT"
 echo ""
@@ -367,9 +381,7 @@ echo -e "${BLUE}🚀 Step 4: Deploying to Registry${NC}"
 echo -e "${CYAN}📤 Pushing images to registry...${NC}"
 echo ""
 
-echo -e "${YELLOW}📡 Pushing ${NEW_IMAGE_NAME}...${NC}"
-show_progress "🔄 Uploading image layers" 4
-if ! docker push "$NEW_IMAGE_NAME" 2>&1; then
+if ! show_spinner_with_command "📡 Pushing $NEW_IMAGE_NAME" "docker push '$NEW_IMAGE_NAME' --progress=false >/dev/null 2>&1"; then
     echo -e "${RED}❌ Error: Failed to push $NEW_IMAGE_NAME${NC}"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
@@ -377,9 +389,7 @@ fi
 echo -e "${GREEN}✅ Successfully pushed $NEW_IMAGE_NAME${NC}"
 echo ""
 
-echo -e "${YELLOW}📡 Pushing ${NEW_IMAGE_LATEST}...${NC}"
-show_progress "🔄 Uploading latest tag" 3
-if ! docker push "$NEW_IMAGE_LATEST" 2>&1; then
+if ! show_spinner_with_command "📡 Pushing $NEW_IMAGE_LATEST" "docker push '$NEW_IMAGE_LATEST' --progress=false >/dev/null 2>&1"; then
     echo -e "${RED}❌ Error: Failed to push $NEW_IMAGE_LATEST${NC}"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
@@ -418,9 +428,7 @@ fi
 echo ""
 
 # Success celebration
-echo -e "${PURPLE}╔══════════════════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${PURPLE}║                           🎉 DANDEPLOY SUCCESS! 🎉                                  ║${NC}"
-echo -e "${PURPLE}╚══════════════════════════════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${PURPLE}🎉 DAN DEP SUCCESS! 🎉${NC}"
 echo ""
 echo -e "${GREEN}🚀 Deployment completed successfully!${NC}"
 echo ""
@@ -432,5 +440,5 @@ echo -e "${CYAN}🔧 Ready to use! Pull your images with:${NC}"
 echo -e "   ${WHITE}docker pull $NEW_IMAGE_NAME${NC}"
 echo -e "   ${WHITE}docker pull $NEW_IMAGE_LATEST${NC}"
 echo ""
-echo -e "${YELLOW}✨ Thank you for using DanDeploy by Danorama Team! ✨${NC}"
+echo -e "${YELLOW}✨ Thank you for using Dan Dep by Danorama Team! ✨${NC}"
 echo -e "${PURPLE}🌟 Happy Deploying! 🌟${NC}"
