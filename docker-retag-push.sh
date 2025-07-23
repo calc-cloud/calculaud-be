@@ -1,35 +1,114 @@
 #!/bin/bash
 
 # Script to extract Docker image from tar.gz, retag with custom prefix, and push
-# Usage: ./docker-retag-push.sh <tar.gz-file> <new-prefix> [original-image-name]
+# Usage: ./docker-retag-push.sh [tar.gz-file] [new-prefix] [original-image-name]
+# If no arguments provided, script will prompt for interactive input
 
 set -e
 
+# Default values
+DEFAULT_REPO_PREFIX="defaultrepo"
+
 # Function to display usage
 usage() {
-    echo "Usage: $0 <tar.gz-file> <new-prefix> [original-image-name]"
+    echo "Usage: $0 [tar.gz-file] [new-prefix] [original-image-name]"
     echo ""
-    echo "Arguments:"
+    echo "Arguments (all optional - will prompt if not provided):"
     echo "  tar.gz-file         Path to the Docker image tar.gz file"
-    echo "  new-prefix          New registry/prefix for the image (e.g., myregistry/myproject)"
+    echo "  new-prefix          New registry/prefix for the image (default: $DEFAULT_REPO_PREFIX)"
     echo "  original-image-name Optional: Original image name if different from tar.gz filename"
     echo ""
     echo "Examples:"
-    echo "  $0 calculaud-be-v1.0.0.tar.gz myregistry/calculaud-be"
+    echo "  $0                                              # Interactive mode"
+    echo "  $0 calculaud-be-v1.0.0.tar.gz                  # Uses default prefix 'eyalg'"
+    echo "  $0 calculaud-be-v1.0.0.tar.gz myregistry       # Custom prefix"
     echo "  $0 app-v2.1.0.tar.gz localhost:5000/myapp original-app-name"
     echo ""
     exit 1
 }
 
-# Check if required arguments are provided
-if [ $# -lt 2 ]; then
-    echo "Error: Missing required arguments"
-    usage
-fi
+# Function to prompt for input with default value
+prompt_with_default() {
+    local prompt="$1"
+    local default="$2"
+    local result
+    
+    if [ -n "$default" ]; then
+        read -p "$prompt [$default]: " result
+        echo "${result:-$default}"
+    else
+        read -p "$prompt: " result
+        echo "$result"
+    fi
+}
 
-TAR_GZ_FILE="$1"
-NEW_PREFIX="$2"
-ORIGINAL_IMAGE_NAME="$3"
+# Function to get available tar.gz files in current directory
+list_tar_gz_files() {
+    local files=(*.tar.gz)
+    if [ -e "${files[0]}" ]; then
+        echo "Available tar.gz files:"
+        for i in "${!files[@]}"; do
+            echo "  $((i+1)). ${files[i]}"
+        done
+        echo ""
+    fi
+}
+
+# Interactive parameter collection
+if [ $# -eq 0 ]; then
+    echo "=== Docker Image Retag and Push Script ==="
+    echo "Interactive mode - you'll be prompted for each parameter"
+    echo ""
+    
+    # Show available tar.gz files
+    list_tar_gz_files
+    
+    # Get tar.gz file
+    TAR_GZ_FILE=$(prompt_with_default "Enter path to tar.gz file" "")
+    while [ ! -f "$TAR_GZ_FILE" ]; do
+        echo "Error: File '$TAR_GZ_FILE' not found"
+        TAR_GZ_FILE=$(prompt_with_default "Enter path to tar.gz file" "")
+    done
+    
+    # Extract image name from filename for default prefix suggestion
+    BASENAME=$(basename "$TAR_GZ_FILE" .tar.gz)
+    if [[ $BASENAME =~ ^(.+)-(v[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
+        IMAGE_NAME="${BASH_REMATCH[1]}"
+        DEFAULT_FULL_PREFIX="$DEFAULT_REPO_PREFIX/$IMAGE_NAME"
+    else
+        DEFAULT_FULL_PREFIX="$DEFAULT_REPO_PREFIX"
+    fi
+    
+    # Get new prefix
+    NEW_PREFIX=$(prompt_with_default "Enter new registry/prefix" "$DEFAULT_FULL_PREFIX")
+    
+    # Get original image name (optional)
+    ORIGINAL_IMAGE_NAME=$(prompt_with_default "Enter original image name (optional)" "")
+    
+elif [ $# -eq 1 ]; then
+    TAR_GZ_FILE="$1"
+    
+    # Extract image name for default prefix
+    BASENAME=$(basename "$TAR_GZ_FILE" .tar.gz)
+    if [[ $BASENAME =~ ^(.+)-(v[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
+        IMAGE_NAME="${BASH_REMATCH[1]}"
+        NEW_PREFIX="$DEFAULT_REPO_PREFIX/$IMAGE_NAME"
+    else
+        NEW_PREFIX="$DEFAULT_REPO_PREFIX"
+    fi
+    
+    ORIGINAL_IMAGE_NAME=""
+    
+elif [ $# -eq 2 ]; then
+    TAR_GZ_FILE="$1"
+    NEW_PREFIX="$2"
+    ORIGINAL_IMAGE_NAME=""
+    
+else
+    TAR_GZ_FILE="$1"
+    NEW_PREFIX="$2"
+    ORIGINAL_IMAGE_NAME="$3"
+fi
 
 # Check if tar.gz file exists
 if [ ! -f "$TAR_GZ_FILE" ]; then
