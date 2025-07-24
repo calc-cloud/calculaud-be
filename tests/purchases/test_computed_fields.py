@@ -145,13 +145,13 @@ class TestPurchaseComputedFields:
     def test_computed_fields_with_different_flow_types(
         self,
         test_client: TestClient,
-        sample_purchase_data_support_usd_above_100k,
+        sample_purchase_data_support_usd_above_400k,
         predefined_flows_for_purchases,
     ):
         """Test computed fields work with different predefined flow types."""
         response = test_client.post(
             f"{settings.api_v1_prefix}/purchases/",
-            json=sample_purchase_data_support_usd_above_100k,
+            json=sample_purchase_data_support_usd_above_400k,
         )
 
         assert response.status_code == 201
