@@ -30,8 +30,8 @@ def sample_purchase_data_with_costs():
 
 
 @pytest.fixture
-def sample_purchase_data_support_usd_above_100k():
-    """Sample purchase creation data with SUPPORT_USD above 100k."""
+def sample_purchase_data_support_usd_above_400k():
+    """Sample purchase creation data with SUPPORT_USD above 400k."""
     return {
         "purpose_id": 1,
         "costs": [{"currency": CurrencyEnum.SUPPORT_USD.value, "amount": 150000.0}],
@@ -135,11 +135,11 @@ def predefined_flows_for_purchases(db_session: Session):
             [0, 1, 2, 3],
         ),  # approval -> review -> validation -> completion
         (
-            PredefinedFlowName.SUPPORT_USD_ABOVE_100K_FLOW.value,
+            PredefinedFlowName.SUPPORT_USD_ABOVE_400K_FLOW.value,
             [0, 1, 2, 3],
         ),  # approval -> review -> validation -> completion
         (
-            PredefinedFlowName.MIXED_USD_ABOVE_100K_FLOW.value,
+            PredefinedFlowName.MIXED_USD_ABOVE_400K_FLOW.value,
             [0, 1, 2, 3],
         ),  # approval -> review -> validation -> completion
     ]

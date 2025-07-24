@@ -273,7 +273,7 @@ def seed_predefined_flows(session: Any) -> list[int]:
             (14, 8),  # blm - priority 8
             (18, 9),  # order_id - priority 9
         ],
-        "SUPPORT_USD_ABOVE_100K_FLOW": [
+        "SUPPORT_USD_ABOVE_400K_FLOW": [
             (6, 1),  # emf_id - priority 1
             (7, 2),  # information_security - priority 2
             (8, 2),  # letter_of_necessity - priority 2 (parallel)
@@ -287,7 +287,7 @@ def seed_predefined_flows(session: Any) -> list[int]:
             (14, 9),  # blm - priority 9
             (18, 10),  # order_id - priority 10
         ],
-        "MIXED_USD_ABOVE_100K_FLOW": [
+        "MIXED_USD_ABOVE_400K_FLOW": [
             (6, 1),  # emf_id - priority 1
             (7, 2),  # information_security - priority 2
             (8, 2),  # letter_of_necessity - priority 2 (parallel)
@@ -310,8 +310,8 @@ def seed_predefined_flows(session: Any) -> list[int]:
         "SUPPORT_USD_FLOW": 2,
         "AVAILABLE_USD_FLOW": 3,
         "MIXED_USD_FLOW": 4,
-        "SUPPORT_USD_ABOVE_100K_FLOW": 5,
-        "MIXED_USD_ABOVE_100K_FLOW": 6,
+        "SUPPORT_USD_ABOVE_400K_FLOW": 5,
+        "MIXED_USD_ABOVE_400K_FLOW": 6,
     }
 
     for flow_name, stages in flows_data.items():
@@ -524,19 +524,19 @@ def get_predefined_flow_for_purchase_costs(costs: list[Cost]) -> str | None:
     if not costs:
         return None
 
-    is_amount_above_100k = sum(cost.amount for cost in costs) > 100_000
+    is_amount_above_400k = sum(cost.amount for cost in costs) >= 400_000
 
     if len(costs) > 1:
-        if is_amount_above_100k:
-            return "MIXED_USD_ABOVE_100K_FLOW"
+        if is_amount_above_400k:
+            return "MIXED_USD_ABOVE_400K_FLOW"
         else:
             return "MIXED_USD_FLOW"
 
     cost = costs[0]
 
     if cost.currency == CurrencyEnum.SUPPORT_USD:
-        if is_amount_above_100k:
-            return "SUPPORT_USD_ABOVE_100K_FLOW"
+        if is_amount_above_400k:
+            return "SUPPORT_USD_ABOVE_400K_FLOW"
         return "SUPPORT_USD_FLOW"
 
     elif cost.currency == CurrencyEnum.AVAILABLE_USD:
