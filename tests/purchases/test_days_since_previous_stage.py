@@ -24,8 +24,8 @@ class TestDaysSincePreviousStage:
             created_at=datetime.now(),
         )
 
-    def test_priority_1_stage_uses_creation_date(self, sample_stage_type):
-        """Test that priority 1 stages use purchase creation date as reference."""
+    def test_priority_1_stage_returns_none(self, sample_stage_type):
+        """Test that priority 1 stages always return None for days_since_previous_stage."""
         creation_date = datetime.now() - timedelta(days=5)
 
         stage = StageResponse(
@@ -47,10 +47,10 @@ class TestDaysSincePreviousStage:
         }
 
         purchase = PurchaseResponse.model_validate(purchase_data)
-        assert purchase.flow_stages[0].days_since_previous_stage == 5
+        assert purchase.flow_stages[0].days_since_previous_stage is None
 
-    def test_completed_stage_uses_completion_date(self, sample_stage_type):
-        """Test that completed stages calculate days to completion date."""
+    def test_priority_1_completed_stage_returns_none(self, sample_stage_type):
+        """Test that even completed priority 1 stages return None for days_since_previous_stage."""
         creation_date = datetime.now() - timedelta(days=10)
         completion_date = date.today() - timedelta(days=3)
 
@@ -73,7 +73,7 @@ class TestDaysSincePreviousStage:
         }
 
         purchase = PurchaseResponse.model_validate(purchase_data)
-        assert purchase.flow_stages[0].days_since_previous_stage == 7  # 10 - 3
+        assert purchase.flow_stages[0].days_since_previous_stage is None
 
     def test_higher_priority_stage_uses_previous_completion(self, sample_stage_type):
         """Test that higher priority stages use previous stage completion as reference."""
@@ -109,8 +109,8 @@ class TestDaysSincePreviousStage:
         }
 
         purchase = PurchaseResponse.model_validate(purchase_data)
-        # Stage 1: 10 days from creation to completion (6 days ago)
-        assert purchase.flow_stages[0].days_since_previous_stage == 6
+        # Stage 1 (priority 1): Always None
+        assert purchase.flow_stages[0].days_since_previous_stage is None
         # Stage 2: 4 days from stage 1 completion to now
         assert purchase.flow_stages[1].days_since_previous_stage == 4
 
@@ -160,9 +160,9 @@ class TestDaysSincePreviousStage:
 
         purchase = PurchaseResponse.model_validate(purchase_data)
 
-        # Priority 1 stages use creation date
-        assert purchase.flow_stages[0][0].days_since_previous_stage == 3  # 8 - 5
-        assert purchase.flow_stages[0][1].days_since_previous_stage == 5  # 8 - 3
+        # Priority 1 stages always return None
+        assert purchase.flow_stages[0][0].days_since_previous_stage is None
+        assert purchase.flow_stages[0][1].days_since_previous_stage is None
 
         # Priority 2 stage uses most recent completion from priority 1 (3 days ago)
         assert purchase.flow_stages[1].days_since_previous_stage == 3
@@ -226,8 +226,12 @@ class TestDaysSincePreviousStage:
         }
 
         purchase = PurchaseResponse.model_validate(purchase_data)
-        assert purchase.flow_stages[0].days_since_previous_stage == 5
-        assert purchase.flow_stages[1].days_since_previous_stage is None
+        assert (
+            purchase.flow_stages[0].days_since_previous_stage is None
+        )  # Priority 1 always None
+        assert (
+            purchase.flow_stages[1].days_since_previous_stage is None
+        )  # No completed previous stage
 
     def test_empty_flow_stages(self):
         """Test that empty flow_stages doesn't cause errors."""
