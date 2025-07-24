@@ -30,5 +30,6 @@ class StageResponse(StageBase):
     purchase_id: int
     stage_type: StageTypeResponse  # full stage type object relationship
     completion_date: date | None
+    days_since_previous_stage: int | None = None
 
     model_config = ConfigDict(from_attributes=True)

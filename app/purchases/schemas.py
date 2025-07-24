@@ -1,9 +1,9 @@
 """Pydantic schemas for purchase data validation."""
 
-from datetime import datetime
+from datetime import date, datetime
 from functools import cached_property
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 
 from app.costs.schemas import Cost, CostBase
 from app.stages.schemas import StageResponse
@@ -28,6 +28,99 @@ class PurchaseResponse(PurchaseBase):
     creation_date: datetime
     costs: list[Cost] = []
     flow_stages: list[StageResponse | list[StageResponse]] = []
+
+    @field_validator("flow_stages", mode="after")
+    @classmethod
+    def calculate_days_since_previous_stage(
+        cls, flow_stages: list[StageResponse | list[StageResponse]], info
+    ) -> list[StageResponse | list[StageResponse]]:
+        """Calculate days_since_previous_stage for each stage."""
+        if not flow_stages or not info.data:
+            return flow_stages
+
+        # Get creation_date from the model context
+        creation_date = info.data.get("creation_date")
+        if not creation_date:
+            return flow_stages
+
+        # Process each priority level
+        current_date = datetime.now().date()
+        for stages in flow_stages:
+            if isinstance(stages, list):
+                # Multiple stages at this priority
+                for stage in stages:
+                    target_date = stage.completion_date or current_date
+                    days_since_previous = cls._get_days_since_reference(
+                        stage.priority, creation_date, flow_stages, target_date
+                    )
+                    stage.days_since_previous_stage = days_since_previous
+            else:
+                # Single stage at this priority
+                target_date = stages.completion_date or current_date
+                days_since_previous = cls._get_days_since_reference(
+                    stages.priority, creation_date, flow_stages, target_date
+                )
+                stages.days_since_previous_stage = days_since_previous
+
+        return flow_stages
+
+    @classmethod
+    def _get_days_since_reference(
+        cls,
+        priority: int,
+        creation_date: datetime,
+        all_flow_stages: list,
+        target_date: date | None = None,
+    ) -> int | None:
+        """
+        Unified helper method to calculate days since reference date.
+
+        Args:
+            priority: Priority level to calculate for
+            creation_date: Purchase creation date
+            all_flow_stages: All flow stages for reference lookup
+            target_date: Target date to calculate to (defaults to current date)
+
+        Returns:
+            Days elapsed from reference to target date, or None if no reference found
+        """
+        if target_date is None:
+            target_date = datetime.now().date()
+
+        # For priority 1 stages, use purchase creation date as reference
+        if priority == 1:
+            reference_date = creation_date.date()
+        else:
+            # Find the most recent completion date from previous priority level
+            previous_priority = priority - 1
+            reference_date = None
+
+            # Look through all_flow_stages to find previous priority stages
+            for stages in all_flow_stages:
+                if isinstance(stages, list):
+                    # Multiple stages at this priority
+                    if stages and stages[0].priority == previous_priority:
+                        completed_stages = [
+                            s for s in stages if s.completion_date is not None
+                        ]
+                        if completed_stages:
+                            reference_date = max(
+                                s.completion_date for s in completed_stages
+                            )
+                        break
+                else:
+                    # Single stage at this priority
+                    if (
+                        stages.priority == previous_priority
+                        and stages.completion_date is not None
+                    ):
+                        reference_date = stages.completion_date
+                        break
+
+            if reference_date is None:
+                return None
+
+        return (target_date - reference_date).days
 
     @computed_field
     @cached_property
@@ -65,18 +158,9 @@ class PurchaseResponse(PurchaseBase):
 
         current_pending_priority = current_pending_stages[0].priority
 
-        if current_pending_priority == 1:
-            most_recent_completion_date = self.creation_date.date()
-        else:
-            # Get the previous completed stages at the current pending priority
-            last_completed_stages = self.flow_stages[current_pending_priority - 2]
-            if isinstance(last_completed_stages, list):
-                most_recent_completion_date = max(
-                    stage.completion_date for stage in last_completed_stages
-                )
-            else:
-                most_recent_completion_date = last_completed_stages.completion_date
-
-        return (datetime.now().date() - most_recent_completion_date).days
+        # Use the unified method to calculate days since reference
+        return self._get_days_since_reference(
+            current_pending_priority, self.creation_date, self.flow_stages
+        )
 
     model_config = ConfigDict(from_attributes=True)
