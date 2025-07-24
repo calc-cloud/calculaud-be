@@ -9,6 +9,15 @@
 # Default values
 DEFAULT_REPO_PREFIX="defaultrepo"
 
+# Default folders to search for docker images (can be customized)
+DEFAULT_FOLDERS=(
+    "."
+    "./builds"
+    "./docker-images"
+    "./releases"
+    "$HOME/Downloads"
+)
+
 # Colors for fancy output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -134,29 +143,108 @@ prompt_for_file() {
     echo "$result"
 }
 
-# Function to get available archive files in current directory
+# Function to find the most recent archive file across default folders
+find_most_recent_archive() {
+    local most_recent_file=""
+    local most_recent_time=0
+    
+    for folder in "${DEFAULT_FOLDERS[@]}"; do
+        # Expand tilde and variables
+        local expanded_folder
+        expanded_folder=$(eval echo "$folder")
+        
+        # Skip if folder doesn't exist
+        [ ! -d "$expanded_folder" ] && continue
+        
+        # Find .tar.gz files
+        while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then
+                local file_time
+                file_time=$(stat -f "%m" "$file" 2>/dev/null || stat -c "%Y" "$file" 2>/dev/null)
+                if [ "$file_time" -gt "$most_recent_time" ]; then
+                    most_recent_time=$file_time
+                    most_recent_file="$file"
+                fi
+            fi
+        done < <(find "$expanded_folder" -maxdepth 1 -name "*.tar.gz" -print0 2>/dev/null)
+        
+        # Find .zip files
+        while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then
+                local file_time
+                file_time=$(stat -f "%m" "$file" 2>/dev/null || stat -c "%Y" "$file" 2>/dev/null)
+                if [ "$file_time" -gt "$most_recent_time" ]; then
+                    most_recent_time=$file_time
+                    most_recent_file="$file"
+                fi
+            fi
+        done < <(find "$expanded_folder" -maxdepth 1 -name "*.zip" -print0 2>/dev/null)
+    done
+    
+    echo "$most_recent_file"
+}
+
+# Function to get available archive files across default folders
 list_archive_files() {
-    local tar_files=(*.tar.gz)
-    local zip_files=(*.zip)
     local found_files=false
+    local file_count=0
     
-    if [ -e "${tar_files[0]}" ]; then
-        echo "Available tar.gz files:"
-        for i in "${!tar_files[@]}"; do
-            echo "  $((i+1)). ${tar_files[i]}"
-        done
-        found_files=true
-    fi
-    
-    if [ -e "${zip_files[0]}" ]; then
-        echo "Available zip files:"
-        for i in "${!zip_files[@]}"; do
-            echo "  $((i+1)). ${zip_files[i]}"
-        done
-        found_files=true
-    fi
+    echo -e "${CYAN}🔍 Searching in default folders:${NC}"
+    for folder in "${DEFAULT_FOLDERS[@]}"; do
+        local expanded_folder
+        expanded_folder=$(eval echo "$folder")
+        
+        # Skip if folder doesn't exist
+        if [ ! -d "$expanded_folder" ]; then
+            echo -e "   📁 ${YELLOW}$folder${NC} ${RED}(not found)${NC}"
+            continue
+        fi
+        
+        echo -e "   📁 ${YELLOW}$folder${NC}"
+        
+        # Check for .tar.gz files
+        local tar_files=()
+        while IFS= read -r -d '' file; do
+            tar_files+=("$file")
+        done < <(find "$expanded_folder" -maxdepth 1 -name "*.tar.gz" -print0 2>/dev/null)
+        
+        # Check for .zip files
+        local zip_files=()
+        while IFS= read -r -d '' file; do
+            zip_files+=("$file")
+        done < <(find "$expanded_folder" -maxdepth 1 -name "*.zip" -print0 2>/dev/null)
+        
+        if [ ${#tar_files[@]} -gt 0 ] || [ ${#zip_files[@]} -gt 0 ]; then
+            found_files=true
+            
+            for file in "${tar_files[@]}"; do
+                ((file_count++))
+                echo -e "      $file_count. ${GREEN}$(basename "$file")${NC} ${CYAN}(.tar.gz)${NC}"
+            done
+            
+            for file in "${zip_files[@]}"; do
+                ((file_count++))
+                echo -e "      $file_count. ${GREEN}$(basename "$file")${NC} ${CYAN}(.zip)${NC}"
+            done
+        fi
+    done
     
     if [ "$found_files" = true ]; then
+        echo ""
+        
+        # Show most recent file suggestion
+        local most_recent
+        most_recent=$(find_most_recent_archive)
+        if [ -n "$most_recent" ]; then
+            echo -e "${PURPLE}💡 Most recent file found:${NC}"
+            local file_date
+            file_date=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$most_recent" 2>/dev/null || stat -c "%y" "$most_recent" 2>/dev/null | cut -d. -f1)
+            echo -e "   🕐 ${GREEN}$(basename "$most_recent")${NC} ${YELLOW}($file_date)${NC}"
+            echo -e "   📍 ${CYAN}$most_recent${NC}"
+            echo ""
+        fi
+    else
+        echo -e "${YELLOW}⚠️  No archive files found in default folders${NC}"
         echo ""
     fi
 }
@@ -174,12 +262,25 @@ if [ $# -eq 0 ]; then
     show_spinner "Looking for archives" 1
     list_archive_files
     
-    # Get archive file
+    # Get archive file with most recent file as default
     echo -e "${YELLOW}🔍 Please select your Docker image archive:${NC}"
-    ARCHIVE_FILE=$(prompt_for_file "📦 Enter path to archive file (.tar.gz or .zip)")
+    
+    # Get the most recent file as suggested default
+    SUGGESTED_FILE=$(find_most_recent_archive)
+    if [ -n "$SUGGESTED_FILE" ]; then
+        echo -e "${PURPLE}💡 Press Enter to use the most recent file, or specify a different path:${NC}"
+        ARCHIVE_FILE=$(prompt_with_default "📦 Archive file" "$SUGGESTED_FILE")
+    else
+        ARCHIVE_FILE=$(prompt_for_file "📦 Enter path to archive file (.tar.gz or .zip)")
+    fi
+    
     while [ ! -f "$ARCHIVE_FILE" ]; do
         echo -e "${RED}❌ Error: File '$ARCHIVE_FILE' not found${NC}"
-        ARCHIVE_FILE=$(prompt_for_file "📦 Enter path to archive file (.tar.gz or .zip)")
+        if [ -n "$SUGGESTED_FILE" ]; then
+            ARCHIVE_FILE=$(prompt_with_default "📦 Archive file" "$SUGGESTED_FILE")
+        else
+            ARCHIVE_FILE=$(prompt_for_file "📦 Enter path to archive file (.tar.gz or .zip)")
+        fi
     done
     echo -e "${GREEN}✅ Archive file selected: $ARCHIVE_FILE${NC}"
     echo ""
