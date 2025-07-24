@@ -89,13 +89,11 @@ class TestPurchaseComputedFields:
         assert response.status_code == 201
         data = response.json()
 
-        # Should return time since creation when first priority is pending
+        # Should return None when first priority is pending (priority 1 always returns None)
         current_pending = data["current_pending_stages"]
         if current_pending and current_pending[0]["priority"] == 1:
             days_since = data["days_since_last_completion"]
-            assert days_since is not None
-            # Should be 0 days since creation happened today
-            assert days_since == 0
+            assert days_since is None
 
     def test_stage_completion_updates_computed_fields(
         self,
