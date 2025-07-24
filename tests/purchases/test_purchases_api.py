@@ -47,16 +47,16 @@ class TestPurchaseAPI:
         assert costs[1]["currency"] == CurrencyEnum.ILS.value
         assert costs[1]["amount"] == 10000.0
 
-    def test_create_purchase_with_support_usd_above_100k(
+    def test_create_purchase_with_support_usd_above_400k(
         self,
         test_client: TestClient,
-        sample_purchase_data_support_usd_above_100k,
+        sample_purchase_data_support_usd_above_400k,
         predefined_flows_for_purchases,
     ):
-        """Test creating a purchase with SUPPORT_USD above 100k selects correct flow."""
+        """Test creating a purchase with SUPPORT_USD above 400k selects correct flow."""
         response = test_client.post(
             f"{settings.api_v1_prefix}/purchases/",
-            json=sample_purchase_data_support_usd_above_100k,
+            json=sample_purchase_data_support_usd_above_400k,
         )
 
         assert response.status_code == 201
