@@ -357,21 +357,51 @@ echo ""
 echo "Step 2: Loading Docker Image"
 show_spinner "Loading Docker image from archive"
 
-# Create a temporary file in current directory (more compatible than /tmp)
-TEMP_OUTPUT_FILE="./docker_load_output_$$.txt"
+# Verify Docker is running first
+if ! docker info >/dev/null 2>&1; then
+    echo "✗ Error: Docker is not running or not accessible"
+    echo "Please start Docker Desktop and try again."
+    read -p "Press Enter to continue or Ctrl+C to exit..."
+    exit 1
+fi
 
-# Execute docker load and capture output (Git Bash compatible)
+# Verify the tar file is readable
+if [ ! -r "$TAR_FILE" ]; then
+    echo "✗ Error: Cannot read tar file: $TAR_FILE"
+    echo "File permissions or path issue."
+    exit 1
+fi
+
+echo "Docker status: ✓ Running"
+echo "Tar file: ✓ Accessible ($(du -h "$TAR_FILE" | cut -f1))"
+
+# Execute docker load with verbose output
 echo "Executing: docker load < \"$TAR_FILE\""
-if docker load < "$TAR_FILE" > "$TEMP_OUTPUT_FILE" 2>&1; then
-    echo "✓ Docker load command succeeded"
-    LOAD_OUTPUT=$(cat "$TEMP_OUTPUT_FILE")
-    rm -f "$TEMP_OUTPUT_FILE"
+echo "This may take a few moments..."
+
+# Use a more reliable approach for Windows Git Bash
+LOAD_OUTPUT=""
+if command -v winpty >/dev/null 2>&1; then
+    # Windows Git Bash with winpty
+    LOAD_OUTPUT=$(winpty docker load < "$TAR_FILE" 2>&1)
+    LOAD_EXIT_CODE=$?
 else
-    echo "✗ Docker load command failed"
-    LOAD_OUTPUT=$(cat "$TEMP_OUTPUT_FILE" 2>/dev/null || echo "No output captured")
-    rm -f "$TEMP_OUTPUT_FILE"
+    # Standard execution
+    LOAD_OUTPUT=$(docker load < "$TAR_FILE" 2>&1)
+    LOAD_EXIT_CODE=$?
+fi
+
+if [ $LOAD_EXIT_CODE -eq 0 ]; then
+    echo "✓ Docker load command succeeded"
+else
+    echo "✗ Docker load command failed (exit code: $LOAD_EXIT_CODE)"
     echo "Error output:"
     echo "$LOAD_OUTPUT"
+    echo ""
+    echo "Troubleshooting tips:"
+    echo "1. Verify the tar.gz file is a valid Docker image export"
+    echo "2. Check if Docker has enough disk space"
+    echo "3. Try running: docker load < \"$TAR_FILE\" manually"
     echo ""
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
