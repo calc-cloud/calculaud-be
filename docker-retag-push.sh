@@ -15,7 +15,6 @@ DEFAULT_FOLDERS=(
     "./builds"
     "./docker-images"
     "./releases"
-    "$HOME/Downloads"
 )
 
 # Colors for fancy output (disabled for Git Bash compatibility)
@@ -356,26 +355,61 @@ echo ""
 
 # Step 2: Load the Docker image
 echo "Step 2: Loading Docker Image"
-if ! show_spinner_with_command "Loading Docker image from archive" "docker load < '$TAR_FILE' 2>/tmp/docker_load_output.txt"; then
-    echo "Error: Failed to load Docker image"
-    LOAD_OUTPUT=$(cat /tmp/docker_load_output.txt 2>/dev/null || echo "No output captured")
+show_spinner "Loading Docker image from archive"
+
+# Create a temporary file in current directory (more compatible than /tmp)
+TEMP_OUTPUT_FILE="./docker_load_output_$$.txt"
+
+# Execute docker load and capture output (Git Bash compatible)
+echo "Executing: docker load < \"$TAR_FILE\""
+if docker load < "$TAR_FILE" > "$TEMP_OUTPUT_FILE" 2>&1; then
+    echo "✓ Docker load command succeeded"
+    LOAD_OUTPUT=$(cat "$TEMP_OUTPUT_FILE")
+    rm -f "$TEMP_OUTPUT_FILE"
+else
+    echo "✗ Docker load command failed"
+    LOAD_OUTPUT=$(cat "$TEMP_OUTPUT_FILE" 2>/dev/null || echo "No output captured")
+    rm -f "$TEMP_OUTPUT_FILE"
+    echo "Error output:"
     echo "$LOAD_OUTPUT"
+    echo ""
     read -p "Press Enter to continue or Ctrl+C to exit..."
-    rm -f /tmp/docker_load_output.txt
     exit 1
 fi
-LOAD_OUTPUT=$(cat /tmp/docker_load_output.txt)
-rm -f /tmp/docker_load_output.txt
+
 echo "Docker load output:"
 echo "$LOAD_OUTPUT"
 echo ""
 
-# Extract the loaded image name from docker load output
-LOADED_IMAGE=$(echo "$LOAD_OUTPUT" | grep "Loaded image:" | sed 's/Loaded image: //')
+# Extract the loaded image name from docker load output - try multiple patterns
+LOADED_IMAGE=""
+
+# Try different patterns for image extraction
+if echo "$LOAD_OUTPUT" | grep -q "Loaded image:"; then
+    LOADED_IMAGE=$(echo "$LOAD_OUTPUT" | grep "Loaded image:" | sed 's/.*Loaded image: *//' | tail -1)
+elif echo "$LOAD_OUTPUT" | grep -q "sha256:"; then
+    # Fallback: try to find image ID and get the tag
+    IMAGE_ID=$(echo "$LOAD_OUTPUT" | grep "sha256:" | head -1 | awk '{print $1}')
+    if [ -n "$IMAGE_ID" ]; then
+        echo "Found image ID: $IMAGE_ID"
+        echo "Attempting to find image tag..."
+        LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -1)
+    fi
+elif docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | head -1 >/dev/null 2>&1; then
+    # Fallback: get the most recent image that's not <none>
+    echo "Fallback: Looking for most recent loaded image..."
+    LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | head -1)
+fi
 
 if [ -z "$LOADED_IMAGE" ]; then
     echo "Error: Could not determine loaded image name from output:"
-    echo "$LOAD_OUTPUT"
+    echo "Raw output:"
+    echo "'$LOAD_OUTPUT'"
+    echo ""
+    echo "Available images:"
+    docker images
+    echo ""
+    echo "Please check if the Docker archive file is valid."
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
