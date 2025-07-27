@@ -82,32 +82,43 @@ jobs:
         FILE_SIZE=$(ls -lh calculaud-be-${{ steps.version.outputs.version }}.tar.gz | awk '{print $5}')
         echo "DOCKER_TAR_SIZE=$FILE_SIZE" >> $GITHUB_ENV
     
+    - name: Generate release body
+      id: release_body
+      run: |
+        # Create release body content
+        cat > release_body.md << 'EOF'
+        ## 🚀 Release Summary
+        **Version:** ${{ steps.version.outputs.version }}
+
+        ### 🐳 Docker Images Published:
+        - `${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }}`
+        - `${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version_number }}`
+        - `${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:latest`
+
+        ### 📦 Docker Image Archive:
+        - **Size:** ${{ env.DOCKER_TAR_SIZE }}
+        - **Download:** Available as release asset
+
+        ### 🔧 Usage:
+        ```bash
+        # Download from GitHub releases and load
+        # First download the tar.gz file from the release assets
+        gunzip calculaud-be-${{ steps.version.outputs.version }}.tar.gz
+        docker load < calculaud-be-${{ steps.version.outputs.version }}.tar
+        ```
+
+        **Platforms:** linux/amd64
+        EOF
+        
+        # Set the release body content as output
+        echo "content<<EOF" >> $GITHUB_OUTPUT
+        cat release_body.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
     - name: Upload tar to GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         files: calculaud-be-${{ steps.version.outputs.version }}.tar.gz
         tag_name: ${{ steps.version.outputs.version }}
-    
-    - name: Generate release summary
-      run: |
-        echo "## 🚀 Release Summary" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🐳 Docker Images Published:" >> $GITHUB_STEP_SUMMARY
-        echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:${{ steps.version.outputs.version_number }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME || github.event.repository.name }}:latest\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📦 Docker Image Archive:" >> $GITHUB_STEP_SUMMARY
-        echo "- **Size:** ${{ env.DOCKER_TAR_SIZE }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Download:** Available as release asset" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔧 Usage:" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-        echo "# Download from GitHub releases and load" >> $GITHUB_STEP_SUMMARY
-        echo "# First download the tar.gz file from the release assets" >> $GITHUB_STEP_SUMMARY
-        echo "gunzip calculaud-be-${{ steps.version.outputs.version }}.tar.gz" >> $GITHUB_STEP_SUMMARY
-        echo "docker load < calculaud-be-${{ steps.version.outputs.version }}.tar" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Platforms:** linux/amd64" >> $GITHUB_STEP_SUMMARY
+        body: ${{ steps.release_body.outputs.content }}
+        append_body: true
