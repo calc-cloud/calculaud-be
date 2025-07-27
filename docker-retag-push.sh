@@ -120,29 +120,19 @@ find_most_recent_archive() {
         # Skip if folder doesn't exist
         [ ! -d "$expanded_folder" ] && continue
         
-        # Find .tar.gz files
-        while IFS= read -r -d '' file; do
+        # Find .tar.gz files (Windows Git Bash compatible)
+        for file in "$expanded_folder"/*.tar.gz; do
             if [ -f "$file" ]; then
-                local file_time
-                file_time=$(stat -f "%m" "$file" 2>/dev/null || stat -c "%Y" "$file" 2>/dev/null)
-                if [ "$file_time" -gt "$most_recent_time" ]; then
-                    most_recent_time=$file_time
-                    most_recent_file="$file"
-                fi
+                most_recent_file="$file"
             fi
-        done < <(find "$expanded_folder" -maxdepth 1 -name "*.tar.gz" -print0 2>/dev/null)
+        done
         
-        # Find .zip files
-        while IFS= read -r -d '' file; do
+        # Find .zip files (Windows Git Bash compatible)
+        for file in "$expanded_folder"/*.zip; do
             if [ -f "$file" ]; then
-                local file_time
-                file_time=$(stat -f "%m" "$file" 2>/dev/null || stat -c "%Y" "$file" 2>/dev/null)
-                if [ "$file_time" -gt "$most_recent_time" ]; then
-                    most_recent_time=$file_time
-                    most_recent_file="$file"
-                fi
+                most_recent_file="$file"
             fi
-        done < <(find "$expanded_folder" -maxdepth 1 -name "*.zip" -print0 2>/dev/null)
+        done
     done
     
     echo "$most_recent_file"
@@ -166,17 +156,21 @@ list_archive_files() {
         
         echo -e "   📁 ${YELLOW}$folder${NC}"
         
-        # Check for .tar.gz files
+        # Check for .tar.gz files (Windows Git Bash compatible)
         local tar_files=()
-        while IFS= read -r -d '' file; do
-            tar_files+=("$file")
-        done < <(find "$expanded_folder" -maxdepth 1 -name "*.tar.gz" -print0 2>/dev/null)
+        for file in "$expanded_folder"/*.tar.gz; do
+            if [ -f "$file" ]; then
+                tar_files+=("$file")
+            fi
+        done
         
-        # Check for .zip files
+        # Check for .zip files (Windows Git Bash compatible)
         local zip_files=()
-        while IFS= read -r -d '' file; do
-            zip_files+=("$file")
-        done < <(find "$expanded_folder" -maxdepth 1 -name "*.zip" -print0 2>/dev/null)
+        for file in "$expanded_folder"/*.zip; do
+            if [ -f "$file" ]; then
+                zip_files+=("$file")
+            fi
+        done
         
         if [ ${#tar_files[@]} -gt 0 ] || [ ${#zip_files[@]} -gt 0 ]; then
             found_files=true
@@ -202,7 +196,7 @@ list_archive_files() {
         if [ -n "$most_recent" ]; then
             echo -e "${PURPLE}💡 Most recent file found:${NC}"
             local file_date
-            file_date=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$most_recent" 2>/dev/null || stat -c "%y" "$most_recent" 2>/dev/null | cut -d. -f1)
+            file_date="$(date -r "$most_recent" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo 'Unknown')"
             echo -e "   🕐 ${GREEN}$(basename "$most_recent")${NC} ${YELLOW}($file_date)${NC}"
             echo -e "   📍 ${CYAN}$most_recent${NC}"
             echo ""
