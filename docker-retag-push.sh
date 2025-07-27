@@ -18,86 +18,50 @@ DEFAULT_FOLDERS=(
     "$HOME/Downloads"
 )
 
-# Colors for fancy output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+# Colors for fancy output (disabled for Git Bash compatibility)
+RED=''
+GREEN=''
+YELLOW=''
+BLUE=''
+PURPLE=''
+CYAN=''
+WHITE=''
+NC='' # No Color
 
-# Loading spinner function
+# Simple progress indicator (Git Bash compatible)
 show_spinner() {
     local message="$1"
-    local duration="$2"
-    local spinner_chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-    local delay=0.1
-    local iterations=$((duration * 10))
-    
-    echo -n "${CYAN}${message}${NC} "
-    for ((i=0; i<iterations; i++)); do
-        printf "${YELLOW}%c${NC}" "${spinner_chars:$((i % ${#spinner_chars})):1}"
-        sleep $delay
-        printf "\b"
-    done
-    echo -e "${GREEN}✓${NC}"
+    echo "$message..."
 }
 
-# Real spinner that waits for command completion
+# Simple command execution with progress (Git Bash compatible)
 show_spinner_with_command() {
     local message="$1"
     local command="$2"
-    local spinner_chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-    local delay=0.1
-    local spin=0
     
-    echo -n "${CYAN}${message}${NC} "
+    echo "$message..."
     
-    # Start the command in background and capture its PID
-    eval "$command" &
-    local cmd_pid=$!
-    
-    # Show spinner while command is running
-    while kill -0 $cmd_pid 2>/dev/null; do
-        printf "${YELLOW}%c${NC}" "${spinner_chars:$((spin % ${#spinner_chars})):1}"
-        sleep $delay
-        printf "\b"
-        ((spin++))
-    done
-    
-    # Wait for command to complete and get exit status
-    wait $cmd_pid
-    local exit_status=$?
-    
-    if [ $exit_status -eq 0 ]; then
-        echo -e "${GREEN}✓${NC}"
+    # Execute command and capture output
+    if eval "$command"; then
+        echo "✓ Success"
         return 0
     else
-        echo -e "${RED}✗${NC}"
-        return $exit_status
+        echo "✗ Failed"
+        return 1
     fi
 }
 
-# Cool welcome screen
+# Simple welcome screen (Git Bash compatible)
 show_welcome() {
     clear
-    echo -e "${PURPLE}"
-    echo "██████╗  █████╗ ███╗   ██╗    ██████╗ ███████╗██████╗ "
-    echo "██╔══██╗██╔══██╗████╗  ██║    ██╔══██╗██╔════╝██╔══██╗"
-    echo "██║  ██║███████║██╔██╗ ██║    ██║  ██║█████╗  ██████╔╝"
-    echo "██║  ██║██╔══██║██║╚██╗██║    ██║  ██║██╔══╝  ██╔═══╝ "
-    echo "██████╔╝██║  ██║██║ ╚████║    ██████╔╝███████╗██║     "
-    echo "╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝    ╚═════╝ ╚══════╝╚═╝     "
-    echo -e "${NC}"
+    echo "==========================================="
+    echo "     Docker Image Retag & Deploy Tool"
+    echo "          Made by Danorama Team"
+    echo "==========================================="
     echo ""
-    echo -e "${YELLOW}🚀 Docker Image Retag & Deploy Tool 🚀${NC}"
-    echo -e "${CYAN}Made with ❤️  by Danorama Team${NC}"
+    echo "Welcome to Dan Dep - Docker Image Manager!"
     echo ""
-    echo -e "${YELLOW}🌟 Welcome to Dan Dep - The Ultimate Docker Image Manager! 🌟${NC}"
-    echo ""
-    sleep 2
+    sleep 1
 }
 
 # Function to display usage
@@ -372,34 +336,34 @@ else
 fi
 
 echo ""
-echo -e "${PURPLE}🚀 DAN DEP DEPLOYMENT STARTED 🚀${NC}"
+echo "=== DAN DEP DEPLOYMENT STARTED ==="
 echo ""
-echo -e "${CYAN}📋 Deployment Summary:${NC}"
-echo -e "   📁 Source file: ${YELLOW}$ARCHIVE_FILE${NC}"
-echo -e "   📦 File type: ${YELLOW}$FILE_TYPE${NC}" 
-echo -e "   🏷️  Original image: ${YELLOW}$ORIGINAL_IMAGE_NAME${NC}"
-echo -e "   🔖 Version: ${YELLOW}$VERSION${NC}"
-echo -e "   🎯 New prefix: ${YELLOW}$NEW_PREFIX${NC}"
+echo "Deployment Summary:"
+echo "   Source file: $ARCHIVE_FILE"
+echo "   File type: $FILE_TYPE" 
+echo "   Original image: $ORIGINAL_IMAGE_NAME"
+echo "   Version: $VERSION"
+echo "   New prefix: $NEW_PREFIX"
 echo ""
 
 # Step 1: Extract the tar.gz file
-echo -e "${BLUE}📦 Step 1: Extracting Docker Image Archive${NC}"
-show_spinner "🔓 Extracting $TAR_GZ_FILE" 2
+echo "Step 1: Extracting Docker Image Archive"
+show_spinner "Extracting $TAR_GZ_FILE"
 TAR_FILE="${TAR_GZ_FILE%.gz}"
 gunzip -c "$TAR_GZ_FILE" > "$TAR_FILE"
 
 if [ ! -f "$TAR_FILE" ]; then
-    echo -e "${RED}❌ Error: Failed to extract $TAR_FILE${NC}"
+    echo "Error: Failed to extract $TAR_FILE"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Successfully extracted to $TAR_FILE${NC}"
+echo "Successfully extracted to $TAR_FILE"
 echo ""
 
 # Step 2: Load the Docker image
-echo -e "${BLUE}🐳 Step 2: Loading Docker Image${NC}"
-if ! show_spinner_with_command "📥 Loading Docker image from archive" "docker load < '$TAR_FILE' --quiet 2>/tmp/docker_load_output.txt"; then
-    echo -e "${RED}❌ Error: Failed to load Docker image${NC}"
+echo "Step 2: Loading Docker Image"
+if ! show_spinner_with_command "Loading Docker image from archive" "docker load < '$TAR_FILE' 2>/tmp/docker_load_output.txt"; then
+    echo "Error: Failed to load Docker image"
     LOAD_OUTPUT=$(cat /tmp/docker_load_output.txt 2>/dev/null || echo "No output captured")
     echo "$LOAD_OUTPUT"
     read -p "Press Enter to continue or Ctrl+C to exit..."
@@ -408,7 +372,7 @@ if ! show_spinner_with_command "📥 Loading Docker image from archive" "docker 
 fi
 LOAD_OUTPUT=$(cat /tmp/docker_load_output.txt)
 rm -f /tmp/docker_load_output.txt
-echo -e "${CYAN}📤 Docker load output:${NC}"
+echo "Docker load output:"
 echo "$LOAD_OUTPUT"
 echo ""
 
@@ -416,36 +380,36 @@ echo ""
 LOADED_IMAGE=$(echo "$LOAD_OUTPUT" | grep "Loaded image:" | sed 's/Loaded image: //')
 
 if [ -z "$LOADED_IMAGE" ]; then
-    echo -e "${RED}❌ Error: Could not determine loaded image name from output:${NC}"
+    echo "Error: Could not determine loaded image name from output:"
     echo "$LOAD_OUTPUT"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
 
-echo -e "${GREEN}✅ Successfully loaded image: ${YELLOW}$LOADED_IMAGE${NC}"
+echo "Successfully loaded image: $LOADED_IMAGE"
 echo ""
 
 # Step 3: Tag the image with new prefix
-echo -e "${BLUE}🏷️  Step 3: Retagging Docker Image${NC}"
-show_spinner "🔍 Analyzing image structure" 1
+echo "Step 3: Retagging Docker Image"
+show_spinner "Analyzing image structure"
 
 # Extract original image name and tag from loaded image
 if [[ "$LOADED_IMAGE" =~ ^(.*/)?([^:/]+):(.+)$ ]]; then
     ORIGINAL_REPO="${BASH_REMATCH[1]}"
     IMAGE_NAME="${BASH_REMATCH[2]}"
     IMAGE_TAG="${BASH_REMATCH[3]}"
-    echo -e "${CYAN}🔎 Detected image components:${NC}"
-    echo -e "   📂 Repository: ${YELLOW}${ORIGINAL_REPO:-"(none)"}${NC}"
-    echo -e "   📦 Name: ${YELLOW}${IMAGE_NAME}${NC}"
-    echo -e "   🔖 Tag: ${YELLOW}${IMAGE_TAG}${NC}"
+    echo "Detected image components:"
+    echo "   Repository: ${ORIGINAL_REPO:-"(none)"}"
+    echo "   Name: ${IMAGE_NAME}"
+    echo "   Tag: ${IMAGE_TAG}"
 elif [[ "$LOADED_IMAGE" =~ ^([^:/]+):(.+)$ ]]; then
     IMAGE_NAME="${BASH_REMATCH[1]}"
     IMAGE_TAG="${BASH_REMATCH[2]}"
-    echo -e "${CYAN}🔎 Detected image components:${NC}"
-    echo -e "   📦 Name: ${YELLOW}${IMAGE_NAME}${NC}"
-    echo -e "   🔖 Tag: ${YELLOW}${IMAGE_TAG}${NC}"
+    echo "Detected image components:"
+    echo "   Name: ${IMAGE_NAME}"
+    echo "   Tag: ${IMAGE_TAG}"
 else
-    echo -e "${RED}❌ Error: Could not parse loaded image name: $LOADED_IMAGE${NC}"
+    echo "Error: Could not parse loaded image name: $LOADED_IMAGE"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
@@ -455,91 +419,91 @@ echo ""
 NEW_IMAGE_NAME="$NEW_PREFIX/$IMAGE_NAME:$IMAGE_TAG"
 NEW_IMAGE_LATEST="$NEW_PREFIX/$IMAGE_NAME:latest"
 
-echo -e "${CYAN}🎯 Creating new tags:${NC}"
-echo -e "   📋 ${YELLOW}$NEW_IMAGE_NAME${NC}"
-echo -e "   📋 ${YELLOW}$NEW_IMAGE_LATEST${NC}"
+echo "Creating new tags:"
+echo "   $NEW_IMAGE_NAME"
+echo "   $NEW_IMAGE_LATEST"
 echo ""
 
-show_spinner "🏷️  Tagging as $NEW_IMAGE_NAME" 1
+show_spinner "Tagging as $NEW_IMAGE_NAME"
 if ! docker tag "$LOADED_IMAGE" "$NEW_IMAGE_NAME" 2>&1; then
-    echo -e "${RED}❌ Error: Failed to tag image as $NEW_IMAGE_NAME${NC}"
+    echo "Error: Failed to tag image as $NEW_IMAGE_NAME"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
 
-show_spinner "🏷️  Tagging as $NEW_IMAGE_LATEST" 1
+show_spinner "Tagging as $NEW_IMAGE_LATEST"
 if ! docker tag "$LOADED_IMAGE" "$NEW_IMAGE_LATEST" 2>&1; then
-    echo -e "${RED}❌ Error: Failed to tag image as $NEW_IMAGE_LATEST${NC}"
+    echo "Error: Failed to tag image as $NEW_IMAGE_LATEST"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
 
-echo -e "${GREEN}✅ Successfully tagged images${NC}"
+echo "Successfully tagged images"
 echo ""
 
 # Step 4: Push the images
-echo -e "${BLUE}🚀 Step 4: Deploying to Registry${NC}"
-echo -e "${CYAN}📤 Pushing images to registry...${NC}"
+echo "Step 4: Deploying to Registry"
+echo "Pushing images to registry..."
 echo ""
 
-if ! show_spinner_with_command "📡 Pushing $NEW_IMAGE_NAME" "docker push '$NEW_IMAGE_NAME' --progress=false >/dev/null 2>&1"; then
-    echo -e "${RED}❌ Error: Failed to push $NEW_IMAGE_NAME${NC}"
+if ! show_spinner_with_command "Pushing $NEW_IMAGE_NAME" "docker push '$NEW_IMAGE_NAME' >/dev/null 2>&1"; then
+    echo "Error: Failed to push $NEW_IMAGE_NAME"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
-echo -e "${GREEN}✅ Successfully pushed $NEW_IMAGE_NAME${NC}"
+echo "Successfully pushed $NEW_IMAGE_NAME"
 echo ""
 
-if ! show_spinner_with_command "📡 Pushing $NEW_IMAGE_LATEST" "docker push '$NEW_IMAGE_LATEST' --progress=false >/dev/null 2>&1"; then
-    echo -e "${RED}❌ Error: Failed to push $NEW_IMAGE_LATEST${NC}"
+if ! show_spinner_with_command "Pushing $NEW_IMAGE_LATEST" "docker push '$NEW_IMAGE_LATEST' >/dev/null 2>&1"; then
+    echo "Error: Failed to push $NEW_IMAGE_LATEST"
     read -p "Press Enter to continue or Ctrl+C to exit..."
     exit 1
 fi
-echo -e "${GREEN}✅ Successfully pushed $NEW_IMAGE_LATEST${NC}"
+echo "Successfully pushed $NEW_IMAGE_LATEST"
 echo ""
 
-echo -e "${GREEN}🎉 All images deployed successfully!${NC}"
+echo "All images deployed successfully!"
 echo ""
 
 # Step 5: Cleanup
-echo -e "${BLUE}🧹 Step 5: Cleaning Up${NC}"
-show_spinner "🗑️  Removing temporary files" 1
+echo "Step 5: Cleaning Up"
+show_spinner "Removing temporary files"
 rm -f "$TAR_FILE"
-echo -e "${GREEN}✅ Removed temporary tar file${NC}"
+echo "Removed temporary tar file"
 
 # Cleanup temp directory if it was created for zip extraction
 if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
     rm -rf "$TEMP_DIR"
-    echo -e "${GREEN}✅ Removed temporary directory${NC}"
+    echo "Removed temporary directory"
 fi
 echo ""
 
 # Optional: Remove loaded image to save space
-echo -e "${YELLOW}💾 Storage Management:${NC}"
-read -p "🗑️  Remove loaded image '$LOADED_IMAGE' to save space? (y/N): " -n 1 -r
+echo "Storage Management:"
+read -p "Remove loaded image '$LOADED_IMAGE' to save space? (y/N): " -n 1 -r
 echo
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    show_spinner "🗑️  Cleaning up loaded image" 1
-    docker rmi "$LOADED_IMAGE" 2>/dev/null || echo -e "${YELLOW}⚠️  Image already removed or in use${NC}"
-    echo -e "${GREEN}✅ Cleanup completed${NC}"
+    show_spinner "Cleaning up loaded image"
+    docker rmi "$LOADED_IMAGE" 2>/dev/null || echo "Warning: Image already removed or in use"
+    echo "Cleanup completed"
 else
-    echo -e "${CYAN}ℹ️  Keeping loaded image for future use${NC}"
+    echo "Keeping loaded image for future use"
 fi
 echo ""
 
 # Success celebration
-echo -e "${PURPLE}🎉 DAN DEP SUCCESS! 🎉${NC}"
+echo "=== DAN DEP SUCCESS! ==="
 echo ""
-echo -e "${GREEN}🚀 Deployment completed successfully!${NC}"
+echo "Deployment completed successfully!"
 echo ""
-echo -e "${CYAN}📦 Images deployed:${NC}"
-echo -e "   🎯 ${YELLOW}$NEW_IMAGE_NAME${NC}"
-echo -e "   🏷️  ${YELLOW}$NEW_IMAGE_LATEST${NC}"
+echo "Images deployed:"
+echo "   $NEW_IMAGE_NAME"
+echo "   $NEW_IMAGE_LATEST"
 echo ""
-echo -e "${CYAN}🔧 Ready to use! Pull your images with:${NC}"
-echo -e "   ${WHITE}docker pull $NEW_IMAGE_NAME${NC}"
-echo -e "   ${WHITE}docker pull $NEW_IMAGE_LATEST${NC}"
+echo "Ready to use! Pull your images with:"
+echo "   docker pull $NEW_IMAGE_NAME"
+echo "   docker pull $NEW_IMAGE_LATEST"
 echo ""
-echo -e "${YELLOW}✨ Thank you for using Dan Dep by Danorama Team! ✨${NC}"
-echo -e "${PURPLE}🌟 Happy Deploying! 🌟${NC}"
+echo "Thank you for using Dan Dep by Danorama Team!"
+echo "Happy Deploying!"
