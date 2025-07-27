@@ -51,6 +51,10 @@ def apply_filters(
             query = query.join(PurposeContent, Purpose.id == PurposeContent.purpose_id)
         conditions.append(PurposeContent.service_id.in_(filters.service_ids))
 
+    # Pending authority filter - using hybrid property
+    if filters.pending_authorities:
+        conditions.append(Purpose.pending_authority.in_(filters.pending_authorities))
+
     # Apply all conditions
     if conditions:
         query = query.where(and_(*conditions))

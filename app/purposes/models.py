@@ -11,7 +11,9 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    select,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -91,6 +93,62 @@ class Purpose(Base):
     def service_type(self) -> str | None:
         """Return the service_type name if available."""
         return self._service_type.name if self._service_type else None
+
+    @hybrid_property
+    def pending_authority(self) -> str | None:
+        """
+        Return the responsible authority for the lowest priority incomplete stage.
+
+        This is a hybrid property that works both in Python and SQL contexts.
+        In Python, it loads the related data and computes the result.
+        In SQL, it generates a correlated subquery.
+        """
+        # Python implementation for when the object is loaded
+        if not self.purchases:
+            return None
+
+        # Find all incomplete stages across all purchases
+        incomplete_stages = []
+        for purchase in self.purchases:
+            for stage in purchase.stages:
+                if (
+                    stage.completion_date is None
+                    and hasattr(stage, "stage_type")
+                    and stage.stage_type
+                    and stage.stage_type.responsible_authority
+                ):
+                    incomplete_stages.append(stage)
+
+        if not incomplete_stages:
+            return None
+
+        # Sort by priority (ascending) and stage_type.id for deterministic ordering
+        incomplete_stages.sort(key=lambda s: (s.priority, s.stage_type.id))
+        return incomplete_stages[0].stage_type.responsible_authority
+
+    @pending_authority.expression
+    def pending_authority(cls):
+        """
+        SQL expression for pending_authority using correlated subquery.
+        """
+        from app.purchases.models import Purchase
+        from app.stage_types.models import StageType
+        from app.stages.models import Stage
+
+        return (
+            select(StageType.responsible_authority)
+            .select_from(Purchase)
+            .join(Stage, Purchase.id == Stage.purchase_id)
+            .join(StageType, Stage.stage_type_id == StageType.id)
+            .where(
+                Purchase.purpose_id == cls.id,
+                Stage.completion_date.is_(None),
+                StageType.responsible_authority.is_not(None),
+            )
+            .order_by(Stage.priority.asc(), StageType.id.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
 
 
 class PurposeContent(Base):
