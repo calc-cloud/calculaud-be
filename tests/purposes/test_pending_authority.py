@@ -1,11 +1,12 @@
 """Test pending authority functionality for purposes."""
+
 from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app import StageType, Stage
+from app import Stage, StageType
 from app.config import settings
 
 
