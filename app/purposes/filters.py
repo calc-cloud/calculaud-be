@@ -10,7 +10,7 @@ from app.stage_types.models import StageType
 
 
 def _get_pending_authority_for_purpose(purpose_id):
-    """Get the pending authority for a specific purpose using the same logic as the CTE."""
+    """Get the pending authority for a specific purpose."""
     return (
         select(StageType.responsible_authority)
         .select_from(Purchase)
