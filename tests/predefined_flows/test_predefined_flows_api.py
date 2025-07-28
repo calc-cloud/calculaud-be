@@ -181,3 +181,87 @@ class TestPredefinedFlowsAPI(BaseAPITestClass):
         assert data["flow_name"] == "Updated Flow Name Only"
         # Stages should remain unchanged
         assert len(data["flow_stages"]) > 0
+
+    # New tests for name-based functionality
+    def test_create_flow_with_stage_names(
+        self, test_client: TestClient, test_stage_types
+    ):
+        """Test creating a predefined flow using stage names instead of IDs."""
+        flow_data = {
+            "flow_name": "Name-Based Flow",
+            "stages": ["approval", ["review", "validation"], "completion"],
+        }
+        response = test_client.post(self.resource_endpoint, json=flow_data)
+        assert response.status_code == 201
+
+        data = response.json()
+        assert data["flow_name"] == "Name-Based Flow"
+        # Should have 3 priority levels: approval, [review+validation], completion
+        assert len(data["flow_stages"]) == 3
+
+    def test_create_flow_with_mixed_names_and_ids(
+        self, test_client: TestClient, test_stage_types
+    ):
+        """Test creating flow with mix of stage names and IDs."""
+        flow_data = {
+            "flow_name": "Mixed Format Flow",
+            "stages": ["approval", test_stage_types[1].id, "completion"],
+        }
+        response = test_client.post(self.resource_endpoint, json=flow_data)
+        assert response.status_code == 201
+
+        data = response.json()
+        assert data["flow_name"] == "Mixed Format Flow"
+        assert len(data["flow_stages"]) == 3
+
+    def test_create_flow_with_invalid_stage_name(self, test_client: TestClient):
+        """Test creating flow with invalid stage name returns error."""
+        flow_data = {
+            "flow_name": "Invalid Stage Flow",
+            "stages": ["invalid_stage_name", "approval"],
+        }
+        response = test_client.post(self.resource_endpoint, json=flow_data)
+        assert response.status_code == 400
+
+    def test_update_flow_with_stage_names(
+        self, test_client: TestClient, sample_predefined_flow
+    ):
+        """Test updating flow stages using stage names."""
+        update_data = {"stages": ["initialization", "approval", "completion"]}
+        response = test_client.patch(
+            f"{self.resource_endpoint}/{sample_predefined_flow.id}", json=update_data
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+        assert len(data["flow_stages"]) == 3
+
+    def test_get_flow_edit_format(
+        self, test_client: TestClient, sample_predefined_flow
+    ):
+        """Test getting flow in edit format returns stage names."""
+        response = test_client.get(
+            f"{self.resource_endpoint}/{sample_predefined_flow.id}?edit_format=true"
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "stages" in data
+        assert "flow_stages" not in data  # Should not have complex format
+        # Should return stage names as strings
+        assert all(isinstance(stage, (str, list)) for stage in data["stages"])
+
+    def test_get_flows_edit_format(
+        self, test_client: TestClient, multiple_predefined_flows
+    ):
+        """Test getting flows list in edit format."""
+        response = test_client.get(f"{self.resource_endpoint}?edit_format=true")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "items" in data
+        # All items should have stages field instead of flow_stages
+        for item in data["items"]:
+            assert "stages" in item
+            assert "flow_stages" not in item
+            assert all(isinstance(stage, (str, list)) for stage in item["stages"])

@@ -22,14 +22,14 @@ class PredefinedFlowBase(BaseModel):
 
 class PredefinedFlowCreate(PredefinedFlowBase):
     stages: list[
-        int | list[int]
-    ]  # List of stage_type_ids or lists of stage_type_ids for same priority
+        int | str | list[int | str]
+    ]  # List of stage_type_ids/names or lists of stage_type_ids/names for same priority
 
 
 class PredefinedFlowUpdate(BaseModel):
     flow_name: Annotated[str | None, Field(default=None, max_length=255)]
-    stages: list[int | list[int]] | None = (
-        None  # List of stage_type_ids or lists for same priority
+    stages: list[int | str | list[int | str]] | None = (
+        None  # List of stage_type_ids/names or lists for same priority
     )
 
 
@@ -37,5 +37,13 @@ class PredefinedFlowResponse(PredefinedFlowBase):
     id: int
     created_at: datetime
     flow_stages: list[PredefinedFlowStageResponse | list[PredefinedFlowStageResponse]]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PredefinedFlowEditResponse(PredefinedFlowBase):
+    id: int
+    created_at: datetime
+    stages: list[str | list[str]]  # Simplified format with stage names for editing
 
     model_config = ConfigDict(from_attributes=True)

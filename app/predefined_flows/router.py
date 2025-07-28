@@ -11,6 +11,7 @@ from app.predefined_flows.exceptions import (
 )
 from app.predefined_flows.schemas import (
     PredefinedFlowCreate,
+    PredefinedFlowEditResponse,
     PredefinedFlowResponse,
     PredefinedFlowUpdate,
 )
@@ -18,30 +19,66 @@ from app.predefined_flows.schemas import (
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[PredefinedFlowResponse])
+@router.get(
+    "/",
+    response_model=PaginatedResult[PredefinedFlowResponse | PredefinedFlowEditResponse],
+)
 def get_predefined_flows(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
         None, description="Search predefined flows by flow name (case-insensitive)"
     ),
+    edit_format: bool = Query(
+        False, description="Return flows in edit-friendly format with stage names"
+    ),
     db: Session = Depends(get_db),
 ):
     """Get all predefined flows with pagination and optional search."""
-    flows, total = service.get_predefined_flows(
-        db=db, pagination=pagination, search=search
-    )
-    return create_paginated_result(flows, total, pagination)
-
-
-@router.get("/{flow_id}", response_model=PredefinedFlowResponse)
-def get_predefined_flow(flow_id: int, db: Session = Depends(get_db)):
-    """Get a specific predefined flow by ID."""
-    flow = service.get_predefined_flow(db, flow_id)
-    if not flow:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Predefined flow not found"
+    if edit_format:
+        # Get flows and convert to edit format
+        flows, total = service.get_predefined_flows(
+            db=db, pagination=pagination, search=search
         )
-    return flow
+        edit_flows = []
+        for flow in flows:
+            edit_flow = service.get_predefined_flow_edit_format(db, flow.id)
+            if edit_flow:
+                edit_flows.append(edit_flow)
+        return create_paginated_result(edit_flows, total, pagination)
+    else:
+        flows, total = service.get_predefined_flows(
+            db=db, pagination=pagination, search=search
+        )
+        return create_paginated_result(flows, total, pagination)
+
+
+@router.get(
+    "/{flow_id}", response_model=PredefinedFlowResponse | PredefinedFlowEditResponse
+)
+def get_predefined_flow(
+    flow_id: int,
+    edit_format: bool = Query(
+        False, description="Return flow in edit-friendly format with stage names"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get a specific predefined flow by ID."""
+    if edit_format:
+        flow = service.get_predefined_flow_edit_format(db, flow_id)
+        if not flow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Predefined flow not found",
+            )
+        return flow
+    else:
+        flow = service.get_predefined_flow(db, flow_id)
+        if not flow:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Predefined flow not found",
+            )
+        return flow
 
 
 @router.post(
