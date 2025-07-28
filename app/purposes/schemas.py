@@ -67,6 +67,7 @@ class Purpose(PurposeBase):
     supplier: str | None = None
     service_type: str | None = None
     hierarchy: Hierarchy | None = None
+    pending_authority: Annotated[str | None, Field(default=None)]
 
     file_attachments: Annotated[
         list[FileAttachmentResponse], Field(default_factory=list)
@@ -117,6 +118,14 @@ class FilterParams(BaseModel):
     supplier_ids: Annotated[
         list[int] | None,
         Query(default=None, description="Filter by supplier IDs", alias="supplier_id"),
+    ]
+    pending_authorities: Annotated[
+        list[str] | None,
+        Query(
+            default=None,
+            description="Filter by pending authority responsible for next stage",
+            alias="pending_authority",
+        ),
     ]
 
 

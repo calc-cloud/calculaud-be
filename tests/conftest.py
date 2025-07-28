@@ -5,17 +5,20 @@ import os
 # Set testing environment variable
 os.environ["TESTING"] = "1"
 
-from typing import Generator
+from typing import Generator  # noqa: E402
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
 
-from app.auth.dependencies import require_auth
-from app.database import Base, get_db
-from app.main import app
-from tests.auth_mock import mock_auth_dependency, mock_auth_dependency_no_admin
+from app.auth.dependencies import require_auth  # noqa: E402
+from app.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
+from tests.auth_mock import (  # noqa: E402
+    mock_auth_dependency,
+    mock_auth_dependency_no_admin,
+)
 
 pytest_plugins = [
     "tests.hierarchies.fixtures",

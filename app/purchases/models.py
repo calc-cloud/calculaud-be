@@ -17,7 +17,9 @@ class Purchase(Base):
     __tablename__ = "purchase"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    purpose_id: Mapped[int] = mapped_column(ForeignKey("purpose.id"), nullable=False)
+    purpose_id: Mapped[int] = mapped_column(
+        ForeignKey("purpose.id"), nullable=False, index=True
+    )
     predefined_flow_id: Mapped[int | None] = mapped_column(
         ForeignKey("predefined_flow.id"), nullable=True
     )

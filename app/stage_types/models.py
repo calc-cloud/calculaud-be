@@ -19,6 +19,9 @@ class StageType(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    responsible_authority: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, server_default=func.now(), nullable=False
     )

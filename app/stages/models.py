@@ -18,7 +18,9 @@ class Stage(Base):
     stage_type_id: Mapped[int] = mapped_column(
         ForeignKey("stage_type.id"), nullable=False
     )
-    purchase_id: Mapped[int] = mapped_column(ForeignKey("purchase.id"), nullable=False)
+    purchase_id: Mapped[int] = mapped_column(
+        ForeignKey("purchase.id"), nullable=False, index=True
+    )
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
     completion_date: Mapped[date | None] = mapped_column(Date, nullable=True)

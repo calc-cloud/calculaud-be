@@ -92,6 +92,36 @@ class Purpose(Base):
         """Return the service_type name if available."""
         return self._service_type.name if self._service_type else None
 
+    @property
+    def pending_authority(self) -> str | None:
+        """
+        Return the responsible authority for the lowest priority incomplete stage.
+
+        This property computes the pending authority by finding the incomplete stage
+        with the lowest priority across all purchases for this purpose.
+        """
+        if not self.purchases:
+            return None
+
+        # Find all incomplete stages across all purchases
+        incomplete_stages = []
+        for purchase in self.purchases:
+            for stage in purchase.stages:
+                if (
+                    stage.completion_date is None
+                    and hasattr(stage, "stage_type")
+                    and stage.stage_type
+                    and stage.stage_type.responsible_authority
+                ):
+                    incomplete_stages.append(stage)
+
+        if not incomplete_stages:
+            return None
+
+        # Sort by priority (ascending) and stage_type.id for deterministic ordering
+        incomplete_stages.sort(key=lambda s: (s.priority, s.stage_type.id))
+        return incomplete_stages[0].stage_type.responsible_authority
+
 
 class PurposeContent(Base):
     __tablename__ = "purpose_content"
