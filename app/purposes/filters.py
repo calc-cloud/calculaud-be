@@ -6,20 +6,25 @@ from app.common.hierarchy_utils import build_hierarchy_filter
 from app.hierarchies.models import Hierarchy
 from app.purposes.models import Purpose, PurposeContent
 from app.purposes.schemas import FilterParams
+from app.responsible_authorities.models import ResponsibleAuthority
 from app.stage_types.models import StageType
 
 
 def _get_pending_authority_for_purpose(purpose_id):
     """Get the pending authority for a specific purpose."""
     return (
-        select(StageType.responsible_authority)
+        select(ResponsibleAuthority.id)
         .select_from(Purchase)
         .join(Stage, Purchase.id == Stage.purchase_id)
         .join(StageType, Stage.stage_type_id == StageType.id)
+        .join(
+            ResponsibleAuthority,
+            StageType.responsible_authority_id == ResponsibleAuthority.id,
+        )
         .where(
             Purchase.purpose_id == purpose_id,
             Stage.completion_date.is_(None),
-            StageType.responsible_authority.is_not(None),
+            StageType.responsible_authority_id.is_not(None),
         )
         .order_by(Stage.priority.asc(), StageType.id.asc())
         .limit(1)

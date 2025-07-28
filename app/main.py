@@ -10,6 +10,7 @@ from .hierarchies.router import router as hierarchies_router
 from .predefined_flows.router import router as predefined_flows_router
 from .purchases.router import router as purchases_router
 from .purposes.router import router as purposes_router
+from .responsible_authorities.router import router as responsible_authorities_router
 from .service_types.router import router as service_types_router
 from .services.router import router as services_router
 from .stage_types.router import router as stage_types_router
@@ -85,6 +86,13 @@ app.include_router(
     dependencies=protected_dependencies,
     prefix=f"{settings.api_v1_prefix}/services",
     tags=["services"],
+)
+
+app.include_router(
+    responsible_authorities_router,
+    dependencies=protected_dependencies,
+    prefix=f"{settings.api_v1_prefix}/responsible-authorities",
+    tags=["responsible-authorities"],
 )
 
 app.include_router(

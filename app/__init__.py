@@ -5,6 +5,7 @@ from .hierarchies.models import Hierarchy, HierarchyTypeEnum  # noqa: F401
 from .predefined_flows.models import PredefinedFlow, PredefinedFlowStage  # noqa: F401
 from .purchases.models import Purchase  # noqa: F401
 from .purposes.models import Purpose, PurposeContent, StatusEnum  # noqa: F401
+from .responsible_authorities.models import ResponsibleAuthority  # noqa: F401
 from .service_types.models import ServiceType  # noqa: F401
 from .services.models import Service  # noqa: F401
 from .stage_types.models import StageType  # noqa: F401
