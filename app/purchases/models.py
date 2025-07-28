@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import DateTime, ForeignKey, Index, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -36,6 +36,9 @@ class Purchase(Base):
     costs: Mapped[list["Cost"]] = relationship(
         "Cost", back_populates="purchase", cascade="all, delete-orphan"
     )
+
+    # Performance indexes
+    __table_args__ = (Index("idx_purchase_purpose", "purpose_id"),)
 
     @property
     def flow_stages(self) -> list["Stage | list[Stage]"]:

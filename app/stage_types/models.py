@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy import Boolean, DateTime, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -30,4 +30,14 @@ class StageType(Base):
     stages: Mapped[list["Stage"]] = relationship("Stage", back_populates="stage_type")
     predefined_flow_stages: Mapped[list["PredefinedFlowStage"]] = relationship(
         "PredefinedFlowStage", back_populates="stage_type"
+    )
+
+    # Performance indexes
+    __table_args__ = (
+        Index(
+            "idx_stage_type_authority",
+            "id",
+            "responsible_authority",
+            postgresql_where=text("responsible_authority IS NOT NULL"),
+        ),
     )
