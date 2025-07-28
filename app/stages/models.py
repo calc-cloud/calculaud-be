@@ -1,7 +1,7 @@
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, ForeignKey, Index, Integer, Text, text
+from sqlalchemy import Date, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -18,7 +18,9 @@ class Stage(Base):
     stage_type_id: Mapped[int] = mapped_column(
         ForeignKey("stage_type.id"), nullable=False
     )
-    purchase_id: Mapped[int] = mapped_column(ForeignKey("purchase.id"), nullable=False)
+    purchase_id: Mapped[int] = mapped_column(
+        ForeignKey("purchase.id"), nullable=False, index=True
+    )
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
     completion_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -26,18 +28,6 @@ class Stage(Base):
     # Relationships
     stage_type: Mapped["StageType"] = relationship("StageType", back_populates="stages")
     purchase: Mapped["Purchase"] = relationship("Purchase", back_populates="stages")
-
-    # Performance indexes
-    __table_args__ = (
-        Index(
-            "idx_stage_incomplete_priority",
-            "purchase_id",
-            "completion_date",
-            "priority",
-            "stage_type_id",
-            postgresql_where=text("completion_date IS NULL"),
-        ),
-    )
 
     def __repr__(self) -> str:
         return f"<Stage(id={self.id}, priority={self.priority}, completed={self.completion_date is not None})>"
