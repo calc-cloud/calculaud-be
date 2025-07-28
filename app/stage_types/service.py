@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.pagination import PaginationParams, paginate_select
 from app.stage_types.exceptions import StageTypeAlreadyExists, StageTypeNotFound
@@ -9,11 +9,7 @@ from app.stage_types.schemas import StageTypeCreate, StageTypeUpdate
 
 def get_stage_type(db: Session, stage_type_id: int) -> StageType | None:
     """Get a single stage type by ID."""
-    stmt = (
-        select(StageType)
-        .options(joinedload(StageType.responsible_authority))
-        .where(StageType.id == stage_type_id)
-    )
+    stmt = select(StageType).where(StageType.id == stage_type_id)
     return db.execute(stmt).scalars().first()
 
 
@@ -31,7 +27,7 @@ def get_stage_types(
     Returns:
         Tuple of (stage_types list, total count)
     """
-    stmt = select(StageType).options(joinedload(StageType.responsible_authority))
+    stmt = select(StageType)
 
     # Apply search filter if provided
     if search:

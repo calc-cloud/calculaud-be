@@ -3,7 +3,7 @@ from typing import Sequence
 from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app import FileAttachment, Purchase, Stage, StageType
+from app import FileAttachment, Purchase, Stage
 from app.pagination import paginate_select
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
@@ -30,8 +30,7 @@ def get_base_purpose_select():
         .joinedload(Service.service_type),
         joinedload(Purpose.purchases)
         .joinedload(Purchase.stages)
-        .joinedload(Stage.stage_type)
-        .joinedload(StageType.responsible_authority),
+        .joinedload(Stage.stage_type),
         joinedload(Purpose.purchases).joinedload(Purchase.costs),
     )
 

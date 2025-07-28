@@ -29,7 +29,7 @@ class StageType(Base):
 
     # Relationships
     responsible_authority: Mapped["ResponsibleAuthority | None"] = relationship(
-        "ResponsibleAuthority", back_populates="stage_types"
+        "ResponsibleAuthority", back_populates="stage_types", lazy="joined"
     )
     stages: Mapped[list["Stage"]] = relationship("Stage", back_populates="stage_type")
     predefined_flow_stages: Mapped[list["PredefinedFlowStage"]] = relationship(
