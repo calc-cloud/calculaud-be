@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app import Stage, StageType
+from app import ResponsibleAuthority, Stage, StageType
 from app.config import settings
 
 
@@ -20,26 +20,42 @@ class TestPendingAuthority:
         sample_purpose,
         sample_purchase,
     ):
+        # Create responsible authorities first
+        authority_finance = ResponsibleAuthority(
+            name="Finance Department", description="Finance team"
+        )
+        authority_legal = ResponsibleAuthority(
+            name="Legal Department", description="Legal team"
+        )
+        authority_procurement = ResponsibleAuthority(
+            name="Procurement Department", description="Procurement team"
+        )
+
+        db_session.add(authority_finance)
+        db_session.add(authority_legal)
+        db_session.add(authority_procurement)
+        db_session.flush()
+
         # Create stage types with responsible authorities
         stage_type_finance = StageType(
             name="finance_approval",
             display_name="Finance Approval",
             description="Finance team approval",
-            responsible_authority="Finance Department",
+            responsible_authority_id=authority_finance.id,
             value_required=False,
         )
         stage_type_legal = StageType(
             name="legal_review",
             display_name="Legal Review",
             description="Legal team review",
-            responsible_authority="Legal Department",
+            responsible_authority_id=authority_legal.id,
             value_required=False,
         )
         stage_type_procurement = StageType(
             name="procurement",
             display_name="Procurement",
             description="Procurement process",
-            responsible_authority="Procurement Department",
+            responsible_authority_id=authority_procurement.id,
             value_required=False,
         )
 
@@ -84,6 +100,11 @@ class TestPendingAuthority:
         return {
             "purpose": sample_purpose,
             "purchase": sample_purchase,
+            "authorities": {
+                "finance": authority_finance,
+                "legal": authority_legal,
+                "procurement": authority_procurement,
+            },
             "stage_types": {
                 "finance": stage_type_finance,
                 "legal": stage_type_legal,
@@ -107,7 +128,7 @@ class TestPendingAuthority:
         assert response.status_code == 200
 
         purpose_data = response.json()
-        assert purpose_data["pending_authority"] == "Finance Department"
+        assert purpose_data["pending_authority"]["name"] == "Finance Department"
 
     def test_purposes_list_with_pending_authority(
         self, test_client: TestClient, setup_pending_authority_data
@@ -127,14 +148,15 @@ class TestPendingAuthority:
                 break
 
         assert test_purpose is not None
-        assert test_purpose["pending_authority"] == "Finance Department"
+        assert test_purpose["pending_authority"]["name"] == "Finance Department"
 
     def test_filter_by_pending_authority_single(
         self, test_client: TestClient, setup_pending_authority_data
     ):
         """Test filtering by single pending authority."""
+        finance_authority_id = setup_pending_authority_data["authorities"]["finance"].id
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?pending_authority=Finance Department"
+            f"{settings.api_v1_prefix}/purposes?pending_authority={finance_authority_id}"
         )
         assert response.status_code == 200
 
@@ -144,14 +166,18 @@ class TestPendingAuthority:
         # All returned purposes should have Finance Department as pending authority
         for purpose in data["items"]:
             if purpose["pending_authority"] is not None:
-                assert purpose["pending_authority"] == "Finance Department"
+                assert purpose["pending_authority"]["name"] == "Finance Department"
 
     def test_filter_by_pending_authority_multiple(
         self, test_client: TestClient, setup_pending_authority_data
     ):
         """Test filtering by multiple pending authorities."""
+        finance_authority_id = setup_pending_authority_data["authorities"]["finance"].id
+        legal_authority_id = setup_pending_authority_data["authorities"]["legal"].id
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?pending_authority=Finance Department&pending_authority=Legal Department"
+            f"{settings.api_v1_prefix}/purposes?"
+            f"pending_authority={finance_authority_id}&"
+            f"pending_authority={legal_authority_id}"
         )
         assert response.status_code == 200
 
@@ -165,7 +191,7 @@ class TestPendingAuthority:
     ):
         """Test filtering by non-existent pending authority returns empty."""
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?pending_authority=Nonexistent Department"
+            f"{settings.api_v1_prefix}/purposes?pending_authority=99999"
         )
         assert response.status_code == 200
 
@@ -193,7 +219,7 @@ class TestPendingAuthority:
         assert response.status_code == 200
 
         purpose_data = response.json()
-        assert purpose_data["pending_authority"] == "Legal Department"
+        assert purpose_data["pending_authority"]["name"] == "Legal Department"
 
     def test_pending_authority_all_stages_completed(
         self,
@@ -237,17 +263,29 @@ class TestPendingAuthority:
     ):
         """Test deterministic selection when multiple stages at same priority."""
 
+        # Create responsible authorities first
+        authority_a = ResponsibleAuthority(
+            name="Department A", description="Department A"
+        )
+        authority_b = ResponsibleAuthority(
+            name="Department B", description="Department B"
+        )
+
+        db_session.add(authority_a)
+        db_session.add(authority_b)
+        db_session.flush()
+
         # Create two stage types with different responsible authorities
         stage_type_a = StageType(
             name="approval_a",
             display_name="Approval A",
-            responsible_authority="Department A",
+            responsible_authority_id=authority_a.id,
             value_required=False,
         )
         stage_type_b = StageType(
             name="approval_b",
             display_name="Approval B",
-            responsible_authority="Department B",
+            responsible_authority_id=authority_b.id,
             value_required=False,
         )
 
@@ -283,7 +321,7 @@ class TestPendingAuthority:
 
         purpose_data = response.json()
         pending_authority = purpose_data["pending_authority"]
-        assert pending_authority in ["Department A", "Department B"]
+        assert pending_authority["name"] in ["Department A", "Department B"]
 
         # Call multiple times to ensure consistency
         for _ in range(3):
@@ -291,7 +329,10 @@ class TestPendingAuthority:
                 f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}"
             )
             assert response.status_code == 200
-            assert response.json()["pending_authority"] == pending_authority
+            assert (
+                response.json()["pending_authority"]["name"]
+                == pending_authority["name"]
+            )
 
     def test_pending_authority_null_responsible_authority_ignored(
         self,
@@ -302,11 +343,19 @@ class TestPendingAuthority:
     ):
         """Test that stages with null responsible_authority are ignored."""
 
+        # Create responsible authority for valid stage type
+        authority_valid = ResponsibleAuthority(
+            name="Valid Department", description="Valid department"
+        )
+
+        db_session.add(authority_valid)
+        db_session.flush()
+
         # Create stage type with null responsible authority
         stage_type_null = StageType(
             name="null_authority",
             display_name="Null Authority",
-            responsible_authority=None,
+            responsible_authority_id=None,
             value_required=False,
         )
 
@@ -314,7 +363,7 @@ class TestPendingAuthority:
         stage_type_valid = StageType(
             name="valid_authority",
             display_name="Valid Authority",
-            responsible_authority="Valid Department",
+            responsible_authority_id=authority_valid.id,
             value_required=False,
         )
 
@@ -349,4 +398,4 @@ class TestPendingAuthority:
         assert response.status_code == 200
 
         purpose_data = response.json()
-        assert purpose_data["pending_authority"] == "Valid Department"
+        assert purpose_data["pending_authority"]["name"] == "Valid Department"

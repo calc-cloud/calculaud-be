@@ -9,6 +9,7 @@ from app.files.schemas import FileAttachmentResponse
 from app.hierarchies.schemas import Hierarchy
 from app.pagination import PaginationParams
 from app.purchases.schemas import PurchaseResponse
+from app.responsible_authorities.schemas import ResponsibleAuthorityResponse
 
 
 class PurposeContentBase(BaseModel):
@@ -67,7 +68,7 @@ class Purpose(PurposeBase):
     supplier: str | None = None
     service_type: str | None = None
     hierarchy: Hierarchy | None = None
-    pending_authority: Annotated[str | None, Field(default=None)]
+    pending_authority: ResponsibleAuthorityResponse | None = None
 
     file_attachments: Annotated[
         list[FileAttachmentResponse], Field(default_factory=list)
@@ -120,10 +121,10 @@ class FilterParams(BaseModel):
         Query(default=None, description="Filter by supplier IDs", alias="supplier_id"),
     ]
     pending_authorities: Annotated[
-        list[str] | None,
+        list[int] | None,
         Query(
             default=None,
-            description="Filter by pending authority responsible for next stage",
+            description="Filter by pending authority responsible for next stage (authority IDs)",
             alias="pending_authority",
         ),
     ]

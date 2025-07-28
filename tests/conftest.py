@@ -26,6 +26,7 @@ pytest_plugins = [
     "tests.predefined_flows.fixtures",
     "tests.purchases.fixtures",
     "tests.purposes.fixtures",
+    "tests.responsible_authorities.fixtures",
     "tests.services.fixtures",
     "tests.service_types.fixtures",
     "tests.stage_types.fixtures",
