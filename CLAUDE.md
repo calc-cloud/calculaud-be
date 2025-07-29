@@ -341,4 +341,4 @@ class TestResourceAPI(BaseAPITestClass):
 
 Models requiring event listeners: Cost, Stage, Purchase, and any new models with purpose relationships.
 
-**Pattern**: Reference `app/costs/models.py:32-46` for implementation. Use `@event.listens_for()` with `after_insert`, `after_update`, `after_delete` to call `update_purpose_last_modified()`.
+**Pattern**: Reference `app/costs/models.py` for implementation. Use `@event.listens_for()` with `after_insert`, `after_update`, `after_delete` to call `update_purpose_last_modified()`.

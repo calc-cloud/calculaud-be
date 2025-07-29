@@ -90,7 +90,7 @@ def _update_purpose_on_model_change(_mapper, connection, target):
     # Implementation to get purpose_id and call update_purpose_last_modified
 ```
 
-**Reference Implementation:** `app/costs/models.py:32-46`
+**Reference Implementation:** `app/costs/models.py`
 
 **Requirements:**
 - Place event listeners at bottom of model files after all class definitions
