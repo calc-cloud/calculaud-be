@@ -14,7 +14,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from app.database import Base
 
@@ -25,14 +25,6 @@ if TYPE_CHECKING:
     from app.service_types.models import ServiceType
     from app.services.models import Service
     from app.suppliers.models import Supplier
-
-
-def update_purpose_last_modified(connection, purpose_id: int) -> None:
-    """Update the last_modified timestamp for a Purpose."""
-    connection.execute(
-        text("UPDATE purpose SET last_modified = :now WHERE id = :purpose_id"),
-        {"now": datetime.now(), "purpose_id": purpose_id},
-    )
 
 
 class StatusEnum(PyEnum):
@@ -169,6 +161,29 @@ class PurposeContent(Base):
     __table_args__ = (
         UniqueConstraint("purpose_id", "service_id", name="uq_purpose_service"),
     )
+
+
+def update_purpose_last_modified(connection, purpose_id: int) -> None:
+    """Update the last_modified timestamp for a Purpose."""
+    connection.execute(
+        text("UPDATE purpose SET last_modified = :now WHERE id = :purpose_id"),
+        {"now": datetime.now(), "purpose_id": purpose_id},
+    )
+
+
+# Event listeners for Purpose relationships
+@event.listens_for(Purpose.file_attachments, "append")
+@event.listens_for(Purpose.file_attachments, "remove")
+@event.listens_for(Purpose.contents, "append")
+@event.listens_for(Purpose.contents, "remove")
+@event.listens_for(Purpose.purchases, "append")
+@event.listens_for(Purpose.purchases, "remove")
+def _update_purpose_on_relationship_change(target, value, initiator):
+    """Update Purpose.last_modified when relationships are modified."""
+    session = object_session(target)
+    if session:
+        connection = session.connection()
+        update_purpose_last_modified(connection, target.id)
 
 
 # Event listeners for PurposeContent

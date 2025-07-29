@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, event, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -40,14 +40,3 @@ class FileAttachment(Base):
     purposes: Mapped[list["Purpose"]] = relationship(
         "Purpose", secondary=purpose_file_attachment, back_populates="file_attachments"
     )
-
-
-# Event listeners for purpose_file_attachment association table
-@event.listens_for(purpose_file_attachment, "after_insert")
-@event.listens_for(purpose_file_attachment, "after_delete")
-def _update_purpose_on_file_attachment_change(_mapper, connection, target) -> None:
-    """Update Purpose.last_modified when file attachments are added/removed."""
-    if hasattr(target, "purpose_id") and target.purpose_id:
-        from app.purposes.models import update_purpose_last_modified
-
-        update_purpose_last_modified(connection, target.purpose_id)
