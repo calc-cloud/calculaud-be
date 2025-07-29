@@ -156,7 +156,7 @@ class TestPendingAuthority:
         """Test filtering by single pending authority."""
         finance_authority_id = setup_pending_authority_data["authorities"]["finance"].id
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?pending_authority={finance_authority_id}"
+            f"{settings.api_v1_prefix}/purposes?pending_authority_id={finance_authority_id}"
         )
         assert response.status_code == 200
 
@@ -176,8 +176,8 @@ class TestPendingAuthority:
         legal_authority_id = setup_pending_authority_data["authorities"]["legal"].id
         response = test_client.get(
             f"{settings.api_v1_prefix}/purposes?"
-            f"pending_authority={finance_authority_id}&"
-            f"pending_authority={legal_authority_id}"
+            f"pending_authority_id={finance_authority_id}&"
+            f"pending_authority_id={legal_authority_id}"
         )
         assert response.status_code == 200
 
@@ -191,7 +191,7 @@ class TestPendingAuthority:
     ):
         """Test filtering by non-existent pending authority returns empty."""
         response = test_client.get(
-            f"{settings.api_v1_prefix}/purposes?pending_authority=99999"
+            f"{settings.api_v1_prefix}/purposes?pending_authority_id=99999"
         )
         assert response.status_code == 200
 
