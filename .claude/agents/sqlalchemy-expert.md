@@ -73,11 +73,37 @@ return db.query(User).filter(User.id == user_id).first()
 - `_at` suffix for datetime fields, `_date` for date fields
 - `String(255)` for name fields, `Text` for longer content
 
+## Event Listeners for Purpose Updates
+
+**CRITICAL**: Models that relate to Purpose (Cost, Stage, Purchase, and any new models with purpose relationships) MUST include event listeners to update Purpose.last_modified timestamps.
+
+**Required Pattern:**
+```python
+from sqlalchemy import event
+
+# At bottom of model file after class definitions
+@event.listens_for(ModelName, "after_insert")
+@event.listens_for(ModelName, "after_update") 
+@event.listens_for(ModelName, "after_delete")
+def _update_purpose_on_model_change(_mapper, connection, target):
+    """Update Purpose.last_modified when ModelName changes."""
+    # Implementation to get purpose_id and call update_purpose_last_modified
+```
+
+**Reference Implementation:** `app/costs/models.py:32-46`
+
+**Requirements:**
+- Place event listeners at bottom of model files after all class definitions
+- Use all three events: after_insert, after_update, after_delete
+- Call `update_purpose_last_modified(connection, purpose_id)` function
+- Handle cases where purpose relationship may not exist
+
 ## Key Rules
 - NEVER use legacy `db.query()` - always use `select()` statements
 - NEVER use old typing imports - use modern syntax only
 - ALWAYS use `mapped_column` with proper `Mapped` types
 - ALWAYS handle relationships with proper lazy loading configuration
 - ALWAYS consider cascade deletion implications
+- ALWAYS add event listeners for Purpose-related models
 
 When reviewing or writing SQLAlchemy code, enforce these patterns strictly and suggest optimizations for complex queries involving the Purpose/Purchase/Stage/Cost entity relationships.
