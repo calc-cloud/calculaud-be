@@ -64,23 +64,82 @@ pytest tests/suppliers/test_suppliers_api.py::TestSuppliersApi::test_create_reso
 
 ## Specialized Agents
 
-This project uses specialized agents for domain-specific tasks:
-
 - **Code Quality Enforcer**: Handles all code quality, formatting, and modern Python syntax enforcement
 - **SQLAlchemy Expert**: Manages all database ORM patterns, queries, and relationships  
 - **Pytest Testing Expert**: Comprehensive test design, fixtures, and testing patterns
 - **Exception Handler Specialist**: Custom exception design and error handling patterns
 - **Database Migration Specialist**: Alembic migrations and schema management
 - **FastAPI Specialist**: API design, routing, and dependency injection patterns
-- **DevOps Specialist**: Docker, deployment, and infrastructure management
+- **DevOps Specialist**: Docker, deployment, and infrastructure managemen
 
-## Core Standards (Enforced by Agents)
+## Do Not Touch
 
-- Modern Python 3.10+ syntax only (`str | None`, not `Optional[str]`)
-- SQLAlchemy v2 patterns exclusively (`select()`, not `db.query()`)
-- Mandatory code quality workflow: `isort → black → flake8`
-- Custom exceptions for all error handling
-- Comprehensive test coverage with domain-based organization
+- Never use legacy SQLAlchemy `db.query()` - use `select()` statements only
+- Never import old typing (`List`, `Dict`, `Optional`, `Union`) - use modern syntax
+- Never skip the code quality workflow (isort → black → flake8)
+- Never commit without running tests
+- Never use generic exceptions - always create custom exceptions
+- Never inherit from existing test classes that already test the same functionality - this causes duplicate test execution
+
+## Code Standards
+
+### Must Use Modern Syntax
+
+**Python Typing (3.10+):**
+
+```python
+# ✅ Use
+list[str]  # not List[str]  
+dict[str, int]  # not Dict[str, int]
+str | None  # not Optional[str]
+
+# ✅ Pydantic v2
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class User(BaseModel):
+    name: Annotated[str, Field(min_length=1)]
+    email: Annotated[str | None, Field(default=None)]
+    
+    model_config = ConfigDict(from_attributes=True)
+```
+
+**SQLAlchemy v2:**
+
+```python
+# ✅ Use
+from sqlalchemy import select
+from sqlalchemy.orm import Mapped, mapped_column
+
+
+# Model definition with Mapped types
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+def get_user(db: Session, user_id: int) -> User | None:
+    stmt = select(User).where(User.id == user_id)
+    return db.execute(stmt).scalars().first()
+
+
+# ❌ Never use
+return db.query(User).filter(User.id == user_id).first()
+```
+
+### Code Quality Workflow
+
+**REQUIRED before every commit:**
+
+1. `isort .` - Sort imports
+2. `black .` - Format code
+3. `flake8 .` - Lint code
+
+All three must pass without errors.
 
 ## Data Model
 
@@ -150,6 +209,56 @@ from .purposes.models import Purpose, StatusEnum  # noqa: F401
 # ... import all other models
 ```
 
+## Custom Exceptions Pattern
+
+```python
+# exceptions.py
+class ModuleException(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+
+class ResourceNotFound(ModuleException):
+    def __init__(self, resource_id: int):
+        self.message = f"Resource with ID {resource_id} not found"
+        super().__init__(self.message)
+
+
+# service.py  
+def get_resource(db: Session, resource_id: int):
+    resource = db.execute(select(Resource).where(Resource.id == resource_id)).scalar_one_or_none()
+    if not resource:
+        raise ResourceNotFound(resource_id)
+    return resource
+
+
+# router.py
+@router.get("/{resource_id}")
+def get_resource(resource_id: int, db: Session = Depends(get_db)):
+    try:
+        return service.get_resource(db, resource_id)
+    except ResourceNotFound as e:
+        raise HTTPException(status_code=404, detail=e.message)
+```
+
+## Database Guidelines
+
+**Naming Conventions:**
+
+- `lower_case_snake` for all names
+- Singular table names (`user`, not `users`)
+- `_at` suffix for datetime fields
+- `_date` suffix for date fields
+- **String field lengths**: Always use `String(255)` for name fields, `Text` for longer content
+
+**Query Rules:**
+
+1. Always use `select()` statements, never `db.query()`
+2. Use `.where()` instead of `.filter()`
+3. Use `db.execute(stmt).scalars().first/all()`
+4. Use `paginate_select()` for pagination
+5. Use `.unique()` with `joinedload`
 
 ## Git Workflow
 
@@ -197,3 +306,39 @@ git branch -d feature/your-feature-name
 - **snake_case** for variables/functions, **PascalCase** for classes
 - Line length: 120 characters
 
+## Testing Guidelines
+
+### Structure
+
+- **Domain-based organization**: Each domain has `tests/domain_name/fixtures.py` for fixtures and `test_*.py` for tests
+- **Fixture registration**: Global `conftest.py` uses `pytest_plugins` to register domain fixtures
+- **Base test classes**: Inherit from `BaseAPITestClass` in `tests/base.py` for standard CRUD/pagination/search tests
+- **Test utilities**: Use helpers from `tests/utils.py` for consistent assertions
+
+### Test Class Pattern
+
+```python
+class TestResourceAPI(BaseAPITestClass):
+    resource_name = "resources"
+    resource_endpoint = f"{settings.api_v1_prefix}/resources"
+    create_data_fixture = "sample_resource_data"
+    instance_fixture = "sample_resource"
+
+    # Configure other fixture names as needed
+
+    def _get_update_data(self) -> dict:
+        return {"name": "Updated Name"}
+
+    # Add only resource-specific tests here
+    # CRUD/pagination/search inherited automatically
+```
+
+**Reference**: See `tests/suppliers/test_suppliers_api.py` for complete example pattern.
+
+## Event Listeners for Purpose Updates
+
+**Required**: Add event listeners to models that relate to Purpose to update `last_modified` timestamps.
+
+Models requiring event listeners: Cost, Stage, Purchase, and any new models with purpose relationships.
+
+**Pattern**: Reference `app/costs/models.py:32-46` for implementation. Use `@event.listens_for()` with `after_insert`, `after_update`, `after_delete` to call `update_purpose_last_modified()`.

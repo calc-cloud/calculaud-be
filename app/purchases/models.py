@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import DateTime, ForeignKey, event, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -63,3 +63,15 @@ class Purchase(Base):
 
     def __repr__(self) -> str:
         return f"<Purchase(id={self.id}, purpose_id={self.purpose_id}, stages={len(self.stages)})>"
+
+
+# Event listeners for Purchase
+@event.listens_for(Purchase, "after_insert")
+@event.listens_for(Purchase, "after_update")
+@event.listens_for(Purchase, "after_delete")
+def _update_purpose_on_purchase_change(_mapper, connection, target: Purchase) -> None:
+    """Update Purpose.last_modified when Purchase changes."""
+    if hasattr(target, "purpose_id") and target.purpose_id:
+        from app.purposes.models import update_purpose_last_modified
+
+        update_purpose_last_modified(connection, target.purpose_id)

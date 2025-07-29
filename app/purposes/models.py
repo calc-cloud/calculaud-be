@@ -10,7 +10,9 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    event,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +25,14 @@ if TYPE_CHECKING:
     from app.service_types.models import ServiceType
     from app.services.models import Service
     from app.suppliers.models import Supplier
+
+
+def update_purpose_last_modified(connection, purpose_id: int) -> None:
+    """Update the last_modified timestamp for a Purpose."""
+    connection.execute(
+        text("UPDATE purpose SET last_modified = :now WHERE id = :purpose_id"),
+        {"now": datetime.now(), "purpose_id": purpose_id},
+    )
 
 
 class StatusEnum(PyEnum):
@@ -159,3 +169,15 @@ class PurposeContent(Base):
     __table_args__ = (
         UniqueConstraint("purpose_id", "service_id", name="uq_purpose_service"),
     )
+
+
+# Event listeners for PurposeContent
+@event.listens_for(PurposeContent, "after_insert")
+@event.listens_for(PurposeContent, "after_update")
+@event.listens_for(PurposeContent, "after_delete")
+def _update_purpose_on_content_change(
+    _mapper, connection, target: PurposeContent
+) -> None:
+    """Update Purpose.last_modified when PurposeContent changes."""
+    if hasattr(target, "purpose_id") and target.purpose_id:
+        update_purpose_last_modified(connection, target.purpose_id)
