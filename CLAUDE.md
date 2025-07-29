@@ -62,6 +62,16 @@ pytest -k "test_name"        # Pattern matching
 pytest tests/suppliers/test_suppliers_api.py::TestSuppliersApi::test_create_resource  # Specific test
 ```
 
+## Specialized Agents
+
+- **Code Quality Enforcer**: Handles all code quality, formatting, and modern Python syntax enforcement
+- **SQLAlchemy Expert**: Manages all database ORM patterns, queries, and relationships  
+- **Pytest Testing Expert**: Comprehensive test design, fixtures, and testing patterns
+- **Exception Handler Specialist**: Custom exception design and error handling patterns
+- **Database Migration Specialist**: Alembic migrations and schema management
+- **FastAPI Specialist**: API design, routing, and dependency injection patterns
+- **DevOps Specialist**: Docker, deployment, and infrastructure managemen
+
 ## Do Not Touch
 
 - Never use legacy SQLAlchemy `db.query()` - use `select()` statements only
@@ -324,3 +334,11 @@ class TestResourceAPI(BaseAPITestClass):
 ```
 
 **Reference**: See `tests/suppliers/test_suppliers_api.py` for complete example pattern.
+
+## Event Listeners for Purpose Updates
+
+**Required**: Add event listeners to models that relate to Purpose to update `last_modified` timestamps.
+
+Models requiring event listeners: Cost, Stage, Purchase, FileAttachment, and any new models with purpose relationships.
+
+**Pattern**: Reference `app/costs/models.py` for implementation. Use `@event.listens_for()` with `after_insert`, `after_update`, `after_delete` to call `update_purpose_last_modified()`.

@@ -125,7 +125,7 @@ class FilterParams(BaseModel):
         Query(
             default=None,
             description="Filter by pending authority responsible for next stage (authority IDs)",
-            alias="pending_authority",
+            alias="pending_authority_id",
         ),
     ]
 

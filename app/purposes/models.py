@@ -10,9 +10,11 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    event,
     func,
+    text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from app.database import Base
 
@@ -159,3 +161,38 @@ class PurposeContent(Base):
     __table_args__ = (
         UniqueConstraint("purpose_id", "service_id", name="uq_purpose_service"),
     )
+
+
+def update_purpose_last_modified(connection, purpose_id: int) -> None:
+    """Update the last_modified timestamp for a Purpose."""
+    connection.execute(
+        text("UPDATE purpose SET last_modified = :now WHERE id = :purpose_id"),
+        {"now": datetime.now(), "purpose_id": purpose_id},
+    )
+
+
+# Event listeners for Purpose relationships
+@event.listens_for(Purpose.file_attachments, "append")
+@event.listens_for(Purpose.file_attachments, "remove")
+@event.listens_for(Purpose.contents, "append")
+@event.listens_for(Purpose.contents, "remove")
+@event.listens_for(Purpose.purchases, "append")
+@event.listens_for(Purpose.purchases, "remove")
+def _update_purpose_on_relationship_change(target, value, initiator):
+    """Update Purpose.last_modified when relationships are modified."""
+    session = object_session(target)
+    if session:
+        connection = session.connection()
+        update_purpose_last_modified(connection, target.id)
+
+
+# Event listeners for PurposeContent
+@event.listens_for(PurposeContent, "after_insert")
+@event.listens_for(PurposeContent, "after_update")
+@event.listens_for(PurposeContent, "after_delete")
+def _update_purpose_on_content_change(
+    _mapper, connection, target: PurposeContent
+) -> None:
+    """Update Purpose.last_modified when PurposeContent changes."""
+    if hasattr(target, "purpose_id") and target.purpose_id:
+        update_purpose_last_modified(connection, target.purpose_id)

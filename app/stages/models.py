@@ -1,7 +1,7 @@
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, ForeignKey, Integer, Text
+from sqlalchemy import Date, ForeignKey, Integer, Text, event, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -31,3 +31,21 @@ class Stage(Base):
 
     def __repr__(self) -> str:
         return f"<Stage(id={self.id}, priority={self.priority}, completed={self.completion_date is not None})>"
+
+
+# Event listeners for Stage
+@event.listens_for(Stage, "after_insert")
+@event.listens_for(Stage, "after_update")
+@event.listens_for(Stage, "after_delete")
+def _update_purpose_on_stage_change(_mapper, connection, target: Stage) -> None:
+    """Update Purpose.last_modified when Stage changes."""
+    if hasattr(target, "purchase_id") and target.purchase_id:
+        # Query for purpose_id through purchase
+        result = connection.execute(
+            text("SELECT purpose_id FROM purchase WHERE id = :purchase_id"),
+            {"purchase_id": target.purchase_id},
+        ).fetchone()
+        if result and result[0]:
+            from app.purposes.models import update_purpose_last_modified
+
+            update_purpose_last_modified(connection, result[0])
