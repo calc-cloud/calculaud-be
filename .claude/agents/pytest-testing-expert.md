@@ -89,8 +89,6 @@ pytest -k "test_create"
 # Run specific test method
 pytest tests/suppliers/test_suppliers_api.py::TestSuppliersApi::test_create_resource
 
-# Docker-based testing (recommended)
-docker run --rm -v $(pwd):/app -w /app calculaud-be python -m pytest
 ```
 
 ## Fixture Design Principles
