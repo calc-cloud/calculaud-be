@@ -75,7 +75,7 @@ return db.query(User).filter(User.id == user_id).first()
 
 ## Event Listeners for Purpose Updates
 
-**CRITICAL**: Models that relate to Purpose (Cost, Stage, Purchase, and any new models with purpose relationships) MUST include event listeners to update Purpose.last_modified timestamps.
+**CRITICAL**: Models that relate to Purpose (Cost, Stage, Purchase, FileAttachment, and any new models with purpose relationships) MUST include event listeners to update Purpose.last_modified timestamps.
 
 **Required Pattern:**
 ```python

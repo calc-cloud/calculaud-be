@@ -339,6 +339,6 @@ class TestResourceAPI(BaseAPITestClass):
 
 **Required**: Add event listeners to models that relate to Purpose to update `last_modified` timestamps.
 
-Models requiring event listeners: Cost, Stage, Purchase, and any new models with purpose relationships.
+Models requiring event listeners: Cost, Stage, Purchase, FileAttachment, and any new models with purpose relationships.
 
 **Pattern**: Reference `app/costs/models.py` for implementation. Use `@event.listens_for()` with `after_insert`, `after_update`, `after_delete` to call `update_purpose_last_modified()`.
