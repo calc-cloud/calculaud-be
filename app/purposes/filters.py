@@ -1,35 +1,11 @@
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, and_, func
 from sqlalchemy.orm import Session
 
-from app import Purchase, Stage
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.hierarchies.models import Hierarchy
 from app.purposes.models import Purpose, PurposeContent
+from app.purposes.pending_authority_utils import get_pending_authority_id_query
 from app.purposes.schemas import FilterParams
-from app.responsible_authorities.models import ResponsibleAuthority
-from app.stage_types.models import StageType
-
-
-def _get_pending_authority_for_purpose(purpose_id):
-    """Get the pending authority for a specific purpose."""
-    return (
-        select(ResponsibleAuthority.id)
-        .select_from(Purchase)
-        .join(Stage, Purchase.id == Stage.purchase_id)
-        .join(StageType, Stage.stage_type_id == StageType.id)
-        .join(
-            ResponsibleAuthority,
-            StageType.responsible_authority_id == ResponsibleAuthority.id,
-        )
-        .where(
-            Purchase.purpose_id == purpose_id,
-            Stage.completion_date.is_(None),
-            StageType.responsible_authority_id.is_not(None),
-        )
-        .order_by(Stage.priority.asc(), StageType.id.asc())
-        .limit(1)
-        .scalar_subquery()
-    )
 
 
 def apply_filters(
@@ -77,8 +53,9 @@ def apply_filters(
         conditions.append(PurposeContent.service_id.in_(filters.service_ids))
 
     # Pending authority filter - using correlated subquery
+    # NOTE: Must use the same logic as Purpose.pending_authority property
     if filters.pending_authorities:
-        pending_authority_subq = _get_pending_authority_for_purpose(Purpose.id)
+        pending_authority_subq = get_pending_authority_id_query(Purpose.id)
         conditions.append(pending_authority_subq.in_(filters.pending_authorities))
 
     # Apply all conditions

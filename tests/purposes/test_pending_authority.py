@@ -227,7 +227,7 @@ class TestPendingAuthority:
         test_client: TestClient,
         setup_pending_authority_data,
     ):
-        """Test that completing all stages results in null pending authority."""
+        """Test that completing all stages returns highest priority completed stage."""
         from datetime import date
 
         # Complete all stages
@@ -237,12 +237,12 @@ class TestPendingAuthority:
 
         purpose_id = setup_pending_authority_data["purpose"].id
 
-        # Get purpose - should now show null pending authority
+        # Get purpose - should now show Procurement Department (lowest priority completed stage)
         response = test_client.get(f"{settings.api_v1_prefix}/purposes/{purpose_id}")
         assert response.status_code == 200
 
         purpose_data = response.json()
-        assert purpose_data["pending_authority"] is None
+        assert purpose_data["pending_authority"]["name"] == "Procurement Department"
 
     def test_pending_authority_no_stages(self, test_client: TestClient, sample_purpose):
         """Test that purpose with no stages has null pending authority."""
@@ -399,3 +399,84 @@ class TestPendingAuthority:
 
         purpose_data = response.json()
         assert purpose_data["pending_authority"]["name"] == "Valid Department"
+
+    def test_pending_authority_mixed_completion_status(
+        self,
+        db_session: Session,
+        test_client: TestClient,
+        sample_purpose,
+        sample_purchase,
+    ):
+        """Test pending authority logic: incomplete stages prioritized, completed as fallback."""
+
+        # Create responsible authorities
+        authority_high = ResponsibleAuthority(
+            name="High Priority Dept", description="High priority department"
+        )
+        authority_low = ResponsibleAuthority(
+            name="Low Priority Dept", description="Low priority department"
+        )
+
+        db_session.add(authority_high)
+        db_session.add(authority_low)
+        db_session.flush()
+
+        # Create stage types
+        stage_type_high = StageType(
+            name="high_priority",
+            display_name="High Priority",
+            responsible_authority_id=authority_high.id,
+            value_required=False,
+        )
+        stage_type_low = StageType(
+            name="low_priority",
+            display_name="Low Priority",
+            responsible_authority_id=authority_low.id,
+            value_required=False,
+        )
+
+        db_session.add(stage_type_high)
+        db_session.add(stage_type_low)
+        db_session.flush()
+
+        # Create stages: high priority completed, low priority incomplete
+        stage_high_completed = Stage(
+            stage_type_id=stage_type_high.id,
+            purchase_id=sample_purchase.id,
+            priority=1,  # Higher priority (lower number)
+            value=None,
+            completion_date=date.today(),  # COMPLETED
+        )
+        stage_low_incomplete = Stage(
+            stage_type_id=stage_type_low.id,
+            purchase_id=sample_purchase.id,
+            priority=2,  # Lower priority (higher number)
+            value=None,
+            completion_date=None,  # INCOMPLETE
+        )
+
+        db_session.add(stage_high_completed)
+        db_session.add(stage_low_incomplete)
+        db_session.commit()
+
+        # Get purpose - should prioritize incomplete stage despite lower priority
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}"
+        )
+        assert response.status_code == 200
+
+        purpose_data = response.json()
+        assert purpose_data["pending_authority"]["name"] == "Low Priority Dept"
+
+        # Now complete the low priority stage
+        stage_low_incomplete.completion_date = date.today()
+        db_session.commit()
+
+        # Get purpose again - should now fallback to lowest priority completed stage
+        response = test_client.get(
+            f"{settings.api_v1_prefix}/purposes/{sample_purpose.id}"
+        )
+        assert response.status_code == 200
+
+        purpose_data = response.json()
+        assert purpose_data["pending_authority"]["name"] == "Low Priority Dept"
