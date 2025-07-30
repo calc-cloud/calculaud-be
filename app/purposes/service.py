@@ -18,6 +18,7 @@ from app.purposes.schemas import (
     PurposeCreate,
     PurposeUpdate,
 )
+from app.purposes.sorting import build_days_since_last_completion_subquery
 from app.services.models import Service
 
 
@@ -127,11 +128,26 @@ def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose]
         stmt = stmt.where(search_filter)
 
     # Apply sorting
-    sort_column = getattr(Purpose, params.sort_by, Purpose.creation_time)
-    if params.sort_order == "desc":
-        stmt = stmt.order_by(desc(sort_column))
+    if params.sort_by == "days_since_last_completion":
+        # Special handling for days_since_last_completion sorting
+        days_subquery = build_days_since_last_completion_subquery()
+        stmt = stmt.outerjoin(days_subquery, Purpose.id == days_subquery.c.purpose_id)
+
+        if params.sort_order == "desc":
+            stmt = stmt.order_by(
+                desc(days_subquery.c.days_since_last_completion.nulls_last())
+            )
+        else:
+            stmt = stmt.order_by(
+                days_subquery.c.days_since_last_completion.nulls_last()
+            )
     else:
-        stmt = stmt.order_by(sort_column)
+        # Standard column sorting
+        sort_column = getattr(Purpose, params.sort_by, Purpose.creation_time)
+        if params.sort_order == "desc":
+            stmt = stmt.order_by(desc(sort_column))
+        else:
+            stmt = stmt.order_by(sort_column)
 
     # Apply pagination
     return paginate_select(db, stmt, params)
