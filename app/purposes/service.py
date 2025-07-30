@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from sqlalchemy import desc, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app import FileAttachment, Purchase, Stage
@@ -18,6 +18,7 @@ from app.purposes.schemas import (
     PurposeCreate,
     PurposeUpdate,
 )
+from app.purposes.sorting import apply_sorting
 from app.services.models import Service
 
 
@@ -127,11 +128,7 @@ def get_purposes(db: Session, params: GetPurposesRequest) -> tuple[list[Purpose]
         stmt = stmt.where(search_filter)
 
     # Apply sorting
-    sort_column = getattr(Purpose, params.sort_by, Purpose.creation_time)
-    if params.sort_order == "desc":
-        stmt = stmt.order_by(desc(sort_column))
-    else:
-        stmt = stmt.order_by(sort_column)
+    stmt = apply_sorting(stmt, params.sort_by, params.sort_order)
 
     # Apply pagination
     return paginate_select(db, stmt, params)

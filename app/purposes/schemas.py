@@ -139,7 +139,10 @@ class GetPurposesRequest(FilterParams, PaginationParams):
     ]
     sort_by: Annotated[
         str,
-        Field(default="creation_time", description="Sort by field"),
+        Field(
+            default="creation_time",
+            description="Sort by field (creation_time, last_modified, expected_delivery, days_since_last_completion)",
+        ),
     ]
     sort_order: Annotated[
         Literal["asc", "desc"],
