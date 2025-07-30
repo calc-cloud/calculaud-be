@@ -1,6 +1,6 @@
 """Sorting utilities for purposes."""
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import Date, case, desc, func, select
 
 from app import Purchase, Stage
 from app.purposes.models import Purpose
@@ -22,14 +22,17 @@ def apply_sorting(stmt, sort_by: str, sort_order: str):
         # Special handling for days_since_last_completion sorting
         days_subquery = build_days_since_last_completion_subquery()
         stmt = stmt.outerjoin(days_subquery, Purpose.id == days_subquery.c.purpose_id)
-        sort_column = days_subquery.c.days_since_last_completion.nulls_last()
+
+        if sort_order == "desc":
+            sort_column = desc(days_subquery.c.days_since_last_completion).nulls_last()
+        else:
+            sort_column = days_subquery.c.days_since_last_completion.nulls_last()
     else:
         # Standard column sorting
         sort_column = getattr(Purpose, sort_by, Purpose.creation_time)
 
-    # Apply ordering based on sort_order
-    if sort_order == "desc":
-        sort_column = desc(sort_column)
+        if sort_order == "desc":
+            sort_column = desc(sort_column)
 
     return stmt.order_by(sort_column)
 
@@ -68,14 +71,11 @@ def build_days_since_last_completion_subquery():
         select(
             Purchase.purpose_id,
             func.max(
-                func.case(
+                case(
                     (
                         pending_stages.c.min_incomplete_priority > 1,
-                        func.extract(
-                            "day",
-                            func.current_date()
-                            - completed_stages.c.max_completion_date,
-                        ),
+                        func.cast(func.current_date(), Date)
+                        - func.cast(completed_stages.c.max_completion_date, Date),
                     ),
                     else_=None,
                 )
