@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from app.files.models import FileAttachment
     from app.hierarchies.models import Hierarchy
     from app.purchases.models import Purchase
+    from app.responsible_authorities.models import ResponsibleAuthority
     from app.service_types.models import ServiceType
     from app.services.models import Service
     from app.suppliers.models import Supplier
@@ -95,34 +96,25 @@ class Purpose(Base):
         return self._service_type.name if self._service_type else None
 
     @property
-    def pending_authority(self) -> str | None:
+    def pending_authority(self) -> "ResponsibleAuthority | None":
         """
-        Return the responsible authority for the lowest priority incomplete stage.
+        Return the responsible authority for the highest priority incomplete stage.
 
-        This property computes the pending authority by finding the incomplete stage
-        with the lowest priority across all purchases for this purpose.
+        This property uses the same SQL logic as the filtering functions to ensure
+        consistency. It prioritizes incomplete stages first, then sorts by priority
+        ascending, with deterministic tie-breaking by stage_type.id.
+
+        NOTE: Must use the same logic as get_pending_authority_query() in
+        app.purposes.pending_authority_utils to maintain consistency.
         """
-        if not self.purchases:
+        from app.purposes.pending_authority_utils import get_pending_authority_object
+
+        # Get the session from the object to execute the query
+        session = object_session(self)
+        if not session:
             return None
 
-        # Find all incomplete stages across all purchases
-        incomplete_stages = []
-        for purchase in self.purchases:
-            for stage in purchase.stages:
-                if (
-                    stage.completion_date is None
-                    and hasattr(stage, "stage_type")
-                    and stage.stage_type
-                    and stage.stage_type.responsible_authority
-                ):
-                    incomplete_stages.append(stage)
-
-        if not incomplete_stages:
-            return None
-
-        # Sort by priority (ascending) and stage_type.id for deterministic ordering
-        incomplete_stages.sort(key=lambda s: (s.priority, s.stage_type.id))
-        return incomplete_stages[0].stage_type.responsible_authority
+        return get_pending_authority_object(session, self.id)
 
 
 class PurposeContent(Base):
