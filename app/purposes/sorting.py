@@ -1,8 +1,37 @@
 """Sorting utilities for purposes."""
 
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 
 from app import Purchase, Stage
+from app.purposes.models import Purpose
+
+
+def apply_sorting(stmt, sort_by: str, sort_order: str):
+    """
+    Apply sorting to the given statement based on sort_by and sort_order parameters.
+
+    Args:
+        stmt: SQLAlchemy Select statement
+        sort_by: Field to sort by
+        sort_order: "asc" or "desc"
+
+    Returns:
+        Modified Select statement with sorting applied
+    """
+    if sort_by == "days_since_last_completion":
+        # Special handling for days_since_last_completion sorting
+        days_subquery = build_days_since_last_completion_subquery()
+        stmt = stmt.outerjoin(days_subquery, Purpose.id == days_subquery.c.purpose_id)
+        sort_column = days_subquery.c.days_since_last_completion.nulls_last()
+    else:
+        # Standard column sorting
+        sort_column = getattr(Purpose, sort_by, Purpose.creation_time)
+
+    # Apply ordering based on sort_order
+    if sort_order == "desc":
+        sort_column = desc(sort_column)
+
+    return stmt.order_by(sort_column)
 
 
 def build_days_since_last_completion_subquery():
