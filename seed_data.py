@@ -663,6 +663,33 @@ def get_session():
     return SessionLocal()
 
 
+def fix_sequence_sync(session: Any) -> None:
+    """Fix sequence synchronization after inserting records with explicit IDs."""
+    try:
+        print("🔧 Synchronizing database sequences...")
+
+        # Fix hierarchy sequence
+        session.execute(
+            "SELECT setval('hierarchy_id_seq', (SELECT MAX(id) FROM hierarchy))"
+        )
+
+        # Fix stage_type sequence
+        session.execute(
+            "SELECT setval('stage_type_id_seq', (SELECT MAX(id) FROM stage_type))"
+        )
+
+        # Fix predefined_flow sequence
+        session.execute(
+            "SELECT setval('predefined_flow_id_seq', (SELECT MAX(id) FROM predefined_flow))"
+        )
+
+        print("   ✅ Database sequences synchronized")
+
+    except Exception as e:
+        print(f"   ⚠️  Warning: Could not sync sequences: {e}")
+        # Don't raise - this is not critical for SQLite or if sequences don't exist
+
+
 def seed_base_data():
     """Create only stage types and predefined flows (base data)."""
     session = get_session()
@@ -677,6 +704,9 @@ def seed_base_data():
         print("🔄 Creating predefined flows...")
         predefined_flow_ids = seed_predefined_flows(session)
         print(f"   Created {len(predefined_flow_ids)} predefined flows")
+
+        # Fix sequence synchronization after inserting with explicit IDs
+        fix_sequence_sync(session)
 
         session.commit()
         print("✅ Base data seeding completed successfully!")
@@ -773,6 +803,8 @@ def seed_mock_data(num_purposes: int = 100):
             print("   No existing hierarchies found, creating from backup data...")
             hierarchy_ids = seed_hierarchies_from_backup(session)
             print(f"   Created {len(hierarchy_ids)} hierarchies from backup")
+            # Fix hierarchy sequence after inserting with explicit IDs
+            fix_sequence_sync(session)
 
         print("🔧 Creating service types and services...")
         service_type_ids, services_by_type_id = seed_service_types_and_services(session)
