@@ -1,0 +1,9 @@
+# Namespace for the Calculaud Backend application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: calculaud
+  labels:
+    name: calculaud
+    app.kubernetes.io/name: calculaud-be
+    app.kubernetes.io/component: namespace

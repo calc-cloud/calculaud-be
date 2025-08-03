@@ -1,0 +1,19 @@
+# Service for Calculaud Backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: calculaud-be-service
+  namespace: calculaud
+  labels:
+    app.kubernetes.io/name: calculaud-be
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: calculaud-be
+    app.kubernetes.io/component: backend

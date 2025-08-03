@@ -1,0 +1,233 @@
+# Default values for calculaud-be
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Number of replicas
+replicaCount: 3
+
+# Image configuration
+image:
+  repository: calculaud/calculaud-be
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Existing secret name (if using external secret management)
+existingSecret: ""
+
+# Application configuration (non-sensitive)
+config:
+  appName: "Procurement Management System"
+  debug: false
+  version: ""  # Will use Chart.AppVersion if empty
+  environment: "production"
+  apiV1Prefix: "/api/v1"
+  defaultPageSize: 100
+  maxPageSize: 200
+  usdToIlsRate: 3.7
+  maxFileSizeMb: 1024
+
+# PostgreSQL configuration
+postgresql:
+  # Set to false to use external PostgreSQL
+  enabled: true
+  
+  # Internal PostgreSQL settings (when enabled=true)
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  
+  username: calculaud
+  password: "change-me-in-production"  # CHANGE THIS!
+  database: calculaud
+  port: 5432
+  
+  persistence:
+    enabled: true
+    storageClass: ""  # Use default storage class
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  # External PostgreSQL settings (when enabled=false)
+  external:
+    host: "postgresql.example.com"
+    port: 5432
+    username: "calculaud"
+    password: "your-external-password"
+    database: "calculaud"
+
+# S3 Configuration
+s3:
+  # S3-compatible storage settings
+  accessKeyId: "your-access-key-id"         # CHANGE THIS!
+  secretAccessKey: "your-secret-access-key" # CHANGE THIS!
+  region: "us-east-1"
+  endpointUrl: ""  # For non-AWS S3-compatible storage (MinIO, etc.)
+  bucketName: "calculaud-files"
+  bucketUrl: "https://calculaud-files.s3.amazonaws.com"
+  keyPrefix: "files/"
+  useSsl: true
+  storageClass: ""  # Optional: STANDARD, REDUCED_REDUNDANCY, etc.
+
+# Authentication configuration
+auth:
+  jwksUrl: "https://your-auth-provider.com/.well-known/jwks.json"    # CHANGE THIS!
+  issuer: "https://your-auth-provider.com/"                         # CHANGE THIS!
+  audience: "calculaud-api"                                         # CHANGE THIS!
+  algorithm: "RS256"
+  tokenEndpointUrl: "https://your-auth-provider.com/oauth/token"    # CHANGE THIS!
+  oidcUrl: "https://your-auth-provider.com/"                       # CHANGE THIS!
+  
+  oauth:
+    clientId: "your-client-id"  # CHANGE THIS!
+    scopes: "openid"
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+  # loadBalancerIP: ""
+  # loadBalancerSourceRanges: []
+  # nodePort: 30080
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"  # Change based on your ingress controller
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1024m"
+    # For cert-manager
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # For OpenShift compatibility
+    route.openshift.io/termination: "edge"
+  hosts:
+    - host: calculaud-api.example.com  # CHANGE THIS!
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: calculaud-be-tls
+      hosts:
+        - calculaud-api.example.com  # CHANGE THIS!
+
+# Resource limits and requests
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Strategy for rolling updates
+strategy:
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Termination grace period
+terminationGracePeriodSeconds: 30
+
+# Health check configuration
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  startup:
+    path: /health/startup
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 30
+
+# Metrics configuration
+metrics:
+  enabled: true
+
+# Extra environment variables
+extraEnvVars: []
+# - name: CUSTOM_ENV_VAR
+#   value: "custom-value"
+
+# Extra volumes
+extraVolumes: []
+
+# Extra volume mounts
+extraVolumeMounts: []

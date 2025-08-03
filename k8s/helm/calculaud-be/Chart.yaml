@@ -1,0 +1,19 @@
+apiVersion: v2
+name: calculaud-be
+description: A Helm chart for Calculaud Backend - Procurement Management System
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - fastapi
+  - procurement
+  - management
+  - postgresql
+home: https://github.com/calc-cloud/calculaud-be
+sources:
+  - https://github.com/calc-cloud/calculaud-be
+maintainers:
+  - name: Calculaud Team
+    email: dev@calculaud.com
+annotations:
+  category: Application
