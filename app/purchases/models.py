@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, event, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from app.database import Base
 
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from app.costs.models import Cost
     from app.predefined_flows.models import PredefinedFlow
     from app.purposes.models import Purpose
+    from app.responsible_authorities.models import ResponsibleAuthority
     from app.stages.models import Stage
 
 
@@ -38,6 +39,29 @@ class Purchase(Base):
     costs: Mapped[list["Cost"]] = relationship(
         "Cost", back_populates="purchase", cascade="all, delete-orphan"
     )
+
+    @property
+    def pending_authority(self) -> "ResponsibleAuthority | None":
+        """
+        Return the responsible authority for the highest priority incomplete stage.
+
+        This property uses the same SQL logic as the filtering functions to ensure
+        consistency. It prioritizes incomplete stages first, then sorts by priority
+        ascending, with deterministic tie-breaking by stage_type.id.
+
+        NOTE: Must use the same logic as get_pending_authority_query() in
+        app.purposes.pending_authority_utils to maintain consistency.
+        """
+        from app.purposes.pending_authority_utils import get_pending_authority_object
+
+        # Get the session from the object to execute the query
+        session = object_session(self)
+        if not session:
+            return None
+
+        return get_pending_authority_object(
+            session, purchase_id=self.id, purpose_id=self.purpose_id
+        )
 
     @property
     def flow_stages(self) -> list["Stage | list[Stage]"]:
