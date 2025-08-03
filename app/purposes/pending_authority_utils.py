@@ -14,7 +14,7 @@ from app.stage_types.models import StageType
 from app.stages.models import Stage
 
 
-def _build_base_query(purpose_id, select_clause):
+def _build_base_query(purpose_id, select_clause, purchase_id=None):
     """Build the base query for pending authority lookup."""
     return (
         select_clause.select_from(Purchase)
@@ -25,6 +25,7 @@ def _build_base_query(purpose_id, select_clause):
             StageType.responsible_authority_id == ResponsibleAuthority.id,
         )
         .where(
+            Purchase.id == purchase_id if purchase_id else True,
             Purchase.purpose_id == purpose_id,
             StageType.responsible_authority_id.is_not(None),
         )
@@ -53,9 +54,9 @@ def get_pending_authority_id_query(purpose_id):
 
 
 def get_pending_authority_object(
-    db: Session, purpose_id: int
+    db: Session, purpose_id: int, purchase_id: int | None = None
 ) -> ResponsibleAuthority | None:
     """Get the pending authority object for a purpose."""
     # Create a query that selects only the ResponsibleAuthority object
-    query = _build_base_query(purpose_id, select(ResponsibleAuthority))
+    query = _build_base_query(purpose_id, select(ResponsibleAuthority), purchase_id)
     return db.execute(query).scalar_one_or_none()
