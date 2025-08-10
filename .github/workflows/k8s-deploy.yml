@@ -14,28 +14,49 @@ on:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'staging'
+        default: 'testing'
         type: choice
         options:
         - staging
-        - pr
+        - testing
       image_tag:
-        description: 'Docker image tag to deploy'
+        description: 'Docker image tag to deploy (auto-generated if empty)'
         required: false
-        default: 'latest'
-      pr_branch:
-        description: 'Branch name for PR deployment (auto-detected if empty)'
+        default: ''
+      pr_number:
+        description: 'PR number for deployment (auto-detected if empty)'
         required: false
         default: ''
 
 permissions:
   contents: read
   packages: read
+  id-token: write  # Required for AWS OIDC authentication
 
 jobs:
+  # Wait for CI to complete before deployment (except for manual dispatch)
+  wait-for-ci:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
+    steps:
+    - name: Wait for CI workflow to complete
+      uses: lewagon/wait-on-check-action@v1.3.4
+      with:
+        ref: ${{ github.ref }}
+        check-name: 'lint_and_test'
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        wait-interval: 10
+        
+    - name: CI Status Check
+      run: |
+        echo "✅ CI workflow completed successfully"
+        echo "Ready to proceed with deployment"
+
   # Determine deployment environment and image tag
   setup:
     runs-on: ubuntu-latest
+    needs: [wait-for-ci]
+    if: always() && (needs.wait-for-ci.result == 'success' || github.event_name == 'workflow_dispatch')
     outputs:
       environment: ${{ steps.env.outputs.environment }}
       image_tag: ${{ steps.env.outputs.image_tag }}
@@ -46,12 +67,22 @@ jobs:
       run: |
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
           
-          # Handle PR environment branch naming
-          if [[ "${{ github.event.inputs.environment }}" == "pr" ]]; then
-            if [[ -n "${{ github.event.inputs.pr_branch }}" ]]; then
-              BRANCH_NAME="${{ github.event.inputs.pr_branch }}"
+          # Generate image tag if not provided
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            # Generate timestamp-based tag
+            echo "image_tag=manual-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          fi
+          
+          # Handle testing environment branch naming
+          if [[ "${{ github.event.inputs.environment }}" == "testing" ]]; then
+            # Get PR info from context or input
+            if [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
+              PR_NUMBER="${{ github.event.inputs.pr_number }}"
+              # Get branch name from PR (this would require API call, simplified for now)
+              BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
             else
               BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
             fi
@@ -81,7 +112,7 @@ jobs:
           staging)
             echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
             ;;
-          pr)
+          testing)
             echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
             ;;
           cleanup)
@@ -92,10 +123,64 @@ jobs:
             ;;
         esac
 
+  # Build and push Docker image to ECR
+  build-image:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.environment != 'none' && needs.setup.outputs.environment != 'cleanup'
+    outputs:
+      image_uri: ${{ steps.image.outputs.image_uri }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_BUILD_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ vars.ECR_REPOSITORY }}
+        tags: |
+          type=raw,value=${{ needs.setup.outputs.image_tag }}
+          type=sha,prefix={{branch}}-
+          type=ref,event=branch
+          type=ref,event=pr
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: Set image URI output
+      id: image
+      run: |
+        IMAGE_URI="${{ vars.ECR_REPOSITORY }}:${{ needs.setup.outputs.image_tag }}"
+        echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+        echo "✅ Built and pushed image: $IMAGE_URI"
+
   # Deploy to staging environment
   deploy-staging:
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, build-image]
     if: needs.setup.outputs.environment == 'staging'
     environment: staging
     steps:
@@ -233,11 +318,11 @@ jobs:
         kubectl rollout status deployment/calculaud-be -n ${{ needs.setup.outputs.namespace }}
         kubectl get pods -n ${{ needs.setup.outputs.namespace }} -l app.kubernetes.io/name=calculaud-be
 
-  # Deploy to PR environment
-  deploy-pr:
+  # Deploy to testing environment (PR deployments)
+  deploy-testing:
     runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.environment == 'pr'
+    needs: [setup, build-image]
+    if: needs.setup.outputs.environment == 'testing'
     environment: testing
     steps:
     - name: Checkout code
@@ -255,12 +340,12 @@ jobs:
       with:
         version: '3.12.0'
 
-    - name: Create PR namespace
+    - name: Create testing namespace
       run: |
         # Create namespace if it doesn't exist
         kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
 
-    - name: Generate PR values from template
+    - name: Generate testing values from template
       env:
         # Core configuration (automatically injected from testing environment)
         ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -428,12 +513,12 @@ jobs:
   # Notify on deployment completion
   notify:
     runs-on: ubuntu-latest
-    needs: [setup, deploy-staging, deploy-pr, cleanup-pr]
+    needs: [setup, build-image, deploy-staging, deploy-testing, cleanup-pr]
     if: always() && needs.setup.outputs.environment != 'none'
     steps:
     - name: Deployment notification
       run: |
-        if [[ "${{ needs.deploy-staging.result }}" == "success" || "${{ needs.deploy-pr.result }}" == "success" || "${{ needs.cleanup-pr.result }}" == "success" ]]; then
+        if [[ "${{ needs.deploy-staging.result }}" == "success" || "${{ needs.deploy-testing.result }}" == "success" || "${{ needs.cleanup-pr.result }}" == "success" ]]; then
           if [[ "${{ needs.setup.outputs.environment }}" == "cleanup" ]]; then
             echo "🧹 PR environment cleanup completed!"
             echo "Cleaned up namespace: ${{ needs.setup.outputs.namespace }}"
@@ -442,7 +527,7 @@ jobs:
             echo "Environment: ${{ needs.setup.outputs.environment }}"
             echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
             echo "Namespace: ${{ needs.setup.outputs.namespace }}"
-            if [[ "${{ needs.setup.outputs.environment }}" == "pr" ]]; then
+            if [[ "${{ needs.setup.outputs.environment }}" == "testing" ]]; then
               echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
             fi
           fi

@@ -27,13 +27,8 @@ on:
         default: false
         type: boolean
 
-  # Tertiary trigger: Auto-package stable main branch
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.github/**'
+  # Note: Removed auto-packaging on main branch push to avoid conflicts
+  # with k8s-deploy.yml. Use manual dispatch or releases instead.
 
 permissions:
   contents: write  # Needed to upload release assets

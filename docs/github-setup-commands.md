@@ -12,7 +12,49 @@ This setup uses GitHub Environments (`staging`, `testing`) with environment-scop
 2. Authenticate: `gh auth login`
 3. Navigate to your repository directory
 
-## Step 1: Create GitHub Environments
+## Step 1: Setup AWS OIDC Integration (Recommended)
+
+For secure AWS authentication without long-lived access keys, set up OIDC integration:
+
+```bash
+# Create IAM role for GitHub Actions (run this in AWS CLI)
+aws iam create-role --role-name github-actions-build-role \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Federated": "arn:aws:iam::<ACCOUNT>:oidc-provider/token.actions.githubusercontent.com"
+        },
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+          "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+          },
+          "StringLike": {
+            "token.actions.githubusercontent.com:sub": "repo:<OWNER>/<REPO>:*"
+          }
+        }
+      }
+    ]
+  }'
+
+# Attach ECR permissions to the role
+aws iam attach-role-policy \
+  --role-name github-actions-build-role \
+  --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+
+# If you need to create OIDC provider (run once per AWS account)
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --client-id-list sts.amazonaws.com
+```
+
+**Note**: Replace `<ACCOUNT>`, `<OWNER>`, `<REPO>` with your actual values.
+
+## Step 2: Create GitHub Environments
 
 ```bash
 # Create staging environment
@@ -24,13 +66,14 @@ gh api repos/:owner/:repo/environments/testing --method PUT \
   --field deployment_branch_policy='{"protected_branches":false,"custom_branch_policies":false}'
 ```
 
-## Step 2: Configure Staging Environment
+## Step 3: Configure Staging Environment
 
 ### Staging Environment Variables (Public)
 ```bash
 # Core configuration
 gh variable set ECR_REPOSITORY --env staging --body "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
 gh variable set AWS_REGION --env staging --body "us-east-1"
+gh variable set AWS_BUILD_ROLE_ARN --env staging --body "arn:aws:iam::<ACCOUNT>:role/github-actions-build-role"
 
 # Environment settings
 gh variable set REPLICA_COUNT --env staging --body "2"
@@ -100,13 +143,14 @@ gh secret set S3_SECRET_KEY --env staging --body "your-staging-s3-secret-key"
 gh secret set KUBECONFIG --env staging --body "$(base64 -i ~/.kube/staging-config)"
 ```
 
-## Step 3: Configure Testing Environment
+## Step 4: Configure Testing Environment
 
 ### Testing Environment Variables (Public)
 ```bash
 # Core configuration (shared with staging)
 gh variable set ECR_REPOSITORY --env testing --body "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
 gh variable set AWS_REGION --env testing --body "us-east-1"
+gh variable set AWS_BUILD_ROLE_ARN --env testing --body "arn:aws:iam::<ACCOUNT>:role/github-actions-build-role"
 
 # Environment settings (minimal for testing)
 gh variable set REPLICA_COUNT --env testing --body "1"
@@ -163,7 +207,7 @@ gh secret set S3_ACCESS_KEY --env testing --body "your-test-s3-access-key"
 gh secret set S3_SECRET_KEY --env testing --body "your-test-s3-secret-key"
 ```
 
-## Step 4: Environment Protection Rules (Optional)
+## Step 5: Environment Protection Rules (Optional)
 
 ### Add Protection Rules for Staging Environment
 ```bash
@@ -178,7 +222,7 @@ gh api repos/:owner/:repo/environments/staging/deployment_protection_rules --met
   --field wait_timer=5
 ```
 
-## Step 5: Verify Configuration
+## Step 6: Verify Configuration
 
 ```bash
 # List environments
