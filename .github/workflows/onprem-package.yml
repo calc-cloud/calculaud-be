@@ -40,8 +40,8 @@ permissions:
   packages: read   # Needed to pull Docker images
 
 jobs:
-  # Wait for Docker image to be available
-  wait-for-image:
+  # Determine package configuration
+  determine-config:
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.determine-tag.outputs.image_tag }}
@@ -75,34 +75,15 @@ jobs:
         echo "Determined image_tag: $(echo $GITHUB_OUTPUT | grep image_tag)"
         echo "Determined package_suffix: $(echo $GITHUB_OUTPUT | grep package_suffix)"
 
-    - name: Wait for Docker image to be available
+    - name: Verify build readiness
       run: |
-        echo "Waiting for Docker image to be available: calculaud/calculaud-be:${{ steps.determine-tag.outputs.image_tag }}"
-        
-        # Wait up to 10 minutes for the image to be available
-        MAX_ATTEMPTS=60
-        ATTEMPT=0
-        
-        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-          if docker pull calculaud/calculaud-be:${{ steps.determine-tag.outputs.image_tag }}; then
-            echo "✅ Image is available"
-            break
-          else
-            echo "⏳ Image not yet available, waiting... (attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS)"
-            sleep 10
-            ATTEMPT=$((ATTEMPT + 1))
-          fi
-        done
-        
-        if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-          echo "❌ Image not available after waiting"
-          exit 1
-        fi
+        echo "✅ Ready to build image: calculaud/calculaud-be:${{ steps.determine-tag.outputs.image_tag }}"
+        echo "Build context available, proceeding with image creation."
 
   # Create the on-premises deployment package
   create-package:
     runs-on: ubuntu-latest
-    needs: wait-for-image
+    needs: determine-config
     outputs:
       package_file: ${{ steps.package.outputs.package_file }}
       package_size: ${{ steps.package.outputs.package_size }}
@@ -119,21 +100,21 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-    - name: Pull required Docker images
+    - name: Build and tag Docker image
       run: |
-        echo "📦 Pulling required Docker images..."
+        echo "🏗️ Building Docker image for packaging..."
         
-        # Application image only - PostgreSQL and MinIO assumed to be already available
-        docker pull calculaud/calculaud-be:${{ needs.wait-for-image.outputs.image_tag }}
+        # Build the application image
+        docker build -t calculaud/calculaud-be:${{ needs.determine-config.outputs.image_tag }} .
         
         # Optional monitoring images (if requested)
         if [[ "${{ github.event.inputs.include_monitoring }}" == "true" ]]; then
-          echo "Including monitoring images..."
+          echo "Pulling monitoring images..."
           docker pull prom/prometheus:latest
           docker pull grafana/grafana:latest
         fi
         
-        echo "✅ All images pulled successfully"
+        echo "✅ Images ready for packaging"
         docker images
 
     - name: Make packaging script executable
@@ -145,7 +126,7 @@ jobs:
         echo "🏗️ Creating on-premises deployment package..."
         
         # Set custom output filename
-        PACKAGE_NAME="calculaud-onprem-${{ needs.wait-for-image.outputs.package_suffix }}"
+        PACKAGE_NAME="calculaud-onprem-${{ needs.determine-config.outputs.package_suffix }}"
         
         # Create package
         ./k8s/scripts/package-for-onprem.sh \
@@ -200,12 +181,12 @@ jobs:
         **Package**: \`${{ needs.create-package.outputs.package_file }}\`
         **Size**: ${{ needs.create-package.outputs.package_size }}
         **Created**: $(date -u)
-        **Image Tag**: ${{ needs.wait-for-image.outputs.image_tag }}
+        **Image Tag**: ${{ needs.determine-config.outputs.image_tag }}
         **Trigger**: ${{ github.event_name }}
         
         ## Contents
         
-        - ✅ Application Docker image (\`calculaud/calculaud-be:${{ needs.wait-for-image.outputs.image_tag }}\`)
+        - ✅ Application Docker image (\`calculaud/calculaud-be:${{ needs.determine-config.outputs.image_tag }}\`)
         
         ## External Dependencies (Expected to be Available)
         
@@ -253,7 +234,7 @@ jobs:
     - name: Upload manifest as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: deployment-manifest-${{ needs.wait-for-image.outputs.package_suffix }}
+        name: deployment-manifest-${{ needs.determine-config.outputs.package_suffix }}
         path: deployment-manifest.md
         retention-days: 30
 
@@ -273,7 +254,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Package**: \`${{ needs.create-package.outputs.package_file }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Size**: ${{ needs.create-package.outputs.package_size }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: \`calculaud/calculaud-be:${{ needs.wait-for-image.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`calculaud/calculaud-be:${{ needs.determine-config.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
