@@ -2,6 +2,12 @@
 
 This directory contains Kubernetes manifests and Helm charts for deploying the Calculaud Backend application.
 
+## 📚 Documentation
+
+- **[Complete Deployment Guide](../docs/DEPLOYMENT_GUIDE.md)** - Comprehensive guide for all deployment scenarios
+- **[Quick Reference](../docs/QUICK_REFERENCE.md)** - Commands and troubleshooting reference
+- **[Development Guide](../CLAUDE.md)** - Development and contribution guidelines
+
 ## 📁 Directory Structure
 
 ```
@@ -134,31 +140,101 @@ ingress:
 
 ## 🏗️ Platform-Specific Deployment
 
-### AWS EKS
+### AWS EKS (Recommended for Cloud)
 
+**Prerequisites**: 
+- EKS cluster configured with kubectl access
+- AWS Load Balancer Controller installed
+- EBS CSI driver configured  
+- External Secrets Operator (optional)
+- Proper IAM roles and policies
+
+**Quick Setup**:
 ```bash
-# Use AWS Load Balancer Controller
-helm upgrade --install calculaud-be k8s/helm/calculaud-be \
-  --set ingress.className=alb \
-  --set ingress.annotations."kubernetes\.io/ingress\.class"=alb
+# Deploy application
+./scripts/deploy.sh -e eks -n calculaud-prod
+
+# Run migrations
+./scripts/migrate.sh -n calculaud-prod
+```
+
+**Manual Setup**:
+```bash
+# Deploy with EKS-optimized configuration
+helm upgrade --install calculaud-be helm/calculaud-be \
+  -f helm/calculaud-be/values-eks.yaml \
+  --namespace calculaud-prod \
+  --create-namespace
+
+# Run migrations
+./scripts/migrate.sh -n calculaud-prod
+```
+
+**Features**:
+- Application Load Balancer (ALB) integration
+- EBS persistent storage
+- AWS Secrets Manager integration
+- CloudWatch monitoring and logging
+- IRSA for secure AWS service access
+
+### On-Premises (Recommended for Self-Hosted)
+
+**Prerequisites**:
+- Kubernetes cluster (1.24+) with kubectl access
+- Storage class configured (e.g., local-path, NFS)
+- Ingress controller (optional but recommended)
+- Load balancer solution (optional but recommended)
+
+**Quick Setup**:
+```bash
+# Deploy application
+./scripts/deploy.sh -e onprem -n calculaud
+
+# Run migrations
+./scripts/migrate.sh -n calculaud
+```
+
+**Manual Setup**:
+```bash
+# Deploy with on-premises configuration
+helm upgrade --install calculaud-be helm/calculaud-be \
+  -f helm/calculaud-be/values-onprem.yaml \
+  --namespace calculaud \
+  --create-namespace
+
+# Run migrations
+./scripts/migrate.sh -n calculaud
+```
+
+**Features**:
+- Flexible storage options (local, NFS, etc.)
+- NodePort, Ingress, or LoadBalancer access
+- Embedded PostgreSQL and MinIO S3-compatible storage
+- Optional monitoring integration
+
+
+### Air-Gapped/Offline Deployment
+
+**Create Package** (with internet access):
+```bash
+./scripts/package-for-onprem.sh
+```
+
+**Deploy Package** (without internet):
+```bash
+# Transfer calculaud-onprem-*.tar.gz to target system
+tar -xzf calculaud-onprem-*.tar.gz
+cd calculaud-onprem-*
+./install.sh
 ```
 
 ### OpenShift
 
 ```bash
 # Deploy with OpenShift-specific settings
-helm upgrade --install calculaud-be k8s/helm/calculaud-be \
+helm upgrade --install calculaud-be helm/calculaud-be \
   --set ingress.enabled=false \
   --set openshift.route.enabled=true
-```
-
-### On-Premises
-
-```bash
-# Deploy with NodePort service for on-prem access
-helm upgrade --install calculaud-be k8s/helm/calculaud-be \
-  --set service.type=NodePort \
-  --set service.nodePort=30080
 ```
 
 ## 📊 Monitoring & Health Checks

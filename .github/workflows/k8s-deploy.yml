@@ -20,6 +20,7 @@ on:
         options:
         - dev
         - prod
+        - eks
       image_tag:
         description: 'Docker image tag to deploy'
         required: false
@@ -56,11 +57,17 @@ jobs:
         fi
         
         # Set namespace based on environment
-        if [[ "${{ steps.env.outputs.environment || 'dev' }}" == "prod" ]]; then
-          echo "namespace=calculaud-prod" >> $GITHUB_OUTPUT
-        else
-          echo "namespace=calculaud-dev" >> $GITHUB_OUTPUT
-        fi
+        case "${{ steps.env.outputs.environment || 'dev' }}" in
+          prod)
+            echo "namespace=calculaud-prod" >> $GITHUB_OUTPUT
+            ;;
+          eks)
+            echo "namespace=calculaud-prod" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "namespace=calculaud-dev" >> $GITHUB_OUTPUT
+            ;;
+        esac
 
   # Deploy to development environment
   deploy-dev:
@@ -98,28 +105,27 @@ jobs:
 
     - name: Deploy to development
       run: |
-        # Create namespace if it doesn't exist
-        kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+        # Deploy using simplified deployment script
+        ./k8s/scripts/deploy.sh -e dev -n ${{ needs.setup.outputs.namespace }}
         
-        # Deploy using Helm
-        helm upgrade --install calculaud-be k8s/helm/calculaud-be \
-          --namespace ${{ needs.setup.outputs.namespace }} \
-          --values k8s/helm/calculaud-be/values-dev.yaml \
-          --set image.tag=${{ needs.setup.outputs.image_tag }} \
-          --set config.environment=development \
-          --wait \
-          --timeout=600s
+        # Override image tag if specified
+        if [[ "${{ needs.setup.outputs.image_tag }}" != "latest" ]]; then
+          helm upgrade calculaud-be k8s/helm/calculaud-be \
+            --namespace ${{ needs.setup.outputs.namespace }} \
+            --reuse-values \
+            --set image.tag=${{ needs.setup.outputs.image_tag }}
+        fi
 
     - name: Verify deployment
       run: |
         kubectl rollout status deployment/calculaud-be -n ${{ needs.setup.outputs.namespace }}
         kubectl get pods -n ${{ needs.setup.outputs.namespace }} -l app.kubernetes.io/name=calculaud-be
 
-  # Deploy to production environment
+  # Deploy to production environment (prod or eks)
   deploy-prod:
     runs-on: ubuntu-latest
     needs: setup
-    if: needs.setup.outputs.environment == 'prod'
+    if: needs.setup.outputs.environment == 'prod' || needs.setup.outputs.environment == 'eks'
     environment: production
     steps:
     - name: Checkout code
@@ -141,10 +147,7 @@ jobs:
     - name: Run database migrations
       run: |
         # Run migrations before deployment
-        ./k8s/scripts/migrate.sh \
-          --namespace ${{ needs.setup.outputs.namespace }} \
-          --image calculaud/calculaud-be:${{ needs.setup.outputs.image_tag }} \
-          --command upgrade
+        ./k8s/scripts/migrate.sh -n ${{ needs.setup.outputs.namespace }}
 
     - name: Create production secrets
       run: |
@@ -186,16 +189,18 @@ jobs:
 
     - name: Deploy to production
       run: |
-        # Create namespace if it doesn't exist
-        kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+        # Determine deployment environment (prod or eks)
+        DEPLOY_ENV="${{ needs.setup.outputs.environment }}"
         
-        # Deploy using Helm with production values and secrets
-        helm upgrade --install calculaud-be k8s/helm/calculaud-be \
+        # Deploy using simplified deployment script
+        ./k8s/scripts/deploy.sh -e "$DEPLOY_ENV" -n ${{ needs.setup.outputs.namespace }}
+        
+        # Apply secrets overlay and update image tag
+        helm upgrade calculaud-be k8s/helm/calculaud-be \
           --namespace ${{ needs.setup.outputs.namespace }} \
-          --values k8s/helm/calculaud-be/values-prod.yaml \
+          --reuse-values \
           --values prod-secrets.yaml \
           --set image.tag=${{ needs.setup.outputs.image_tag }} \
-          --set config.environment=production \
           --wait \
           --timeout=900s
         

@@ -11,9 +11,11 @@ NAMESPACE="calculaud"
 HELM_RELEASE_NAME="calculaud-be"
 CHART_PATH="k8s/helm/calculaud-be"
 VALUES_FILE=""
+CONFIG_FILE=""
 DRY_RUN=false
 UPGRADE_TIMEOUT="600s"
 CREATE_NAMESPACE=true
+AUTO_PROCESS_CONFIG=true
 
 # Colors for output
 RED='\033[0;31m'
@@ -34,7 +36,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -e, --environment ENV    Environment to deploy to (dev, prod) [default: dev]"
+    echo "  -e, --environment ENV    Environment to deploy to (dev, prod, eks, onprem) [default: dev]"
     echo "  -n, --namespace NS       Kubernetes namespace [default: calculaud]"
     echo "  -r, --release NAME       Helm release name [default: calculaud-be]"
     echo "  -c, --chart PATH         Path to Helm chart [default: k8s/helm/calculaud-be]"
@@ -47,8 +49,13 @@ usage() {
     echo "Examples:"
     echo "  $0 -e dev                    # Deploy to development"
     echo "  $0 -e prod -n calculaud-prod # Deploy to production"
+    echo "  $0 -e eks                    # Deploy to AWS EKS"
+    echo "  $0 -e onprem                 # Deploy to on-premises"
     echo "  $0 -d                        # Dry run deployment"
     echo "  $0 -f my-values.yaml         # Use custom values file"
+    echo ""
+    echo "For on-premises deployment, ensure external PostgreSQL and S3 storage are available"
+    echo "  and update the values file with your specific configuration."
     exit 1
 }
 
@@ -98,8 +105,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate environment
-if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
-    print_message $RED "Error: Environment must be 'dev' or 'prod'"
+if [[ ! "$ENVIRONMENT" =~ ^(dev|prod|eks|onprem)$ ]]; then
+    print_message $RED "Error: Environment must be 'dev', 'prod', 'eks', or 'onprem'"
     exit 1
 fi
 
@@ -134,6 +141,65 @@ check_context() {
     fi
     
     print_message $GREEN "✓ Connected to Kubernetes cluster"
+}
+
+# Environment-specific checks and setup
+environment_setup() {
+    case $ENVIRONMENT in
+        eks)
+            print_message $BLUE "Setting up for AWS EKS deployment..."
+            
+            # Check AWS CLI
+            if ! command -v aws &> /dev/null; then
+                print_message $YELLOW "Warning: AWS CLI not found. Make sure you have proper AWS access configured."
+            fi
+            
+            # Check for EKS-specific tools
+            if command -v eksctl &> /dev/null; then
+                print_message $GREEN "✓ eksctl found"
+            else
+                print_message $YELLOW "Warning: eksctl not found. Install for easier EKS management."
+            fi
+            
+            # Verify EKS cluster context
+            if kubectl config current-context | grep -q "arn:aws:eks"; then
+                print_message $GREEN "✓ EKS cluster context detected"
+            else
+                print_message $YELLOW "Warning: Current context may not be an EKS cluster"
+            fi
+            ;;
+        onprem)
+            print_message $BLUE "Setting up for on-premises deployment..."
+            
+            # Check for common on-premises requirements
+            if kubectl get storageclass &> /dev/null; then
+                print_message $GREEN "✓ Storage classes available"
+            else
+                print_message $YELLOW "Warning: No storage classes found. You may need to configure persistent storage."
+            fi
+            
+            # Check for ingress controller
+            if kubectl get ingressclass &> /dev/null; then
+                print_message $GREEN "✓ Ingress controller detected"
+            else
+                print_message $YELLOW "Warning: No ingress controller found. Consider installing nginx-ingress or using NodePort service."
+            fi
+            
+            # Check for load balancer
+            if kubectl get svc -A | grep -q "LoadBalancer"; then
+                print_message $GREEN "✓ Load balancer service detected"
+            else
+                print_message $YELLOW "Warning: No LoadBalancer services found. Consider installing MetalLB for on-premises load balancing."
+            fi
+            
+            # On-premises deployment uses external PostgreSQL and S3 storage
+            print_message $GREEN "✓ On-premises deployment configured for external services"
+            print_message $BLUE "Note: Ensure external PostgreSQL and S3-compatible storage are available"
+            ;;
+        dev|prod)
+            print_message $BLUE "Setting up for $ENVIRONMENT environment..."
+            ;;
+    esac
 }
 
 # Create namespace if it doesn't exist
@@ -255,6 +321,7 @@ main() {
     
     check_dependencies
     check_context
+    environment_setup
     create_namespace
     validate_chart
     deploy

@@ -1,0 +1,280 @@
+# AWS EKS environment values for calculaud-be
+# Optimized for AWS managed services and EKS features
+
+# Production-level replicas for high availability
+replicaCount: 5
+
+# ECR image configuration
+image:
+  repository: "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/calculaud-be"
+  tag: "latest"
+  pullPolicy: Always
+
+# EKS-specific configuration
+config:
+  debug: false
+  environment: "production"
+  maxFileSizeMb: 2048  # Increased for EKS
+  
+# Use external RDS PostgreSQL for production
+postgresql:
+  enabled: false
+  external:
+    host: "calculaud-prod.cluster-<id>.us-east-1.rds.amazonaws.com"
+    port: 5432
+    username: "calculaud_admin"
+    password: ""  # Will be loaded from AWS Secrets Manager
+    database: "calculaud_prod"
+
+# AWS S3 configuration with IRSA (IAM Roles for Service Accounts)
+s3:
+  # These will be loaded from AWS Secrets Manager or IRSA
+  accessKeyId: ""  # Not needed with IRSA
+  secretAccessKey: ""  # Not needed with IRSA
+  region: "us-east-1"
+  endpointUrl: ""  # Use default AWS S3
+  bucketName: "calculaud-prod-files"
+  bucketUrl: "https://calculaud-prod-files.s3.us-east-1.amazonaws.com"
+  keyPrefix: "files/"
+  useSsl: true
+  storageClass: "STANDARD_IA"  # Cost optimized
+
+# Production authentication with external provider
+auth:
+  jwksUrl: "https://calculaud-auth.auth0.com/.well-known/jwks.json"
+  issuer: "https://calculaud-auth.auth0.com/"
+  audience: "calculaud-api-prod"
+  algorithm: "RS256"
+  tokenEndpointUrl: "https://calculaud-auth.auth0.com/oauth/token"
+  oidcUrl: "https://calculaud-auth.auth0.com/"
+  oauth:
+    clientId: "calculaud-prod-client"
+    scopes: "openid profile email"
+
+# Service Account with IRSA annotations for AWS access
+serviceAccount:
+  create: true
+  annotations:
+    # IRSA annotation for S3 and Secrets Manager access
+    eks.amazonaws.com/role-arn: "arn:aws:iam::<AWS_ACCOUNT_ID>:role/CalculaudEKSServiceRole"
+  name: "calculaud-be-sa"
+
+# Use External Secrets Operator for AWS Secrets Manager integration
+existingSecret: ""  # Will be created by External Secrets Operator
+
+# AWS Application Load Balancer configuration
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:<AWS_ACCOUNT_ID>:certificate/<cert-id>"
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+    
+    # Health check configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    
+    # Advanced ALB settings
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      idle_timeout.timeout_seconds=300,
+      access_logs.s3.enabled=true,
+      access_logs.s3.bucket=calculaud-alb-logs,
+      access_logs.s3.prefix=calculaud-prod
+      
+    # Rate limiting and security
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:us-east-1:<AWS_ACCOUNT_ID>:regional/webacl/calculaud-prod-waf/<id>"
+    
+  hosts:
+    - host: api.calculaud.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: ssl-redirect
+              port:
+                name: use-annotation
+        - path: /
+          pathType: Prefix
+  tls: []  # TLS handled by ALB with ACM certificate
+
+# EKS-optimized resource requirements
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "2Gi"
+    cpu: "1500m"
+
+# Enhanced autoscaling for EKS
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+  # EKS-specific scaling metrics
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+
+# EKS node selection for cost optimization
+nodeSelector:
+  kubernetes.io/arch: amd64
+  eks.amazonaws.com/nodegroup: application-nodes
+  node.kubernetes.io/instance-type: m5.large
+
+# Tolerations for dedicated node groups
+tolerations:
+  - key: "application-workload"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+# Multi-AZ anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - calculaud-be
+      topologyKey: kubernetes.io/hostname
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - calculaud-be
+        topologyKey: topology.kubernetes.io/zone
+
+# Production rolling update strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 2
+    maxUnavailable: 1
+
+# Enhanced health checks for EKS ALB
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  startup:
+    path: /health/startup
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 30
+
+# CloudWatch and monitoring integration
+metrics:
+  enabled: true
+
+# EKS-specific environment variables
+extraEnvVars:
+  - name: LOG_LEVEL
+    value: "INFO"
+  - name: AWS_REGION
+    value: "us-east-1"
+  - name: EKS_CLUSTER_NAME
+    value: "calculaud-prod-cluster"
+  - name: WORKERS
+    value: "4"
+  - name: PROMETHEUS_MULTIPROC_DIR
+    value: "/tmp/prometheus"
+
+# Service annotations for AWS Load Balancer integration
+service:
+  type: ClusterIP
+  annotations:
+    # CloudWatch metrics
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+    # EKS service annotations
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+
+# Pod annotations for AWS monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+  # AWS CloudWatch integration
+  fluentbit.io/exclude: "false"
+
+# Extra volumes for EKS-specific requirements
+extraVolumes:
+  - name: prometheus-metrics
+    emptyDir: {}
+  - name: aws-credentials
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 3600
+
+extraVolumeMounts:
+  - name: prometheus-metrics
+    mountPath: /tmp/prometheus
+  - name: aws-credentials
+    mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+    readOnly: true
+
+# Security context optimized for EKS
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+  seccompProfile:
+    type: RuntimeDefault

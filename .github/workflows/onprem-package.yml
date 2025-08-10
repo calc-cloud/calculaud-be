@@ -1,0 +1,294 @@
+# On-Premises Package Creation Workflow
+# Creates deployment packages for air-gapped/offline environments
+
+name: Create On-Premises Package
+
+on:
+  # Primary trigger: Create packages for releases
+  release:
+    types: [published]
+  
+  # Secondary trigger: Manual package creation
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to package'
+        required: false
+        default: 'latest'
+        type: string
+      package_name:
+        description: 'Custom package name suffix'
+        required: false
+        default: ''
+        type: string
+      include_monitoring:
+        description: 'Include monitoring components'
+        required: false
+        default: false
+        type: boolean
+
+  # Tertiary trigger: Auto-package stable main branch
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/**'
+
+permissions:
+  contents: write  # Needed to upload release assets
+  packages: read   # Needed to pull Docker images
+
+jobs:
+  # Wait for Docker image to be available
+  wait-for-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.determine-tag.outputs.image_tag }}
+      package_suffix: ${{ steps.determine-tag.outputs.package_suffix }}
+    steps:
+    - name: Determine image tag and package naming
+      id: determine-tag
+      run: |
+        case "${{ github.event_name }}" in
+          release)
+            echo "image_tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "package_suffix=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            ;;
+          workflow_dispatch)
+            TAG="${{ github.event.inputs.image_tag }}"
+            SUFFIX="${{ github.event.inputs.package_name }}"
+            echo "image_tag=${TAG:-latest}" >> $GITHUB_OUTPUT
+            echo "package_suffix=${SUFFIX:-custom-$(date +'%Y%m%d-%H%M%S')}" >> $GITHUB_OUTPUT
+            ;;
+          push)
+            TAG="main-$(date +'%Y%m%d-%H%M%S')"
+            echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+            echo "package_suffix=main-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "package_suffix=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+            ;;
+        esac
+        
+        echo "Determined image_tag: $(echo $GITHUB_OUTPUT | grep image_tag)"
+        echo "Determined package_suffix: $(echo $GITHUB_OUTPUT | grep package_suffix)"
+
+    - name: Wait for Docker image to be available
+      run: |
+        echo "Waiting for Docker image to be available: calculaud/calculaud-be:${{ steps.determine-tag.outputs.image_tag }}"
+        
+        # Wait up to 10 minutes for the image to be available
+        MAX_ATTEMPTS=60
+        ATTEMPT=0
+        
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          if docker pull calculaud/calculaud-be:${{ steps.determine-tag.outputs.image_tag }}; then
+            echo "✅ Image is available"
+            break
+          else
+            echo "⏳ Image not yet available, waiting... (attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS)"
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          fi
+        done
+        
+        if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+          echo "❌ Image not available after waiting"
+          exit 1
+        fi
+
+  # Create the on-premises deployment package
+  create-package:
+    runs-on: ubuntu-latest
+    needs: wait-for-image
+    outputs:
+      package_file: ${{ steps.package.outputs.package_file }}
+      package_size: ${{ steps.package.outputs.package_size }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Pull required Docker images
+      run: |
+        echo "📦 Pulling required Docker images..."
+        
+        # Application image only - PostgreSQL and MinIO assumed to be already available
+        docker pull calculaud/calculaud-be:${{ needs.wait-for-image.outputs.image_tag }}
+        
+        # Optional monitoring images (if requested)
+        if [[ "${{ github.event.inputs.include_monitoring }}" == "true" ]]; then
+          echo "Including monitoring images..."
+          docker pull prom/prometheus:latest
+          docker pull grafana/grafana:latest
+        fi
+        
+        echo "✅ All images pulled successfully"
+        docker images
+
+    - name: Make packaging script executable
+      run: chmod +x k8s/scripts/package-for-onprem.sh
+
+    - name: Create on-premises package
+      id: package
+      run: |
+        echo "🏗️ Creating on-premises deployment package..."
+        
+        # Set custom output filename
+        PACKAGE_NAME="calculaud-onprem-${{ needs.wait-for-image.outputs.package_suffix }}"
+        
+        # Create package
+        ./k8s/scripts/package-for-onprem.sh \
+          --output "${PACKAGE_NAME}.tar.gz" \
+          --compress-level 6
+        
+        # Get package info
+        PACKAGE_FILE="${PACKAGE_NAME}.tar.gz"
+        PACKAGE_SIZE=$(du -h "$PACKAGE_FILE" | cut -f1)
+        
+        echo "package_file=$PACKAGE_FILE" >> $GITHUB_OUTPUT
+        echo "package_size=$PACKAGE_SIZE" >> $GITHUB_OUTPUT
+        
+        # Generate checksum
+        sha256sum "$PACKAGE_FILE" > "$PACKAGE_FILE.sha256"
+        
+        echo "✅ Package created: $PACKAGE_FILE ($PACKAGE_SIZE)"
+        ls -la *.tar.gz*
+
+    - name: Upload package as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.package.outputs.package_file }}
+        path: |
+          ${{ steps.package.outputs.package_file }}
+          ${{ steps.package.outputs.package_file }}.sha256
+        retention-days: 30
+        compression-level: 0  # Package is already compressed
+
+    # Upload to release if this was triggered by a release
+    - name: Upload to GitHub Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ steps.package.outputs.package_file }}
+          ${{ steps.package.outputs.package_file }}.sha256
+        tag_name: ${{ github.event.release.tag_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Create package manifest and documentation
+  create-manifest:
+    runs-on: ubuntu-latest
+    needs: [wait-for-image, create-package]
+    steps:
+    - name: Create deployment manifest
+      run: |
+        cat > deployment-manifest.md << EOF
+        # Calculaud On-Premises Deployment Package
+        
+        **Package**: \`${{ needs.create-package.outputs.package_file }}\`
+        **Size**: ${{ needs.create-package.outputs.package_size }}
+        **Created**: $(date -u)
+        **Image Tag**: ${{ needs.wait-for-image.outputs.image_tag }}
+        **Trigger**: ${{ github.event_name }}
+        
+        ## Contents
+        
+        - ✅ Application Docker image (\`calculaud/calculaud-be:${{ needs.wait-for-image.outputs.image_tag }}\`)
+        
+        ## External Dependencies (Expected to be Available)
+        
+        - 🔗 PostgreSQL database (external)
+        - 🔗 S3-compatible storage (external MinIO/AWS S3/etc.)
+        - ✅ Kubernetes Helm charts
+        - ✅ Deployment scripts
+        - ✅ Configuration templates
+        - ✅ Installation documentation
+        
+        ## Deployment Instructions
+        
+        1. **Transfer package** to on-premises environment:
+           \`\`\`bash
+           scp ${{ needs.create-package.outputs.package_file }} user@onprem-server:/opt/
+           \`\`\`
+        
+        2. **Extract and deploy**:
+           \`\`\`bash
+           tar -xzf ${{ needs.create-package.outputs.package_file }}
+           cd \${package_dir}
+           ./install.sh
+           \`\`\`
+        
+        3. **Verify deployment**:
+           \`\`\`bash
+           kubectl get pods -n calculaud
+           \`\`\`
+        
+        ## Requirements
+        
+        - Kubernetes cluster (1.24+)
+        - kubectl configured
+        - Helm 3.8+
+        - Docker (for loading images)
+        - 8GB+ RAM, 50GB+ storage
+        
+        ## Support
+        
+        - Documentation: See included \`docs/DEPLOYMENT_GUIDE.md\`
+        - Health checks: \`http://your-app/health\`
+        - API docs: \`http://your-app/docs\`
+        EOF
+
+    - name: Upload manifest as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-manifest-${{ needs.wait-for-image.outputs.package_suffix }}
+        path: deployment-manifest.md
+        retention-days: 30
+
+  # Notification and summary
+  notify:
+    runs-on: ubuntu-latest
+    needs: [wait-for-image, create-package, create-manifest]
+    if: always()
+    steps:
+    - name: Package creation summary
+      run: |
+        echo "## 📦 On-Premises Package Creation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.create-package.result }}" == "success" ]]; then
+          echo "✅ **Package created successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: \`${{ needs.create-package.outputs.package_file }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size**: ${{ needs.create-package.outputs.package_size }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`calculaud/calculaud-be:${{ needs.wait-for-image.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "📎 Package has been attached to the GitHub release." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "📎 Package is available in the workflow artifacts." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Instructions" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the package from artifacts or release assets" >> $GITHUB_STEP_SUMMARY
+          echo "2. Transfer to your on-premises environment" >> $GITHUB_STEP_SUMMARY
+          echo "3. Extract and run: \`./install.sh\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Package creation failed!**" >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+        fi

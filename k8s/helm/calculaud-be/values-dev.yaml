@@ -14,29 +14,25 @@ config:
   debug: true
   environment: "development"
 
-# Use in-cluster PostgreSQL for development
+# Use external PostgreSQL for development (consistent with production)
 postgresql:
-  enabled: true
-  password: "dev-password-123"
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "50m"
-    limits:
-      memory: "256Mi"
-      cpu: "200m"
-  persistence:
-    size: 5Gi
+  enabled: false  # Always use external PostgreSQL
+  external:
+    host: "postgres-dev.yourdomain.local"
+    port: 5432
+    username: "calculaud"
+    password: "dev-password-123"
+    database: "calculaud_dev"
 
-# Development S3 configuration (using MinIO or localstack)
+# Development S3 configuration (external S3-compatible storage)
 s3:
-  accessKeyId: "minioadmin"
-  secretAccessKey: "minioadmin"
+  accessKeyId: "dev-access-key"
+  secretAccessKey: "dev-secret-key"
   region: "us-east-1"
-  endpointUrl: "http://minio.minio.svc.cluster.local:9000"
+  endpointUrl: "https://s3-dev.yourdomain.local"
   bucketName: "calculaud-dev"
-  bucketUrl: "http://minio.minio.svc.cluster.local:9000/calculaud-dev"
-  useSsl: false
+  bucketUrl: "https://s3-dev.yourdomain.local/calculaud-dev"
+  useSsl: true
 
 # Development authentication (using mock auth or dev auth server)
 auth:

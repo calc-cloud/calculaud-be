@@ -1,0 +1,244 @@
+# On-premises environment values for calculaud-be
+# Optimized for air-gapped and local environments
+# Uses ConfigMaps and Secrets for configuration management
+
+# Use ConfigMap for replica count (can be overridden)
+replicaCount: 2  # Will be overridden by configmap value if present
+
+# Local container registry or pre-loaded images
+image:
+  repository: "calculaud/calculaud-be"  # Local registry: registry.local:5000/calculaud-be
+  tag: "latest"
+  pullPolicy: Never  # Use locally available images
+
+# On-premises configuration
+config:
+  debug: false
+  environment: "production"
+  maxFileSizeMb: 512
+  defaultPageSize: 50
+
+# Use external PostgreSQL (assumed to be already available)
+postgresql:
+  enabled: false  # Always use external PostgreSQL for on-premises
+  
+  
+  # External PostgreSQL configuration
+  external:
+    host: "postgres.yourdomain.local"
+    port: 5432
+    username: "calculaud"
+    password: "your-secure-password"
+    database: "calculaud"
+
+# S3-compatible storage configuration for on-premises
+s3:
+  accessKeyId: "your-s3-access-key"
+  secretAccessKey: "your-s3-secret-key"
+  region: "us-east-1"
+  endpointUrl: "https://s3.yourdomain.local"
+  bucketName: "calculaud-files"
+  bucketUrl: "https://s3.yourdomain.local/calculaud-files"
+  keyPrefix: "files/"
+  useSsl: true
+  storageClass: ""
+
+# Authentication configuration for on-premises
+auth:
+  jwksUrl: "https://auth.yourdomain.local/.well-known/jwks.json"
+  issuer: "https://auth.yourdomain.local/"
+  audience: "calculaud-api"
+  algorithm: "RS256"
+  tokenEndpointUrl: "https://auth.yourdomain.local/oauth/token"
+  oidcUrl: "https://auth.yourdomain.local/"
+  
+  oauth:
+    clientId: "calculaud-onprem-client"
+    clientSecret: "your-oauth-client-secret"
+    scopes: "openid profile email"
+
+# Use NodePort or LoadBalancer for on-premises access
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080  # Accessible on all nodes at port 30080
+  annotations: {}
+  
+  # Alternative: LoadBalancer with MetalLB
+  # type: LoadBalancer
+  # loadBalancerIP: "192.168.1.100"  # Static IP from MetalLB pool
+
+# On-premises ingress configuration
+ingress:
+  enabled: false  # Disable if no ingress controller available
+  
+  # Enable if you have NGINX Ingress Controller or Traefik
+  # enabled: true
+  # className: "nginx"  # or "traefik"
+  # annotations:
+  #   nginx.ingress.kubernetes.io/rewrite-target: /
+  #   nginx.ingress.kubernetes.io/ssl-redirect: "false"  # No SSL for internal
+  #   nginx.ingress.kubernetes.io/proxy-body-size: "512m"
+  # hosts:
+  #   - host: calculaud.local.domain
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  # tls: []  # No TLS for internal deployment
+
+# Conservative resource requirements for on-premises
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "1Gi"
+    cpu: "1000m"
+
+# Disable autoscaling for on-premises (manual scaling)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection for on-premises (optional)
+nodeSelector: {}
+  # kubernetes.io/arch: amd64
+  # node-role.kubernetes.io/worker: "true"
+
+# No special tolerations needed for on-premises
+tolerations: []
+
+# Simple anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - calculaud-be
+        topologyKey: kubernetes.io/hostname
+
+# Conservative rolling update strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Relaxed health checks for on-premises environments
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 45
+    periodSeconds: 15
+    timeoutSeconds: 10
+    successThreshold: 1
+    failureThreshold: 5
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  startup:
+    path: /health/startup
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    timeoutSeconds: 10
+    successThreshold: 1
+    failureThreshold: 20
+
+# Enable metrics for monitoring
+metrics:
+  enabled: true
+
+# On-premises environment variables
+extraEnvVars:
+  - name: LOG_LEVEL
+    value: "INFO"
+  - name: ENVIRONMENT
+    value: "onprem"
+  - name: WORKERS
+    value: "2"  # Conservative for on-prem resources
+  - name: PROMETHEUS_MULTIPROC_DIR
+    value: "/tmp/prometheus"
+  # Add proxy settings if needed
+  # - name: HTTP_PROXY
+  #   value: "http://proxy.local.domain:8080"
+  # - name: HTTPS_PROXY
+  #   value: "http://proxy.local.domain:8080"
+  # - name: NO_PROXY
+  #   value: "localhost,127.0.0.1,.local.domain"
+
+# Pod annotations for on-premises monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+# Extra volumes for on-premises requirements
+extraVolumes:
+  - name: prometheus-metrics
+    emptyDir: {}
+  - name: local-data
+    hostPath:
+      path: /opt/calculaud/data
+      type: DirectoryOrCreate
+
+extraVolumeMounts:
+  - name: prometheus-metrics
+    mountPath: /tmp/prometheus
+  - name: local-data
+    mountPath: /app/local-data
+
+# Relaxed security context for on-premises compatibility
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# No existing secret - create inline
+existingSecret: ""
+
+# MinIO deployment - not included, external S3-compatible storage assumed
+# minio:
+#   enabled: false  # Always use external S3-compatible storage
+
+# Optional: Mock authentication service for testing
+authMock:
+  enabled: false  # Set to true for testing without external auth
+  image:
+    repository: mock-auth-server
+    tag: "latest"
+    pullPolicy: Never
+  service:
+    type: ClusterIP
+    port: 8080
+
+# On-premises backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: "7d"  # Keep 7 days of backups
+  storage:
+    type: "local"  # or "nfs"
+    path: "/opt/calculaud/backups"
+    size: "50Gi"
