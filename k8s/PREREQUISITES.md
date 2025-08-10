@@ -208,31 +208,18 @@ kubectl get ingressclass
 
 Once all prerequisites are met:
 
-1. **Configure Services**:
+1. **Deploy Application**:
    ```bash
-   cd k8s/config
-   cp configmap-template.yaml configmap.yaml
-   cp secret-template.yaml secret.yaml
-   # Edit with your service endpoints and credentials
-   ```
-
-2. **Apply Configuration**:
-   ```bash
-   ./apply-config.sh -n calculaud
-   ```
-
-3. **Deploy Application**:
-   ```bash
-   cd ../scripts
+   cd k8s/scripts
    ./deploy.sh -e onprem -n calculaud
    ```
 
-4. **Run Migrations**:
+2. **Run Migrations**:
    ```bash
    ./migrate.sh -n calculaud
    ```
 
-5. **Verify Deployment**:
+3. **Verify Deployment**:
    ```bash
    kubectl get pods,svc -n calculaud
    kubectl logs -f deployment/calculaud-be -n calculaud

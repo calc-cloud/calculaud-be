@@ -1,6 +1,6 @@
 # Calculaud Backend - Kubernetes Deployment
 
-This directory contains Kubernetes manifests and Helm charts for deploying the Calculaud Backend application.
+This directory contains Helm charts for deploying the Calculaud Backend application.
 
 ## 📚 Documentation
 
@@ -12,14 +12,6 @@ This directory contains Kubernetes manifests and Helm charts for deploying the C
 
 ```
 k8s/
-├── manifests/           # Raw Kubernetes YAML files
-│   ├── namespace.yaml
-│   ├── configmap.yaml
-│   ├── secret.yaml
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── ingress.yaml
-│   └── postgresql.yaml  # Optional: in-cluster PostgreSQL
 ├── helm/
 │   └── calculaud-be/    # Helm chart
 │       ├── Chart.yaml

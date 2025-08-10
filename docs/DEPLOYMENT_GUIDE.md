@@ -220,7 +220,7 @@ For environments without internet access, use the packaging script to create a c
 3. **Package Contents**:
    - Docker images (compressed)
    - Application source code
-   - Kubernetes manifests
+   - Kubernetes Helm charts
    - Configuration templates
    - Installation scripts
    - Documentation

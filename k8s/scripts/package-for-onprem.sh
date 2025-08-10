@@ -217,9 +217,9 @@ copy_application_files() {
     print_message $GREEN "✅ Application files copied"
 }
 
-# Copy Kubernetes manifests
+# Copy Kubernetes files
 copy_kubernetes_files() {
-    print_message $BLUE "🎛️ Copying Kubernetes manifests..."
+    print_message $BLUE "🎛️ Copying Kubernetes files..."
     
     # Copy entire k8s directory
     cp -r "$PROJECT_ROOT/k8s" "$PACKAGE_DIR/"
@@ -227,7 +227,7 @@ copy_kubernetes_files() {
     # Make scripts executable
     chmod +x "$PACKAGE_DIR/k8s/scripts"/*.sh
     
-    print_message $GREEN "✅ Kubernetes manifests copied"
+    print_message $GREEN "✅ Kubernetes files copied"
 }
 
 # Copy configuration files
@@ -606,7 +606,7 @@ Package Information:
 
 Contents:
 ├── app/                    # Application source code
-├── k8s/                    # Kubernetes manifests and Helm charts
+├── k8s/                    # Kubernetes Helm charts
 ├── config/                 # Configuration files
 ├── docs/                   # Deployment documentation
 ├── docker-images/          # Docker images (if included)
