@@ -6,7 +6,6 @@ from unittest.mock import patch
 from fastapi import status
 
 from app import StatusEnum
-from tests.base import BaseAPITestClass
 
 
 class TestPurposeSorting:

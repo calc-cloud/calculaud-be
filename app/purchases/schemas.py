@@ -6,6 +6,7 @@ from functools import cached_property
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 
 from app.costs.schemas import Cost, CostBase
+from app.responsible_authorities.schemas import ResponsibleAuthorityResponse
 from app.stages.schemas import StageResponse
 
 
@@ -27,6 +28,7 @@ class PurchaseResponse(PurchaseBase):
     id: int
     creation_date: datetime
     costs: list[Cost] = []
+    pending_authority: ResponsibleAuthorityResponse | None = None
     flow_stages: list[StageResponse | list[StageResponse]] = []
 
     @field_validator("flow_stages", mode="after")
