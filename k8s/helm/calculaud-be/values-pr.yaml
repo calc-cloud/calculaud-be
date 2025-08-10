@@ -1,0 +1,200 @@
+# PR environment values for calculaud-be
+# Lightweight configuration for pull request testing
+
+# Single replica for cost efficiency
+replicaCount: 1
+
+# Use lightweight image configuration
+image:
+  repository: "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
+  tag: "pr-latest"
+  pullPolicy: Always
+
+# PR environment configuration
+config:
+  debug: true
+  environment: "pr"
+  maxFileSizeMb: 128
+  defaultPageSize: 20
+
+# External PostgreSQL (shared or dedicated test DB)
+postgresql:
+  external:
+    host: "calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com"
+    port: 5432
+    username: "calculaud_test"
+    password: ""  # Set via external secrets or environment
+    database: "calculaud_test"
+
+# S3 configuration for PR testing
+s3:
+  accessKeyId: ""  # Set via external secrets
+  secretAccessKey: ""  # Set via external secrets
+  region: "us-east-1"
+  endpointUrl: ""  # Use default AWS S3
+  bucketName: "calculaud-test-files"
+  bucketUrl: ""  # Auto-constructed
+  keyPrefix: "pr-files/"
+  useSsl: true
+  storageClass: ""
+
+# Authentication configuration for PR testing
+auth:
+  jwksUrl: "https://your-auth-provider/.well-known/jwks.json"
+  issuer: "https://your-auth-provider/"
+  audience: "calculaud-api"
+  algorithm: "RS256"
+  tokenEndpointUrl: "https://your-auth-provider/oauth/token"
+  oidcUrl: "https://your-auth-provider/"
+  
+  oauth:
+    clientId: "calculaud-test-client"
+    scopes: "openid profile email"
+
+# Service configuration for PR environments
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+# Ingress disabled by default for PR environments (use port-forward for access)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# Minimal resource requirements for cost efficiency
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "50m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# No autoscaling for PR environments
+autoscaling:
+  enabled: false
+
+# Node selection for cost-effective instances
+nodeSelector: {}
+
+# No special tolerations needed
+tolerations: []
+
+# No anti-affinity needed for single replica
+affinity: {}
+
+# Fast rolling update for quick testing
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Relaxed health checks for faster startup
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 20
+    periodSeconds: 15
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 2
+  startup:
+    path: /health/startup
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 10
+
+# Enable metrics for monitoring
+metrics:
+  enabled: true
+
+# PR-specific environment variables
+extraEnvVars:
+  - name: LOG_LEVEL
+    value: "DEBUG"
+  - name: ENVIRONMENT
+    value: "pr"
+  - name: WORKERS
+    value: "1"
+  - name: PROMETHEUS_MULTIPROC_DIR
+    value: "/tmp/prometheus"
+  - name: PR_ENVIRONMENT
+    value: "true"
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+  calculaud.io/environment: "pr"
+  calculaud.io/temporary: "true"
+
+# Extra volumes for metrics
+extraVolumes:
+  - name: prometheus-metrics
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: prometheus-metrics
+    mountPath: /tmp/prometheus
+
+# Security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# Use test secrets or shared test credentials
+existingSecret: "calculaud-test-secrets"
+
+# PR environment lifecycle settings
+pr:
+  # Auto-cleanup after inactivity (handled by external cleanup job)
+  autoCleanup: true
+  maxLifetime: "7d"
+  
+  # Resource quotas to prevent runaway usage
+  resourceQuota:
+    enabled: true
+    hard:
+      requests.cpu: "200m"
+      requests.memory: "256Mi"
+      limits.cpu: "1000m"
+      limits.memory: "1Gi"
+      persistentvolumeclaims: "0"  # No PVCs for PR environments
+
+# Disable persistent storage for PR environments
+persistence:
+  enabled: false
+
+# Test database configuration (optional - for isolated testing)
+testData:
+  enabled: false  # Set to true if you want to load test data
+  fixtures:
+    - basic-users
+    - sample-purposes
+    - test-hierarchies

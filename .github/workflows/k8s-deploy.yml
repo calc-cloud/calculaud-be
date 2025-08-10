@@ -7,24 +7,26 @@ on:
   push:
     branches: 
       - main
-      - develop
-  release:
-    types: [published]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'dev'
+        default: 'staging'
         type: choice
         options:
-        - dev
-        - prod
-        - eks
+        - staging
+        - pr
       image_tag:
         description: 'Docker image tag to deploy'
         required: false
         default: 'latest'
+      pr_branch:
+        description: 'Branch name for PR deployment (auto-detected if empty)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -45,57 +47,67 @@ jobs:
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
           echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.event_name }}" == "release" ]]; then
-          echo "environment=prod" >> $GITHUB_OUTPUT
-          echo "image_tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          
+          # Handle PR environment branch naming
+          if [[ "${{ github.event.inputs.environment }}" == "pr" ]]; then
+            if [[ -n "${{ github.event.inputs.pr_branch }}" ]]; then
+              BRANCH_NAME="${{ github.event.inputs.pr_branch }}"
+            else
+              BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+            fi
+            
+            # Sanitize branch name for Kubernetes namespace
+            SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+            echo "pr_branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          fi
+        elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "closed" ]]; then
+          echo "environment=cleanup" >> $GITHUB_OUTPUT
+          echo "image_tag=none" >> $GITHUB_OUTPUT
+          
+          # Get branch name for cleanup
+          BRANCH_NAME="${{ github.head_ref }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+          echo "pr_branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
         elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-          echo "environment=prod" >> $GITHUB_OUTPUT
+          echo "environment=staging" >> $GITHUB_OUTPUT
           echo "image_tag=main-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
         else
-          echo "environment=dev" >> $GITHUB_OUTPUT
-          echo "image_tag=dev-latest" >> $GITHUB_OUTPUT
+          echo "environment=none" >> $GITHUB_OUTPUT
+          echo "image_tag=none" >> $GITHUB_OUTPUT
         fi
         
         # Set namespace based on environment
-        case "${{ steps.env.outputs.environment || 'dev' }}" in
-          prod)
-            echo "namespace=calculaud-prod" >> $GITHUB_OUTPUT
+        case "${{ steps.env.outputs.environment || 'none' }}" in
+          staging)
+            echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
             ;;
-          eks)
-            echo "namespace=calculaud-prod" >> $GITHUB_OUTPUT
+          pr)
+            echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
+            ;;
+          cleanup)
+            echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
             ;;
           *)
-            echo "namespace=calculaud-dev" >> $GITHUB_OUTPUT
+            echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
             ;;
         esac
 
-  # Deploy to development environment
-  deploy-dev:
+  # Deploy to staging environment
+  deploy-staging:
     runs-on: ubuntu-latest
     needs: setup
-    if: needs.setup.outputs.environment == 'dev'
-    environment: development
+    if: needs.setup.outputs.environment == 'staging'
+    environment: staging
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Configure kubectl for development cluster
+    - name: Configure kubectl for staging cluster
       run: |
-        echo "Configuring kubectl for development cluster"
-        # Add your development cluster configuration here
-        # Example for different cloud providers:
-        
-        # For AWS EKS:
-        # aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.DEV_EKS_CLUSTER_NAME }}
-        
-        # For Azure AKS:
-        # az aks get-credentials --resource-group ${{ secrets.DEV_RESOURCE_GROUP }} --name ${{ secrets.DEV_AKS_CLUSTER_NAME }}
-        
-        # For Google GKE:
-        # gcloud container clusters get-credentials ${{ secrets.DEV_GKE_CLUSTER_NAME }} --zone ${{ secrets.DEV_GKE_ZONE }}
-        
+        echo "Configuring kubectl for staging cluster"
+        # Add your staging cluster configuration here
         # For generic kubeconfig:
-        echo "${{ secrets.DEV_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
 
     - name: Setup Helm
@@ -103,10 +115,10 @@ jobs:
       with:
         version: '3.12.0'
 
-    - name: Deploy to development
+    - name: Deploy to staging
       run: |
         # Deploy using simplified deployment script
-        ./k8s/scripts/deploy.sh -e dev -n ${{ needs.setup.outputs.namespace }}
+        ./k8s/scripts/deploy.sh -e staging -n ${{ needs.setup.outputs.namespace }}
         
         # Override image tag if specified
         if [[ "${{ needs.setup.outputs.image_tag }}" != "latest" ]]; then
@@ -121,22 +133,21 @@ jobs:
         kubectl rollout status deployment/calculaud-be -n ${{ needs.setup.outputs.namespace }}
         kubectl get pods -n ${{ needs.setup.outputs.namespace }} -l app.kubernetes.io/name=calculaud-be
 
-  # Deploy to production environment (prod or eks)
-  deploy-prod:
+  # Deploy to PR environment
+  deploy-pr:
     runs-on: ubuntu-latest
     needs: setup
-    if: needs.setup.outputs.environment == 'prod' || needs.setup.outputs.environment == 'eks'
-    environment: production
+    if: needs.setup.outputs.environment == 'pr'
+    environment: pr-deployment
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Configure kubectl for production cluster
+    - name: Configure kubectl for PR deployment
       run: |
-        echo "Configuring kubectl for production cluster"
-        # Add your production cluster configuration here
-        # Use the same pattern as development but with production secrets
-        echo "${{ secrets.PROD_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        echo "Configuring kubectl for PR deployment"
+        # Use staging cluster for PR deployments
+        echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
 
     - name: Setup Helm
@@ -144,97 +155,95 @@ jobs:
       with:
         version: '3.12.0'
 
-    - name: Run database migrations
+    - name: Create PR namespace
       run: |
-        # Run migrations before deployment
-        ./k8s/scripts/migrate.sh -n ${{ needs.setup.outputs.namespace }}
+        # Create namespace if it doesn't exist
+        kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
 
-    - name: Create production secrets
+    - name: Deploy to PR environment
       run: |
-        # Create temporary values file with secrets from GitHub secrets
-        cat > prod-secrets.yaml << EOF
-        postgresql:
-          external:
-            host: "${{ secrets.PROD_DB_HOST }}"
-            username: "${{ secrets.PROD_DB_USERNAME }}"
-            password: "${{ secrets.PROD_DB_PASSWORD }}"
-            database: "${{ secrets.PROD_DB_NAME }}"
+        # Deploy using deployment script with PR values
+        ./k8s/scripts/deploy.sh -e pr -n ${{ needs.setup.outputs.namespace }}
         
-        s3:
-          accessKeyId: "${{ secrets.PROD_S3_ACCESS_KEY }}"
-          secretAccessKey: "${{ secrets.PROD_S3_SECRET_KEY }}"
-          bucketName: "${{ secrets.PROD_S3_BUCKET }}"
-          bucketUrl: "${{ secrets.PROD_S3_BUCKET_URL }}"
-        
-        auth:
-          jwksUrl: "${{ secrets.PROD_AUTH_JWKS_URL }}"
-          issuer: "${{ secrets.PROD_AUTH_ISSUER }}"
-          audience: "${{ secrets.PROD_AUTH_AUDIENCE }}"
-          tokenEndpointUrl: "${{ secrets.PROD_AUTH_TOKEN_URL }}"
-          oidcUrl: "${{ secrets.PROD_AUTH_OIDC_URL }}"
-          oauth:
-            clientId: "${{ secrets.PROD_OAUTH_CLIENT_ID }}"
-        
-        ingress:
-          hosts:
-            - host: "${{ secrets.PROD_DOMAIN }}"
-              paths:
-                - path: /
-                  pathType: Prefix
-          tls:
-            - secretName: calculaud-prod-tls
-              hosts:
-                - "${{ secrets.PROD_DOMAIN }}"
-        EOF
-
-    - name: Deploy to production
-      run: |
-        # Determine deployment environment (prod or eks)
-        DEPLOY_ENV="${{ needs.setup.outputs.environment }}"
-        
-        # Deploy using simplified deployment script
-        ./k8s/scripts/deploy.sh -e "$DEPLOY_ENV" -n ${{ needs.setup.outputs.namespace }}
-        
-        # Apply secrets overlay and update image tag
-        helm upgrade calculaud-be k8s/helm/calculaud-be \
-          --namespace ${{ needs.setup.outputs.namespace }} \
-          --reuse-values \
-          --values prod-secrets.yaml \
-          --set image.tag=${{ needs.setup.outputs.image_tag }} \
-          --wait \
-          --timeout=900s
-        
-        # Cleanup secrets file
-        rm -f prod-secrets.yaml
+        # Override image tag if specified
+        if [[ "${{ needs.setup.outputs.image_tag }}" != "latest" ]]; then
+          helm upgrade calculaud-be k8s/helm/calculaud-be \
+            --namespace ${{ needs.setup.outputs.namespace }} \
+            --reuse-values \
+            --set image.tag=${{ needs.setup.outputs.image_tag }}
+        fi
 
     - name: Verify deployment
       run: |
         kubectl rollout status deployment/calculaud-be -n ${{ needs.setup.outputs.namespace }}
         kubectl get pods -n ${{ needs.setup.outputs.namespace }} -l app.kubernetes.io/name=calculaud-be
 
-    - name: Run post-deployment tests
+    - name: Get deployment info
       run: |
-        # Wait for pods to be ready
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=calculaud-be -n ${{ needs.setup.outputs.namespace }} --timeout=300s
+        echo "🚀 PR Environment Deployed Successfully!"
+        echo "Namespace: ${{ needs.setup.outputs.namespace }}"
+        echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+        echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
         
-        # Test health endpoints
-        kubectl run test-pod --rm -i --restart=Never --image=curlimages/curl -- \
-          curl -f http://calculaud-be.${{ needs.setup.outputs.namespace }}.svc.cluster.local/health/ready
+        # Get service info
+        kubectl get svc -n ${{ needs.setup.outputs.namespace }}
+
+  # Cleanup PR environment
+  cleanup-pr:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.environment == 'cleanup'
+    steps:
+    - name: Configure kubectl for cleanup
+      run: |
+        echo "Configuring kubectl for PR cleanup"
+        echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+
+    - name: Cleanup PR environment
+      run: |
+        echo "🧹 Cleaning up PR environment: ${{ needs.setup.outputs.namespace }}"
+        
+        # Uninstall Helm release if it exists
+        if helm list -n ${{ needs.setup.outputs.namespace }} | grep -q calculaud-be; then
+          helm uninstall calculaud-be -n ${{ needs.setup.outputs.namespace }}
+        fi
+        
+        # Delete namespace
+        if kubectl get namespace ${{ needs.setup.outputs.namespace }} >/dev/null 2>&1; then
+          kubectl delete namespace ${{ needs.setup.outputs.namespace }}
+          echo "✅ Cleaned up namespace: ${{ needs.setup.outputs.namespace }}"
+        else
+          echo "ℹ️  Namespace ${{ needs.setup.outputs.namespace }} does not exist"
+        fi
 
   # Notify on deployment completion
   notify:
     runs-on: ubuntu-latest
-    needs: [setup, deploy-dev, deploy-prod]
-    if: always()
+    needs: [setup, deploy-staging, deploy-pr, cleanup-pr]
+    if: always() && needs.setup.outputs.environment != 'none'
     steps:
     - name: Deployment notification
       run: |
-        if [[ "${{ needs.deploy-dev.result }}" == "success" || "${{ needs.deploy-prod.result }}" == "success" ]]; then
-          echo "✅ Deployment to ${{ needs.setup.outputs.environment }} completed successfully!"
-          echo "Environment: ${{ needs.setup.outputs.environment }}"
-          echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
-          echo "Namespace: ${{ needs.setup.outputs.namespace }}"
+        if [[ "${{ needs.deploy-staging.result }}" == "success" || "${{ needs.deploy-pr.result }}" == "success" || "${{ needs.cleanup-pr.result }}" == "success" ]]; then
+          if [[ "${{ needs.setup.outputs.environment }}" == "cleanup" ]]; then
+            echo "🧹 PR environment cleanup completed!"
+            echo "Cleaned up namespace: ${{ needs.setup.outputs.namespace }}"
+          else
+            echo "✅ Deployment to ${{ needs.setup.outputs.environment }} completed successfully!"
+            echo "Environment: ${{ needs.setup.outputs.environment }}"
+            echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
+            echo "Namespace: ${{ needs.setup.outputs.namespace }}"
+            if [[ "${{ needs.setup.outputs.environment }}" == "pr" ]]; then
+              echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+            fi
+          fi
         else
-          echo "❌ Deployment failed"
+          echo "❌ Operation failed"
           exit 1
         fi

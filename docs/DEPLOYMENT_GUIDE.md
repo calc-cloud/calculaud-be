@@ -1,11 +1,11 @@
 # Calculaud Backend - Complete Deployment Guide
 
-This comprehensive guide covers deploying the Calculaud Backend to AWS EKS and on-premises Kubernetes environments. Both deployments assume that the Kubernetes clusters are already provisioned and configured.
+This comprehensive guide covers deploying the Calculaud Backend to AWS EKS (staging/PR environments) and on-premises Kubernetes environments. Both deployments assume that the Kubernetes clusters are already provisioned and configured.
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [AWS EKS Deployment](#aws-eks-deployment)
+2. [AWS EKS Deployment (Staging/PR)](#aws-eks-deployment-stagingpr)
 3. [On-Premises Kubernetes Deployment](#on-premises-kubernetes-deployment)
 4. [Air-Gapped/Offline Deployment](#air-gappedoffline-deployment)
 5. [Configuration Management](#configuration-management)
@@ -37,7 +37,7 @@ This comprehensive guide covers deploying the Calculaud Backend to AWS EKS and o
 - Ingress controller (recommended)
 - Load balancer solution (recommended)
 
-## AWS EKS Deployment
+## AWS EKS Deployment (Staging/PR)
 
 ### Quick Start
 
@@ -49,53 +49,94 @@ Assumes you have an existing EKS cluster with:
 
 1. **Deploy Application**:
    ```bash
-   # Deploy to EKS
-   ./k8s/scripts/deploy.sh -e eks -n calculaud-prod
+   # Deploy to staging environment (automatic on main branch push)
+   ./k8s/scripts/deploy.sh -e staging -n calculaud-staging
+   
+   # Deploy to PR environment (manual via workflow dispatch)
+   # This creates calculaud-{branch-name} namespace
+   ./k8s/scripts/deploy.sh -e pr -n calculaud-feature-user-auth
    ```
 
 2. **Run Database Migrations**:
    ```bash
-   ./k8s/scripts/migrate.sh -n calculaud-prod
+   # For staging
+   ./k8s/scripts/migrate.sh -n calculaud-staging
+   
+   # For PR environments (uses shared test database)
+   ./k8s/scripts/migrate.sh -n calculaud-feature-user-auth
    ```
 
 ### EKS Configuration
+
+The `staging` environment uses the main branch for integration testing, while `PR` environments use feature branches for isolated testing.
 
 #### Step 1: Configure Application Secrets
 
 Create secrets in AWS Secrets Manager:
 
 ```bash
-# Database credentials
+# Staging Database credentials
 aws secretsmanager create-secret \
-    --name "calculaud/prod/database" \
-    --secret-string '{"username":"calculaud_admin","password":"your-secure-password","host":"your-rds-endpoint","database":"calculaud_prod"}'
+    --name "calculaud/staging/database" \
+    --secret-string '{"username":"calculaud_staging","password":"your-secure-password","host":"your-staging-rds-endpoint","database":"calculaud_staging"}'
+
+# Test Database credentials (shared by PR environments)
+aws secretsmanager create-secret \
+    --name "calculaud/test/database" \
+    --secret-string '{"username":"calculaud_test","password":"your-test-password","host":"your-test-rds-endpoint","database":"calculaud_test"}'
 
 # S3 credentials (if not using IRSA)
 aws secretsmanager create-secret \
-    --name "calculaud/prod/s3" \
-    --secret-string '{"accessKeyId":"your-access-key","secretAccessKey":"your-secret-key"}'
+    --name "calculaud/staging/s3" \
+    --secret-string '{"accessKeyId":"your-staging-access-key","secretAccessKey":"your-staging-secret-key"}'
+
+aws secretsmanager create-secret \
+    --name "calculaud/test/s3" \
+    --secret-string '{"accessKeyId":"your-test-access-key","secretAccessKey":"your-test-secret-key"}'
 
 # Auth configuration
 aws secretsmanager create-secret \
-    --name "calculaud/prod/auth" \
-    --secret-string '{"clientId":"your-client-id"}'
+    --name "calculaud/staging/auth" \
+    --secret-string '{"clientId":"calculaud-staging-client"}'
+
+aws secretsmanager create-secret \
+    --name "calculaud/test/auth" \
+    --secret-string '{"clientId":"calculaud-test-client"}'
 ```
 
 #### Step 2: Customize EKS Configuration
 
-Edit `k8s/helm/calculaud-be/values-eks.yaml`:
+Edit environment-specific values files:
+- `k8s/helm/calculaud-be/values-staging.yaml` - for staging
+- `k8s/helm/calculaud-be/values-pr.yaml` - for PR environments
 
 ```yaml
-# Update with your values
+# Staging values (values-staging.yaml)
 image:
   repository: "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
+  tag: "staging-latest"
 
 postgresql:
   external:
-    host: "calculaud-prod.cluster-xxx.us-east-1.rds.amazonaws.com"
+    host: "calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com"
+    database: "calculaud_staging"
 
 s3:
-  bucketName: "calculaud-prod-files"
+  bucketName: "calculaud-staging-files"
+  region: "us-east-1"
+
+# PR values (values-pr.yaml)
+image:
+  repository: "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
+  tag: "pr-latest"
+
+postgresql:
+  external:
+    host: "calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com"
+    database: "calculaud_test"  # Shared test database
+
+s3:
+  bucketName: "calculaud-test-files"
   region: "us-east-1"
 
 auth:
@@ -111,20 +152,70 @@ aws ecr get-login-password --region us-east-1 | docker login --username AWS --pa
 docker build -t <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/calculaud-be:latest .
 docker push <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/calculaud-be:latest
 
-# Deploy to EKS
-./k8s/scripts/deploy.sh -e eks -n calculaud-prod
+# Deploy to staging
+./k8s/scripts/deploy.sh -e staging -n calculaud-staging
 
 # Run migrations
-./k8s/scripts/migrate.sh -n calculaud-prod
+./k8s/scripts/migrate.sh -n calculaud-staging
 ```
 
 ### EKS-Specific Features
 
+Both staging and PR environments include:
 - **Auto-scaling**: Configured with HPA and VPA
 - **Load Balancing**: ALB with SSL termination
 - **Storage**: EBS volumes with automatic provisioning
 - **Monitoring**: CloudWatch integration
 - **Security**: IRSA for secure AWS access
+
+#### Environment Differences:
+- **Staging**: Uses main branch, moderate scaling for integration testing, staging-* image tags
+- **PR**: Uses feature branches, minimal scaling for cost efficiency, pr-* image tags, shared test resources
+
+#### PR Environment Features:
+- **Branch-based naming**: `calculaud-{sanitized-branch-name}` (e.g., `calculaud-feature-user-auth`)
+- **Manual deployment**: Triggered via GitHub Actions workflow dispatch
+- **Automatic cleanup**: PR environments are cleaned up when PR is closed/merged
+- **Shared resources**: Uses shared test database and S3 bucket for cost efficiency
+- **Minimal resources**: 1 replica, 128Mi-512Mi memory, 50m-500m CPU
+
+### PR Environment Deployment
+
+#### Manual PR Deployment via GitHub Actions
+
+1. **Navigate to your repository** → Actions → "Deploy to Kubernetes"
+2. **Click "Run workflow"**
+3. **Select parameters**:
+   - Environment: `pr`
+   - Image tag: `latest` (or specific tag)
+   - PR branch: Leave empty for auto-detection or specify branch name
+4. **Click "Run workflow"**
+
+This will create a new namespace `calculaud-{branch-name}` and deploy your application.
+
+#### Accessing PR Environment
+
+```bash
+# Port forward to access PR environment locally
+kubectl port-forward svc/calculaud-be 8000:80 -n calculaud-feature-user-auth
+
+# Access application
+curl http://localhost:8000/health
+```
+
+#### Cleanup PR Environment
+
+PR environments are automatically cleaned up when:
+- PR is closed or merged
+- Manual cleanup via workflow dispatch
+- After 7 days of inactivity (configurable)
+
+Manual cleanup:
+```bash
+# Delete PR environment
+helm uninstall calculaud-be -n calculaud-feature-user-auth
+kubectl delete namespace calculaud-feature-user-auth
+```
 
 ## On-Premises Kubernetes Deployment
 
@@ -291,7 +382,7 @@ AUTH_AUDIENCE=calculaud-api
 ```env
 APP_NAME="Procurement Management System"
 DEBUG=false
-ENVIRONMENT=production
+ENVIRONMENT=integration
 LOG_LEVEL=INFO
 WORKERS=4
 ```

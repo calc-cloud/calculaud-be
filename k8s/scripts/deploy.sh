@@ -6,7 +6,7 @@
 set -e
 
 # Default values
-ENVIRONMENT="dev"
+ENVIRONMENT="staging"
 NAMESPACE="calculaud"
 HELM_RELEASE_NAME="calculaud-be"
 CHART_PATH="k8s/helm/calculaud-be"
@@ -36,7 +36,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -e, --environment ENV    Environment to deploy to (dev, prod, eks, onprem) [default: dev]"
+    echo "  -e, --environment ENV    Environment to deploy to (dev, integration, prod, onprem) [default: dev]"
     echo "  -n, --namespace NS       Kubernetes namespace [default: calculaud]"
     echo "  -r, --release NAME       Helm release name [default: calculaud-be]"
     echo "  -c, --chart PATH         Path to Helm chart [default: k8s/helm/calculaud-be]"
@@ -47,9 +47,8 @@ usage() {
     echo "  -h, --help              Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 -e dev                    # Deploy to development"
-    echo "  $0 -e prod -n calculaud-prod # Deploy to production"
-    echo "  $0 -e eks                    # Deploy to AWS EKS"
+    echo "  $0 -e staging                # Deploy to staging (EKS)"
+    echo "  $0 -e pr                     # Deploy to PR environment"
     echo "  $0 -e onprem                 # Deploy to on-premises"
     echo "  $0 -d                        # Dry run deployment"
     echo "  $0 -f my-values.yaml         # Use custom values file"
@@ -105,8 +104,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate environment
-if [[ ! "$ENVIRONMENT" =~ ^(dev|prod|eks|onprem)$ ]]; then
-    print_message $RED "Error: Environment must be 'dev', 'prod', 'eks', or 'onprem'"
+if [[ ! "$ENVIRONMENT" =~ ^(staging|pr|onprem)$ ]]; then
+    print_message $RED "Error: Environment must be 'staging', 'pr', or 'onprem'"
     exit 1
 fi
 
@@ -146,8 +145,8 @@ check_context() {
 # Environment-specific checks and setup
 environment_setup() {
     case $ENVIRONMENT in
-        eks)
-            print_message $BLUE "Setting up for AWS EKS deployment..."
+        staging|pr)
+            print_message $BLUE "Setting up for AWS EKS deployment ($ENVIRONMENT)..."
             
             # Check AWS CLI
             if ! command -v aws &> /dev/null; then
@@ -166,6 +165,12 @@ environment_setup() {
                 print_message $GREEN "✓ EKS cluster context detected"
             else
                 print_message $YELLOW "Warning: Current context may not be an EKS cluster"
+            fi
+            
+            # PR-specific setup
+            if [[ "$ENVIRONMENT" == "pr" ]]; then
+                print_message $BLUE "Setting up PR environment with minimal resources"
+                print_message $YELLOW "Note: PR environments use shared test database and S3 bucket"
             fi
             ;;
         onprem)
@@ -195,9 +200,6 @@ environment_setup() {
             # On-premises deployment uses external PostgreSQL and S3 storage
             print_message $GREEN "✓ On-premises deployment configured for external services"
             print_message $BLUE "Note: Ensure external PostgreSQL and S3-compatible storage are available"
-            ;;
-        dev|prod)
-            print_message $BLUE "Setting up for $ENVIRONMENT environment..."
             ;;
     esac
 }
