@@ -18,12 +18,8 @@ config:
   maxFileSizeMb: 512
   defaultPageSize: 50
 
-# Use external PostgreSQL (assumed to be already available)
+# External PostgreSQL (assumed to be already available)
 postgresql:
-  enabled: false  # Always use external PostgreSQL for on-premises
-  
-  
-  # External PostgreSQL configuration
   external:
     host: "postgres.yourdomain.local"
     port: 5432

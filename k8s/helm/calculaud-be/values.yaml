@@ -31,38 +31,8 @@ config:
   usdToIlsRate: 3.7
   maxFileSizeMb: 1024
 
-# PostgreSQL configuration
+# PostgreSQL configuration (external only)
 postgresql:
-  # Set to false to use external PostgreSQL
-  enabled: true
-  
-  # Internal PostgreSQL settings (when enabled=true)
-  image:
-    repository: postgres
-    tag: "15-alpine"
-    pullPolicy: IfNotPresent
-  
-  username: calculaud
-  password: "change-me-in-production"  # CHANGE THIS!
-  database: calculaud
-  port: 5432
-  
-  persistence:
-    enabled: true
-    storageClass: ""  # Use default storage class
-    accessModes:
-      - ReadWriteOnce
-    size: 10Gi
-  
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  
-  # External PostgreSQL settings (when enabled=false)
   external:
     host: "postgresql.example.com"
     port: 5432

@@ -62,54 +62,10 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-PostgreSQL host
-*/}}
-{{- define "calculaud-be.postgresql.host" -}}
-{{- if .Values.postgresql.enabled }}
-{{- printf "%s-postgresql" (include "calculaud-be.fullname" .) }}
-{{- else }}
-{{- .Values.postgresql.external.host }}
-{{- end }}
-{{- end }}
-
-{{/*
-PostgreSQL port
-*/}}
-{{- define "calculaud-be.postgresql.port" -}}
-{{- if .Values.postgresql.enabled }}
-{{- .Values.postgresql.port | default 5432 }}
-{{- else }}
-{{- .Values.postgresql.external.port | default 5432 }}
-{{- end }}
-{{- end }}
-
-{{/*
-PostgreSQL database name
-*/}}
-{{- define "calculaud-be.postgresql.database" -}}
-{{- if .Values.postgresql.enabled }}
-{{- .Values.postgresql.database | default "calculaud" }}
-{{- else }}
-{{- .Values.postgresql.external.database }}
-{{- end }}
-{{- end }}
-
-{{/*
-PostgreSQL username
-*/}}
-{{- define "calculaud-be.postgresql.username" -}}
-{{- if .Values.postgresql.enabled }}
-{{- .Values.postgresql.username | default "calculaud" }}
-{{- else }}
-{{- .Values.postgresql.external.username }}
-{{- end }}
-{{- end }}
-
-{{/*
-Database URL
+Database URL for external PostgreSQL
 */}}
 {{- define "calculaud-be.databaseUrl" -}}
-{{- printf "postgresql://%s:%s@%s:%s/%s" (include "calculaud-be.postgresql.username" .) "$(DATABASE_PASSWORD)" (include "calculaud-be.postgresql.host" .) (include "calculaud-be.postgresql.port" .) (include "calculaud-be.postgresql.database" .) }}
+{{- printf "postgresql://%s:%s@%s:%s/%s" .Values.postgresql.external.username "$(DATABASE_PASSWORD)" .Values.postgresql.external.host (.Values.postgresql.external.port | default 5432) .Values.postgresql.external.database }}
 {{- end }}
 
 {{/*

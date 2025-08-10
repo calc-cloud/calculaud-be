@@ -16,9 +16,8 @@ config:
   environment: "production"
   maxFileSizeMb: 2048  # Increased for EKS
   
-# Use external RDS PostgreSQL for production
+# External RDS PostgreSQL for production
 postgresql:
-  enabled: false
   external:
     host: "calculaud-prod.cluster-<id>.us-east-1.rds.amazonaws.com"
     port: 5432

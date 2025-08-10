@@ -14,9 +14,8 @@ config:
   debug: false
   environment: "production"
 
-# Use external managed PostgreSQL for production
+# External managed PostgreSQL for production
 postgresql:
-  enabled: false
   external:
     host: "production-postgres.example.com"
     port: 5432

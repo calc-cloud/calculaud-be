@@ -14,9 +14,8 @@ config:
   debug: true
   environment: "development"
 
-# Use external PostgreSQL for development (consistent with production)
+# External PostgreSQL for development
 postgresql:
-  enabled: false  # Always use external PostgreSQL
   external:
     host: "postgres-dev.yourdomain.local"
     port: 5432

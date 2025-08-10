@@ -43,25 +43,6 @@ spec:
       serviceAccountName: {{ include "calculaud-be.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if .Values.postgresql.enabled }}
-      initContainers:
-      - name: wait-for-db
-        image: postgres:15-alpine
-        command:
-        - sh
-        - -c
-        - |
-          until pg_isready -h {{ include "calculaud-be.postgresql.host" . }} -p {{ include "calculaud-be.postgresql.port" . }} -U {{ include "calculaud-be.postgresql.username" . }}; do
-            echo "Waiting for database..."
-            sleep 2
-          done
-        env:
-        - name: PGPASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.existingSecret | default (printf "%s-secret" (include "calculaud-be.fullname" .)) }}
-              key: DATABASE_PASSWORD
-      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
         securityContext:
