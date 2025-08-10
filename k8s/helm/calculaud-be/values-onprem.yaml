@@ -50,7 +50,6 @@ auth:
   
   oauth:
     clientId: "calculaud-onprem-client"
-    clientSecret: "your-oauth-client-secret"
     scopes: "openid profile email"
 
 # Use NodePort or LoadBalancer for on-premises access

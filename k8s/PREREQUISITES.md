@@ -39,91 +39,38 @@ postgres-password: "your-secure-password"
 
 ### 2. S3-Compatible Storage
 
-**Options:**
-- MinIO (recommended for on-premises)
-- AWS S3
-- Compatible alternatives (Ceph, etc.)
-
-**MinIO Setup Example:**
-```bash
-# Install MinIO server
-wget https://dl.min.io/server/minio/release/linux-amd64/minio
-chmod +x minio
-sudo mv minio /usr/local/bin/
-
-# Create storage directory
-sudo mkdir -p /opt/minio/data
-
-# Create service user
-sudo useradd -r -s /bin/false minio
-
-# Start MinIO (for production, use systemd service)
-MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=your-secure-password \
-minio server /opt/minio/data --address :9000 --console-address :9001
-```
-
-**Bucket Setup:**
-```bash
-# Install MinIO client
-wget https://dl.min.io/client/mc/release/linux-amd64/mc
-chmod +x mc
-
-# Configure client
-mc alias set local http://localhost:9000 admin your-secure-password
-
-# Create bucket
-mc mb local/calculaud-files
-
-# Create access key for application
-mc admin user add local calculaud-app your-app-password
-mc admin policy set local readwrite user=calculaud-app
-```
+**Requirements:**
+- External S3-compatible storage service
+- Bucket created for Calculaud files
+- Access credentials with read/write permissions
 
 **Configuration Required:**
 ```yaml
 # In ConfigMap
-s3-endpoint-url: "https://minio.yourdomain.local:9000"
+s3-endpoint-url: "https://your-s3-service.domain.com"
 s3-bucket-name: "calculaud-files"
-s3-use-ssl: "true"  # false for HTTP
+s3-use-ssl: "true"
 
 # In Secret
-s3-access-key-id: "calculaud-app"
-s3-secret-access-key: "your-app-password"
+s3-access-key-id: "your-access-key"
+s3-secret-access-key: "your-secret-key"
 ```
 
 ## 🔐 Optional: Authentication Provider
 
-### OIDC/OAuth2 Provider
-
-**Options:**
-- Keycloak (open source)
-- Auth0
-- Azure AD
-- Google Workspace
-- Custom OIDC provider
-
-**Keycloak Setup Example:**
-```bash
-# Using Docker
-docker run -d \
-  --name keycloak \
-  -p 8080:8080 \
-  -e KEYCLOAK_ADMIN=admin \
-  -e KEYCLOAK_ADMIN_PASSWORD=admin \
-  quay.io/keycloak/keycloak:latest \
-  start-dev
-```
+**Requirements:**
+- External OIDC/OAuth2 provider configured
+- Client application registered for Calculaud
+- JWKS endpoint accessible from cluster
 
 **Configuration Required:**
 ```yaml
 # In ConfigMap
-auth-jwks-url: "https://keycloak.yourdomain.local/auth/realms/calculaud/.well-known/openid_configuration"
-auth-issuer: "https://keycloak.yourdomain.local/auth/realms/calculaud"
+auth-jwks-url: "https://your-auth-provider.com/.well-known/jwks.json"
+auth-issuer: "https://your-auth-provider.com/"
 auth-audience: "calculaud-api"
 auth-client-id: "calculaud-client"
 
-# In Secret (if using confidential client)
-auth-client-secret: "your-client-secret"
 ```
 
 ## 🌐 Network Requirements
@@ -139,8 +86,8 @@ auth-client-secret: "your-client-secret"
 
 ### Ports
 - PostgreSQL: 5432
-- MinIO: 9000 (API), 9001 (Console)
-- Auth Provider: varies (8080 for Keycloak)
+- S3-compatible storage: varies
+- Auth Provider: varies
 
 ## 🏗️ Kubernetes Infrastructure
 
@@ -238,10 +185,9 @@ kubectl run -it --rm postgres-test --image=postgres:15-alpine --restart=Never --
 
 **S3 Storage Connection:**
 ```bash
-# Test from within cluster  
-kubectl run -it --rm s3-test --image=minio/mc --restart=Never -- \
-  mc alias set test https://s3.yourdomain.local access-key secret-key
-kubectl exec s3-test -- mc ls test/calculaud-files
+# Test from within cluster using curl
+kubectl run -it --rm s3-test --image=curlimages/curl --restart=Never -- \
+  curl -I https://your-s3-service.domain.com
 ```
 
 **DNS Resolution:**

@@ -12,7 +12,7 @@ PACKAGE_DIR="$PROJECT_ROOT/onprem-package"
 OUTPUT_FILE="calculaud-onprem-$(date +%Y%m%d-%H%M%S).tar.gz"
 TEMP_DIR=$(mktemp -d)
 
-# Docker images to package (PostgreSQL and MinIO assumed to be already available)
+# Docker images to package (external services assumed to be already available)
 DOCKER_IMAGES=(
     "calculaud/calculaud-be:latest"
 )
@@ -314,10 +314,10 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 60s
 
-  - job_name: 'minio'
+  - job_name: 's3-storage'
     static_configs:
-      - targets: ['minio:9000']
-    metrics_path: '/minio/v2/metrics/cluster'
+      - targets: ['your-s3-service:443']
+    metrics_path: '/metrics'
     scrape_interval: 60s
 EOF
     
@@ -424,7 +424,7 @@ create_documentation() {
 
 - **Application**: Via NodePort, LoadBalancer, or port-forward
 - **API Documentation**: {application-url}/docs
-- **MinIO Console**: Via NodePort or port-forward to port 9001
+- **S3 Storage**: External service (configuration required)
 
 ## Troubleshooting
 

@@ -78,7 +78,7 @@ aws secretsmanager create-secret \
 # Auth configuration
 aws secretsmanager create-secret \
     --name "calculaud/prod/auth" \
-    --secret-string '{"clientId":"your-client-id","clientSecret":"your-client-secret"}'
+    --secret-string '{"clientId":"your-client-id"}'
 ```
 
 #### Step 2: Customize EKS Configuration
@@ -155,23 +155,25 @@ service:
   type: NodePort  # or LoadBalancer if MetalLB is configured
   nodePort: 30080
 
-# Ingress configuration
+# Ingress configuration (disabled by default)
 ingress:
-  enabled: true  # if NGINX Ingress is installed
-  hosts:
-    - host: calculaud.local.domain
+  enabled: false  # Enable if you have NGINX Ingress Controller
+  # enabled: true
+  # className: "nginx"
+  # hosts:
+  #   - host: calculaud.local.domain
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
 
-# MinIO for S3-compatible storage
-minio:
-  enabled: true
-  persistence:
-    size: 100Gi
-
-# PostgreSQL configuration
+# External PostgreSQL configuration required
 postgresql:
-  enabled: true
-  persistence:
-    size: 50Gi
+  external:
+    host: "postgres.yourdomain.local"
+    port: 5432
+    username: "calculaud"
+    password: "your-secure-password"
+    database: "calculaud"
 ```
 
 ### Deploy Application
@@ -275,7 +277,7 @@ S3_ACCESS_KEY_ID=your-access-key
 S3_SECRET_ACCESS_KEY=your-secret-key
 S3_REGION=us-east-1
 S3_BUCKET_NAME=calculaud-files
-S3_ENDPOINT_URL=http://minio:9000  # for MinIO
+S3_ENDPOINT_URL=https://your-s3-service.domain.com
 ```
 
 #### Authentication Configuration
@@ -560,12 +562,9 @@ kubectl exec -it postgres-0 -- pg_dump -U calculaud calculaud | gzip > backup-$(
 
 ### File Storage Backup
 
-#### S3/MinIO Backup
+#### S3 Storage Backup
 ```bash
-# Using MinIO client
-mc mirror minio/calculaud-files /backup/files/
-
-# Using AWS CLI
+# Using AWS CLI or compatible tools
 aws s3 sync s3://calculaud-files /backup/files/
 ```
 
@@ -635,19 +634,19 @@ kubectl exec -it postgres-0 -n calculaud -- psql -U calculaud -d calculaud -c "S
 - Ensure database is running and accessible
 - Verify network policies
 
-#### 4. S3/MinIO Connection Issues
+#### 4. S3 Storage Connection Issues
 ```bash
-# Check MinIO connectivity
-kubectl exec -it <app-pod> -n calculaud -- curl http://minio:9000/minio/health/live
+# Check S3 connectivity
+kubectl exec -it <app-pod> -n calculaud -- curl -I https://your-s3-service.domain.com
 
-# Test S3 access
-aws s3 ls s3://calculaud-files --endpoint-url http://minio:9000
+# Test S3 access with AWS CLI
+aws s3 ls s3://calculaud-files --endpoint-url https://your-s3-service.domain.com
 ```
 
 **Solutions**:
 - Verify S3 credentials and endpoint
 - Check bucket permissions
-- Ensure MinIO is running (for on-premises)
+- Ensure external S3 service is accessible
 
 #### 5. Ingress Not Working
 ```bash

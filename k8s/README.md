@@ -100,7 +100,7 @@ s3:
   secretAccessKey: "your-secret-key"
   bucketName: "calculaud-files"
   region: "us-east-1"
-  # For S3-compatible storage (MinIO, etc.)
+  # For external S3-compatible storage
   endpointUrl: "https://your-s3-endpoint"
 ```
 
@@ -201,7 +201,7 @@ helm upgrade --install calculaud-be helm/calculaud-be \
 **Features**:
 - Flexible storage options (local, NFS, etc.)
 - NodePort, Ingress, or LoadBalancer access
-- Embedded PostgreSQL and MinIO S3-compatible storage
+- External PostgreSQL and S3-compatible storage required
 - Optional monitoring integration
 
 
