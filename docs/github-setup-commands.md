@@ -97,7 +97,7 @@ gh secret set S3_ACCESS_KEY --env staging --body "your-staging-s3-access-key"
 gh secret set S3_SECRET_KEY --env staging --body "your-staging-s3-secret-key"
 
 # Kubeconfig for cluster access
-gh secret set STAGING_KUBECONFIG --env staging --body "$(base64 -i ~/.kube/staging-config)"
+gh secret set KUBECONFIG --env staging --body "$(base64 -i ~/.kube/staging-config)"
 ```
 
 ## Step 3: Configure Testing Environment

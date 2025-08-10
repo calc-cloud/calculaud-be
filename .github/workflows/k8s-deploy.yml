@@ -107,7 +107,7 @@ jobs:
         echo "Configuring kubectl for staging cluster"
         # Add your staging cluster configuration here
         # For generic kubeconfig:
-        echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
 
     - name: Setup Helm
@@ -247,7 +247,7 @@ jobs:
       run: |
         echo "Configuring kubectl for PR deployment"
         # Use staging cluster for PR deployments
-        echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
 
     - name: Setup Helm
@@ -400,7 +400,7 @@ jobs:
     - name: Configure kubectl for cleanup
       run: |
         echo "Configuring kubectl for PR cleanup"
-        echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
 
     - name: Setup Helm

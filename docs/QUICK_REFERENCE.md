@@ -40,14 +40,18 @@ cd calculaud-onprem-*
 | **MinIO Console** | N/A | NodePort/Port-Forward (port 9001) |
 | **Health Checks** | `/health` | `/health` |
 
-## Environment Files
+## Configuration Approach
 
-| Environment | Values File | Purpose |
-|-------------|-------------|---------|
-| **AWS EKS** | `values-eks.yaml` | ALB, RDS, S3, IRSA configuration |
-| **On-Premises** | `values-onprem.yaml` | NodePort, local storage, MinIO |
-| **Development** | `values-dev.yaml` | Development settings |
-| **Production** | `values-prod.yaml` | Production settings |
+| Environment | Configuration | Purpose |
+|-------------|--------------|---------|
+| **Staging** | GitHub Environment + `values.yaml.template` | Production-like testing with dedicated resources |
+| **Testing** | GitHub Environment + `values.yaml.template` | Lightweight PR testing with shared resources |
+| **On-Premises** | `values-onprem.yaml` | Local deployment with external services |
+
+**Key Features:**
+- **GitHub Environments**: Environment-scoped secrets and variables
+- **Universal Template**: Single `values.yaml.template` for staging/testing
+- **Clean Configuration**: No prefixed secrets (`DB_HOST` vs `STAGING_DB_HOST`)
 
 ## Common Commands
 
