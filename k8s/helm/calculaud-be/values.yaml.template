@@ -1,0 +1,201 @@
+# Universal Helm values template for calculaud-be
+# Supports both staging and testing environments via GitHub Environments
+# Environment variables are automatically injected based on deployment environment
+
+# Environment-specific replica configuration
+replicaCount: ${REPLICA_COUNT:-1}
+
+# Container image configuration
+image:
+  repository: "${ECR_REPOSITORY}"
+  tag: "${IMAGE_TAG:-latest}"
+  pullPolicy: Always
+
+# Environment-specific application configuration
+config:
+  debug: ${DEBUG:-false}
+  environment: "${ENVIRONMENT}"
+  maxFileSizeMb: ${MAX_FILE_SIZE_MB:-128}
+  defaultPageSize: ${DEFAULT_PAGE_SIZE:-20}
+
+# External PostgreSQL configuration
+postgresql:
+  external:
+    host: "${DB_HOST}"
+    port: ${DB_PORT:-5432}
+    username: "${DB_USERNAME}"
+    password: "${DB_PASSWORD}"
+    database: "${DB_NAME}"
+
+# S3 configuration
+s3:
+  accessKeyId: "${S3_ACCESS_KEY}"
+  secretAccessKey: "${S3_SECRET_KEY}"
+  region: "${AWS_REGION:-us-east-1}"
+  endpointUrl: ""  # Use default AWS S3
+  bucketName: "${S3_BUCKET}"
+  bucketUrl: "${S3_BUCKET_URL}"
+  keyPrefix: "${S3_KEY_PREFIX:-files/}"
+  useSsl: true
+  storageClass: ""
+
+# Authentication configuration
+auth:
+  jwksUrl: "${AUTH_JWKS_URL}"
+  issuer: "${AUTH_ISSUER}"
+  audience: "${AUTH_AUDIENCE}"
+  algorithm: "RS256"
+  tokenEndpointUrl: "${AUTH_TOKEN_URL}"
+  oidcUrl: "${AUTH_OIDC_URL}"
+  
+  oauth:
+    clientId: "${OAUTH_CLIENT_ID}"
+    scopes: "openid profile email"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+# Ingress configuration (environment-specific)
+ingress:
+  enabled: ${INGRESS_ENABLED:-false}
+  className: "${INGRESS_CLASS:-}"
+  annotations: {}
+  hosts: []
+  tls: []
+
+# Environment-specific resource configuration
+resources:
+  requests:
+    memory: "${RESOURCES_REQUEST_MEMORY:-128Mi}"
+    cpu: "${RESOURCES_REQUEST_CPU:-50m}"
+  limits:
+    memory: "${RESOURCES_LIMIT_MEMORY:-512Mi}"
+    cpu: "${RESOURCES_LIMIT_CPU:-500m}"
+
+# Autoscaling configuration (environment-specific)
+autoscaling:
+  enabled: ${AUTOSCALING_ENABLED:-false}
+  minReplicas: ${AUTOSCALING_MIN_REPLICAS:-1}
+  maxReplicas: ${AUTOSCALING_MAX_REPLICAS:-3}
+  targetCPUUtilizationPercentage: ${AUTOSCALING_CPU_TARGET:-70}
+  targetMemoryUtilizationPercentage: ${AUTOSCALING_MEMORY_TARGET:-80}
+
+# Node selection (environment-specific)
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Anti-affinity (staging only)
+affinity: {}
+
+# Rolling update strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: ${STRATEGY_MAX_SURGE:-1}
+    maxUnavailable: ${STRATEGY_MAX_UNAVAILABLE:-0}
+
+# Health check configuration
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: ${HEALTHCHECK_LIVENESS_INITIAL_DELAY:-20}
+    periodSeconds: ${HEALTHCHECK_LIVENESS_PERIOD:-15}
+    timeoutSeconds: ${HEALTHCHECK_LIVENESS_TIMEOUT:-5}
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: ${HEALTHCHECK_READINESS_INITIAL_DELAY:-5}
+    periodSeconds: ${HEALTHCHECK_READINESS_PERIOD:-10}
+    timeoutSeconds: ${HEALTHCHECK_READINESS_TIMEOUT:-3}
+    successThreshold: 1
+    failureThreshold: ${HEALTHCHECK_READINESS_FAILURE_THRESHOLD:-2}
+  startup:
+    path: /health/startup
+    initialDelaySeconds: ${HEALTHCHECK_STARTUP_INITIAL_DELAY:-5}
+    periodSeconds: ${HEALTHCHECK_STARTUP_PERIOD:-10}
+    timeoutSeconds: ${HEALTHCHECK_STARTUP_TIMEOUT:-5}
+    successThreshold: 1
+    failureThreshold: ${HEALTHCHECK_STARTUP_FAILURE_THRESHOLD:-10}
+
+# Enable metrics for monitoring
+metrics:
+  enabled: true
+
+# Environment-specific environment variables
+extraEnvVars:
+  - name: LOG_LEVEL
+    value: "${LOG_LEVEL:-INFO}"
+  - name: ENVIRONMENT
+    value: "${ENVIRONMENT}"
+  - name: WORKERS
+    value: "${WORKERS:-1}"
+  - name: PROMETHEUS_MULTIPROC_DIR
+    value: "/tmp/prometheus"
+
+# Pod annotations for monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+  calculaud.io/environment: "${ENVIRONMENT}"
+
+# Extra volumes for metrics
+extraVolumes:
+  - name: prometheus-metrics
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: prometheus-metrics
+    mountPath: /tmp/prometheus
+
+# Security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# Use environment-specific existing secrets
+existingSecret: "${EXISTING_SECRET:-}"
+
+# AWS-specific configurations (when applicable)
+aws:
+  region: "${AWS_REGION:-us-east-1}"
+  
+  # Service Account for IRSA (staging environment only)
+  serviceAccount:
+    annotations: {}
+
+# Environment-specific configurations that are conditionally applied
+# These will be set via environment variables based on the deployment environment
+
+# Staging environment specific configurations:
+# - Higher resource limits and requests
+# - Autoscaling enabled
+# - Ingress with ALB configuration
+# - Anti-affinity rules
+# - Multiple replicas
+# - Enhanced health checks
+
+# Testing environment specific configurations:
+# - Minimal resource requirements
+# - Single replica
+# - No autoscaling
+# - No ingress (port-forward access)
+# - Shared test resources
+# - Branch-specific S3 key prefix

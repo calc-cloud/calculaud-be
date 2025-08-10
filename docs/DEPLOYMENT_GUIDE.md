@@ -70,9 +70,80 @@ Assumes you have an existing EKS cluster with:
 
 The `staging` environment uses the main branch for integration testing, while `PR` environments use feature branches for isolated testing.
 
-#### Step 1: Configure Application Secrets
+#### GitHub Environments with Template-Based Configuration
 
-Create secrets in AWS Secrets Manager:
+The deployment uses GitHub Environments with `envsubst` templating for secure and flexible configuration management:
+
+**GitHub Environments:**
+- `staging` - Production-like environment for main branch integration testing
+- `testing` - Lightweight environment for PR testing with shared resources
+
+**Universal Template File:**
+- `k8s/helm/calculaud-be/values.yaml.template` - Single template for all environments
+
+**Benefits:**
+- ✅ **Secure**: Environment-scoped secrets and automatic variable injection
+- ✅ **Clean**: No more prefixed secrets (`STAGING_*`, `TEST_*`)
+- ✅ **Flexible**: Environment-specific configurations through GitHub Environments
+- ✅ **Protected**: Built-in approval workflows and protection rules
+- ✅ **Validated**: Automatic template validation during deployment
+- ✅ **Auditable**: Clear separation between environments and configuration types
+- ✅ **Cost-effective**: Optimized resource allocation per environment
+
+**How it Works:**
+1. GitHub Environments automatically inject environment-scoped variables and secrets
+2. Single universal template contains `${VARIABLE_NAME}` placeholders
+3. Environment-specific values are substituted based on deployment environment
+4. `envsubst` generates final configuration files
+5. Validation ensures all required variables are substituted
+6. Helm deploys using the generated configuration
+
+#### Step 1: Configure GitHub Environments
+
+The deployment uses GitHub Environments for secure, environment-scoped configuration management.
+
+**Complete Setup Instructions**: See `docs/github-setup-commands.md` for all required commands.
+
+**Navigation**: Repository → Settings → Environments
+
+##### GitHub Environments Structure:
+
+1. **`staging` Environment**:
+   - **Purpose**: Production-like integration testing for main branch
+   - **Resources**: Dedicated staging database and S3 bucket
+   - **Protection**: Optional approval workflows and wait timers
+   - **Variables**: Public configuration (URLs, resource limits, feature flags)
+   - **Secrets**: Sensitive data (database credentials, S3 keys)
+
+2. **`testing` Environment**:
+   - **Purpose**: Lightweight PR testing with shared resources
+   - **Resources**: Shared test database and S3 bucket (branch-specific prefixes)
+   - **Protection**: No restrictions for fast iteration
+   - **Variables**: Minimal resource allocation, debug settings
+   - **Secrets**: Shared test credentials
+
+##### Key Benefits of GitHub Environments:
+
+- **Environment Scoped**: Secrets automatically injected based on deployment context
+- **Clean Configuration**: No prefixed variables - same names across environments
+- **Automatic Injection**: Variables and secrets available in environment context
+- **Protection Rules**: Built-in approval workflows and deployment restrictions
+- **Audit Trail**: Clear visibility of environment-specific deployments
+
+##### Environment Variables Structure:
+
+```bash
+# Example: Database configuration
+# In 'staging' environment:
+DB_HOST=calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com
+
+# In 'testing' environment:
+DB_HOST=calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com
+```
+
+#### Step 2: Alternative - AWS Secrets Manager (Optional)
+
+If you prefer using AWS Secrets Manager instead of GitHub secrets, you can still create secrets there:
 
 ```bash
 # Staging Database credentials
@@ -104,45 +175,40 @@ aws secretsmanager create-secret \
     --secret-string '{"clientId":"calculaud-test-client"}'
 ```
 
-#### Step 2: Customize EKS Configuration
+#### Step 2: Universal Template Configuration
 
-Edit environment-specific values files:
-- `k8s/helm/calculaud-be/values-staging.yaml` - for staging
-- `k8s/helm/calculaud-be/values-pr.yaml` - for PR environments
+The deployment uses a single universal template file for all environments:
+- `k8s/helm/calculaud-be/values.yaml.template` - Universal template for all environments
+
+Environment-specific behavior is controlled through GitHub Environment variables and secrets.
 
 ```yaml
-# Staging values (values-staging.yaml)
+# Universal template structure (values.yaml.template)
 image:
-  repository: "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
-  tag: "staging-latest"
+  repository: "${ECR_REPOSITORY}"  # Set in GitHub Environment Variables
+  tag: "${IMAGE_TAG}"              # Set dynamically by workflow
 
 postgresql:
   external:
-    host: "calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com"
-    database: "calculaud_staging"
+    host: "${DB_HOST}"           # staging: calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com
+                                 # testing:  calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com
+    database: "${DB_NAME}"       # staging: calculaud_staging, testing: calculaud_test
 
 s3:
-  bucketName: "calculaud-staging-files"
-  region: "us-east-1"
+  bucketName: "${S3_BUCKET}"     # staging: calculaud-staging-files, testing: calculaud-test-files
+  keyPrefix: "${S3_KEY_PREFIX}"  # staging: files/, testing: pr-files/{branch}/
 
-# PR values (values-pr.yaml)
-image:
-  repository: "<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/calculaud-be"
-  tag: "pr-latest"
-
-postgresql:
-  external:
-    host: "calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com"
-    database: "calculaud_test"  # Shared test database
-
-s3:
-  bucketName: "calculaud-test-files"
-  region: "us-east-1"
-
-auth:
-  jwksUrl: "https://your-auth-provider/.well-known/jwks.json"
-  issuer: "https://your-auth-provider/"
+resources:
+  requests:
+    memory: "${RESOURCES_REQUEST_MEMORY}"  # staging: 512Mi, testing: 128Mi
+    cpu: "${RESOURCES_REQUEST_CPU}"        # staging: 200m, testing: 50m
 ```
+
+**Benefits**:
+- ✅ Single template file for all environments
+- ✅ Environment-specific values through GitHub Environments
+- ✅ Consistent configuration structure
+- ✅ Easy to add new environments
 
 #### Step 3: Deploy Application
 
