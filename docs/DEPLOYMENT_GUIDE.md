@@ -1,18 +1,17 @@
-# Calculaud Backend - Complete Deployment Guide
+# Calculaud Backend - Deployment Guide
 
-This comprehensive guide covers deploying the Calculaud Backend to AWS EKS (staging/PR environments) and on-premises Kubernetes environments. Both deployments assume that the Kubernetes clusters are already provisioned and configured.
+Deploy Calculaud Backend to AWS EKS or on-premises Kubernetes environments.
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [AWS EKS Deployment (Staging/PR)](#aws-eks-deployment-stagingpr)
-3. [On-Premises Kubernetes Deployment](#on-premises-kubernetes-deployment)
-4. [Air-Gapped/Offline Deployment](#air-gappedoffline-deployment)
-5. [Configuration Management](#configuration-management)
-6. [Security Best Practices](#security-best-practices)
-7. [Monitoring and Logging](#monitoring-and-logging)
-8. [Backup and Recovery](#backup-and-recovery)
-9. [Troubleshooting](#troubleshooting)
+2. [AWS EKS Deployment](#aws-eks-deployment)
+3. [On-Premises Deployment](#on-premises-deployment)
+4. [Air-Gapped Deployment](#air-gapped-deployment)
+5. [Configuration](#configuration)
+6. [Security](#security)
+7. [Monitoring](#monitoring)
+8. [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
@@ -37,872 +36,112 @@ This comprehensive guide covers deploying the Calculaud Backend to AWS EKS (stag
 - Ingress controller (recommended)
 - Load balancer solution (recommended)
 
-## AWS EKS Deployment (Staging/PR)
+## AWS EKS Deployment
 
-### Quick Start
+**Prerequisites:** EKS cluster with AWS Load Balancer Controller, EBS CSI driver, and proper IAM roles.
 
-Assumes you have an existing EKS cluster with:
-- AWS Load Balancer Controller installed
-- EBS CSI driver configured
-- External Secrets Operator (optional)
-- Proper IAM roles and policies
-
-1. **Deploy Application**:
-   ```bash
-   # Deploy to staging environment (automatic on main branch push)
-   ./k8s/scripts/deploy.sh -e staging -n calculaud-staging
-   
-   # Deploy to PR environment (manual via workflow dispatch)
-   # This creates calculaud-{branch-name} namespace
-   ./k8s/scripts/deploy.sh -e pr -n calculaud-feature-user-auth
-   ```
-
-2. **Run Database Migrations**:
-   ```bash
-   # For staging
-   ./k8s/scripts/migrate.sh -n calculaud-staging
-   
-   # For PR environments (uses shared test database)
-   ./k8s/scripts/migrate.sh -n calculaud-feature-user-auth
-   ```
-
-### EKS Configuration
-
-The `staging` environment uses the main branch for integration testing, while `PR` environments use feature branches for isolated testing.
-
-#### GitHub Environments with Template-Based Configuration
-
-The deployment uses GitHub Environments with `envsubst` templating for secure and flexible configuration management:
-
-**GitHub Environments:**
-- `staging` - Production-like environment for main branch integration testing
-- `testing` - Lightweight environment for PR testing with shared resources
-
-**Universal Template File:**
-- `k8s/helm/calculaud-be/values.yaml.template` - Single template for all environments
-
-**Benefits:**
-- ✅ **Secure**: Environment-scoped secrets and automatic variable injection
-- ✅ **Clean**: No more prefixed secrets (`STAGING_*`, `TEST_*`)
-- ✅ **Flexible**: Environment-specific configurations through GitHub Environments
-- ✅ **Protected**: Built-in approval workflows and protection rules
-- ✅ **Validated**: Automatic template validation during deployment
-- ✅ **Auditable**: Clear separation between environments and configuration types
-- ✅ **Cost-effective**: Optimized resource allocation per environment
-
-**How it Works:**
-1. GitHub Environments automatically inject environment-scoped variables and secrets
-2. Single universal template contains `${VARIABLE_NAME}` placeholders
-3. Environment-specific values are substituted based on deployment environment
-4. `envsubst` generates final configuration files
-5. Validation ensures all required variables are substituted
-6. Helm deploys using the generated configuration
-
-#### Step 1: Configure GitHub Environments
-
-The deployment uses GitHub Environments for secure, environment-scoped configuration management.
-
-**Complete Setup Instructions**: See `docs/github-setup-commands.md` for all required commands.
-
-**Navigation**: Repository → Settings → Environments
-
-##### GitHub Environments Structure:
-
-1. **`staging` Environment**:
-   - **Purpose**: Production-like integration testing for main branch
-   - **Resources**: Dedicated staging database and S3 bucket
-   - **Protection**: Optional approval workflows and wait timers
-   - **Variables**: Public configuration (URLs, resource limits, feature flags)
-   - **Secrets**: Sensitive data (database credentials, S3 keys)
-
-2. **`testing` Environment**:
-   - **Purpose**: Lightweight PR testing with shared resources
-   - **Resources**: Shared test database and S3 bucket (branch-specific prefixes)
-   - **Protection**: No restrictions for fast iteration
-   - **Variables**: Minimal resource allocation, debug settings
-   - **Secrets**: Shared test credentials
-
-##### Key Benefits of GitHub Environments:
-
-- **Environment Scoped**: Secrets automatically injected based on deployment context
-- **Clean Configuration**: No prefixed variables - same names across environments
-- **Automatic Injection**: Variables and secrets available in environment context
-- **Protection Rules**: Built-in approval workflows and deployment restrictions
-- **Audit Trail**: Clear visibility of environment-specific deployments
-
-##### Environment Variables Structure:
-
+### Deploy Application
 ```bash
-# Example: Database configuration
-# In 'staging' environment:
-DB_HOST=calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com
-
-# In 'testing' environment:
-DB_HOST=calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com
-```
-
-#### Step 2: Alternative - AWS Secrets Manager (Optional)
-
-If you prefer using AWS Secrets Manager instead of GitHub secrets, you can still create secrets there:
-
-```bash
-# Staging Database credentials
-aws secretsmanager create-secret \
-    --name "calculaud/staging/database" \
-    --secret-string '{"username":"calculaud_staging","password":"your-secure-password","host":"your-staging-rds-endpoint","database":"calculaud_staging"}'
-
-# Test Database credentials (shared by PR environments)
-aws secretsmanager create-secret \
-    --name "calculaud/test/database" \
-    --secret-string '{"username":"calculaud_test","password":"your-test-password","host":"your-test-rds-endpoint","database":"calculaud_test"}'
-
-# S3 credentials (if not using IRSA)
-aws secretsmanager create-secret \
-    --name "calculaud/staging/s3" \
-    --secret-string '{"accessKeyId":"your-staging-access-key","secretAccessKey":"your-staging-secret-key"}'
-
-aws secretsmanager create-secret \
-    --name "calculaud/test/s3" \
-    --secret-string '{"accessKeyId":"your-test-access-key","secretAccessKey":"your-test-secret-key"}'
-
-# Auth configuration
-aws secretsmanager create-secret \
-    --name "calculaud/staging/auth" \
-    --secret-string '{"clientId":"calculaud-staging-client"}'
-
-aws secretsmanager create-secret \
-    --name "calculaud/test/auth" \
-    --secret-string '{"clientId":"calculaud-test-client"}'
-```
-
-#### Step 2: Universal Template Configuration
-
-The deployment uses a single universal template file for all environments:
-- `k8s/helm/calculaud-be/values.yaml.template` - Universal template for all environments
-
-Environment-specific behavior is controlled through GitHub Environment variables and secrets.
-
-```yaml
-# Universal template structure (values.yaml.template)
-image:
-  repository: "${ECR_REPOSITORY}"  # Set in GitHub Environment Variables
-  tag: "${IMAGE_TAG}"              # Set dynamically by workflow
-
-postgresql:
-  external:
-    host: "${DB_HOST}"           # staging: calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com
-                                 # testing:  calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com
-    database: "${DB_NAME}"       # staging: calculaud_staging, testing: calculaud_test
-
-s3:
-  bucketName: "${S3_BUCKET}"     # staging: calculaud-staging-files, testing: calculaud-test-files
-  keyPrefix: "${S3_KEY_PREFIX}"  # staging: files/, testing: pr-files/{branch}/
-
-resources:
-  requests:
-    memory: "${RESOURCES_REQUEST_MEMORY}"  # staging: 512Mi, testing: 128Mi
-    cpu: "${RESOURCES_REQUEST_CPU}"        # staging: 200m, testing: 50m
-```
-
-**Benefits**:
-- ✅ Single template file for all environments
-- ✅ Environment-specific values through GitHub Environments
-- ✅ Consistent configuration structure
-- ✅ Easy to add new environments
-
-#### Step 3: Deploy Application
-
-```bash
-# Build and push Docker image to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com
-docker build -t <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/calculaud-be:latest .
-docker push <ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/calculaud-be:latest
-
 # Deploy to staging
 ./k8s/scripts/deploy.sh -e staging -n calculaud-staging
+
+# Deploy to PR environment  
+./k8s/scripts/deploy.sh -e pr -n calculaud-feature-user-auth
 
 # Run migrations
 ./k8s/scripts/migrate.sh -n calculaud-staging
 ```
 
-### EKS-Specific Features
+### Configuration
+Uses GitHub Environments with `envsubst` templating:
+- **staging**: Production-like environment for main branch
+- **testing**: Lightweight PR environment with shared resources
+- **Template**: `k8s/helm/calculaud-be/values.yaml.template`
 
-Both staging and PR environments include:
-- **Auto-scaling**: Configured with HPA and VPA
-- **Load Balancing**: ALB with SSL termination
-- **Storage**: EBS volumes with automatic provisioning
-- **Monitoring**: CloudWatch integration
-- **Security**: IRSA for secure AWS access
+**Setup**: Configure GitHub Environments in Repository → Settings → Environments. See `docs/github-setup-commands.md` for detailed setup.
 
-#### Environment Differences:
-- **Staging**: Uses main branch, moderate scaling for integration testing, staging-* image tags
-- **PR**: Uses feature branches, minimal scaling for cost efficiency, pr-* image tags, shared test resources
+### Features
+- Auto-scaling (HPA/VPA), ALB with SSL, EBS volumes, CloudWatch integration
+- **Staging**: Main branch, dedicated resources
+- **PR**: Feature branches, minimal resources, shared test DB
 
-#### PR Environment Features:
-- **Branch-based naming**: `calculaud-{sanitized-branch-name}` (e.g., `calculaud-feature-user-auth`)
-- **Manual deployment**: Triggered via GitHub Actions workflow dispatch
-- **Automatic cleanup**: PR environments are cleaned up when PR is closed/merged
-- **Shared resources**: Uses shared test database and S3 bucket for cost efficiency
-- **Minimal resources**: 1 replica, 128Mi-512Mi memory, 50m-500m CPU
+### PR Deployment
+Deploy via GitHub Actions → "Deploy to Kubernetes" → Select `pr` environment and branch. Access via port-forward: `kubectl port-forward svc/calculaud-be 8000:80 -n <namespace>`
 
-### PR Environment Deployment
+## On-Premises Deployment
 
-#### Manual PR Deployment via GitHub Actions
-
-1. **Navigate to your repository** → Actions → "Deploy to Kubernetes"
-2. **Click "Run workflow"**
-3. **Select parameters**:
-   - Environment: `pr`
-   - Image tag: `latest` (or specific tag)
-   - PR branch: Leave empty for auto-detection or specify branch name
-4. **Click "Run workflow"**
-
-This will create a new namespace `calculaud-{branch-name}` and deploy your application.
-
-#### Accessing PR Environment
+**Prerequisites:** Kubernetes cluster with storage class and optional ingress/load balancer.
 
 ```bash
-# Port forward to access PR environment locally
-kubectl port-forward svc/calculaud-be 8000:80 -n calculaud-feature-user-auth
-
-# Access application
-curl http://localhost:8000/health
-```
-
-#### Cleanup PR Environment
-
-PR environments are automatically cleaned up when:
-- PR is closed or merged
-- Manual cleanup via workflow dispatch
-- After 7 days of inactivity (configurable)
-
-Manual cleanup:
-```bash
-# Delete PR environment
-helm uninstall calculaud-be -n calculaud-feature-user-auth
-kubectl delete namespace calculaud-feature-user-auth
-```
-
-## On-Premises Kubernetes Deployment
-
-### Quick Start
-
-Assumes you have an existing Kubernetes cluster with:
-- Storage class configured
-- Ingress controller (optional but recommended)
-- Load balancer solution (optional but recommended)
-
-1. **Deploy Application**:
-   ```bash
-   ./k8s/scripts/deploy.sh -e onprem -n calculaud
-   ```
-
-2. **Run Database Migrations**:
-   ```bash
-   ./k8s/scripts/migrate.sh -n calculaud
-   ```
-
-### On-Premises Configuration
-
-Edit `k8s/helm/calculaud-be/values-onprem.yaml`:
-
-```yaml
-# Service configuration for on-premises access
-service:
-  type: NodePort  # or LoadBalancer if MetalLB is configured
-  nodePort: 30080
-
-# Ingress configuration (disabled by default)
-ingress:
-  enabled: false  # Enable if you have NGINX Ingress Controller
-  # enabled: true
-  # className: "nginx"
-  # hosts:
-  #   - host: calculaud.local.domain
-  #     paths:
-  #       - path: /
-  #         pathType: Prefix
-
-# External PostgreSQL configuration required
-postgresql:
-  external:
-    host: "postgres.yourdomain.local"
-    port: 5432
-    username: "calculaud"
-    password: "your-secure-password"
-    database: "calculaud"
-```
-
-### Deploy Application
-
-```bash
-# Deploy to on-premises Kubernetes
+# Deploy and migrate
 ./k8s/scripts/deploy.sh -e onprem -n calculaud
-
-# Run migrations
 ./k8s/scripts/migrate.sh -n calculaud
-
-# Check status
-kubectl get pods -n calculaud
 ```
 
-### On-Premises Access Options
+**Configuration:** Edit `k8s/helm/calculaud-be/values-onprem.yaml` for external PostgreSQL, service type (NodePort/LoadBalancer), and ingress settings.
 
-1. **NodePort**: Access via `http://<node-ip>:30080`
-2. **LoadBalancer**: Access via assigned external IP
-3. **Ingress**: Access via configured domain name
-4. **Port Forward**: `kubectl port-forward svc/calculaud-be 8000:80 -n calculaud`
+**Access:** NodePort (`:30080`), LoadBalancer, Ingress, or port-forward: `kubectl port-forward svc/calculaud-be 8000:80 -n calculaud`
 
-## Air-Gapped/Offline Deployment
-
-For environments without internet access, use the packaging script to create a complete deployment package.
-
-### Creating Deployment Package
-
-1. **Create Package** (with internet access):
-   ```bash
-   ./k8s/scripts/package-for-onprem.sh
-   ```
-
-2. **Custom Package Options**:
-   ```bash
-   # Skip Docker images (if already available)
-   ./k8s/scripts/package-for-onprem.sh --skip-docker
-
-   # Include sample data
-   ./k8s/scripts/package-for-onprem.sh --include-data
-
-   # Custom output name
-   ./k8s/scripts/package-for-onprem.sh -o my-custom-package.tar.gz
-   ```
-
-3. **Package Contents**:
-   - Docker images (compressed)
-   - Application source code
-   - Kubernetes Helm charts
-   - Configuration templates
-   - Installation scripts
-   - Documentation
-
-### Deploying from Package
-
-1. **Transfer Package** to target environment:
-   ```bash
-   # Using SCP
-   scp calculaud-onprem-*.tar.gz user@target-server:/opt/
-   
-   # Or use USB/external drive for air-gapped environments
-   ```
-
-2. **Extract and Install**:
-   ```bash
-   # Extract package
-   tar -xzf calculaud-onprem-*.tar.gz
-   cd calculaud-onprem-*
-   
-   # Run automated installer
-   ./install.sh
-   ```
-
-3. **Manual Installation**:
-   ```bash
-   # Load Docker images
-   cd docker-images
-   ./load-images.sh
-   cd ..
-   
-   # Deploy to Kubernetes
-   ./k8s/scripts/deploy.sh -e onprem -n calculaud
-   ./k8s/scripts/migrate.sh -n calculaud
-   ```
-
-## Configuration Management
-
-### Environment Variables
-
-Key environment variables by category:
-
-#### Database Configuration
-```env
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-POSTGRES_PASSWORD=secure-password
-```
-
-#### S3 Storage Configuration
-```env
-S3_ACCESS_KEY_ID=your-access-key
-S3_SECRET_ACCESS_KEY=your-secret-key
-S3_REGION=us-east-1
-S3_BUCKET_NAME=calculaud-files
-S3_ENDPOINT_URL=https://your-s3-service.domain.com
-```
-
-#### Authentication Configuration
-```env
-AUTH_JWKS_URL=https://auth-provider/.well-known/jwks.json
-AUTH_ISSUER=https://auth-provider/
-AUTH_AUDIENCE=calculaud-api
-```
-
-#### Application Configuration
-```env
-APP_NAME="Procurement Management System"
-DEBUG=false
-ENVIRONMENT=integration
-LOG_LEVEL=INFO
-WORKERS=4
-```
-
-### Secrets Management
-
-#### AWS EKS
-Use AWS Secrets Manager with External Secrets Operator:
-
-```yaml
-apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
-metadata:
-  name: aws-secrets-manager
-spec:
-  provider:
-    aws:
-      service: SecretsManager
-      region: us-east-1
-      auth:
-        secretRef:
-          accessKeyID:
-            name: aws-creds
-            key: access-key-id
-          secretAccessKey:
-            name: aws-creds
-            key: secret-access-key
-```
-
-#### On-Premises
-Use Kubernetes secrets or external secret management:
+## Air-Gapped Deployment
 
 ```bash
-# Create secret
-kubectl create secret generic calculaud-secrets \
-  --from-literal=database-password=secure-password \
-  --from-literal=s3-access-key=access-key \
-  --namespace calculaud
+# Create package (with internet)
+./k8s/scripts/package-for-onprem.sh
+
+# Transfer and install (air-gapped)
+tar -xzf calculaud-onprem-*.tar.gz && cd calculaud-onprem-* && ./install.sh
 ```
 
-### Configuration Validation
+## Configuration
 
-Use the built-in health checks to validate configuration:
+**Environment Variables:** Configure DATABASE_URL, S3 credentials, AUTH_JWKS_URL/ISSUER/AUDIENCE, and app settings (DEBUG, LOG_LEVEL, WORKERS).
 
-```bash
-# Check application health
-curl http://localhost:8000/health
+**Secrets:** 
+- **AWS**: Use AWS Secrets Manager with External Secrets Operator
+- **On-premises**: Use Kubernetes secrets: `kubectl create secret generic calculaud-secrets --from-literal=database-password=xxx`
 
-# Detailed health information
-curl http://localhost:8000/health/ready
-```
+**Validation:** Check health endpoints: `curl http://localhost:8000/health`
 
-## Security Best Practices
+## Security
 
-### Network Security
+- **HTTPS/TLS**: Configure in ingress with TLS certificates
+- **Network Policies**: Restrict pod-to-pod communication
+- **Pod Security**: Run as non-root (1000), read-only filesystem, no privilege escalation
+- **Resource Limits**: Set memory/CPU requests and limits  
+- **Data Encryption**: Enable for secrets, database, and S3
+- **RBAC**: Configure ServiceAccount with minimal permissions
 
-1. **Use HTTPS/TLS**:
-   ```yaml
-   # In ingress configuration
-   tls:
-     - secretName: calculaud-tls
-       hosts:
-         - api.calculaud.com
-   ```
+## Monitoring
 
-2. **Network Policies** (if supported):
-   ```yaml
-   apiVersion: networking.k8s.io/v1
-   kind: NetworkPolicy
-   metadata:
-     name: calculaud-network-policy
-   spec:
-     podSelector:
-       matchLabels:
-         app.kubernetes.io/name: calculaud-be
-     ingress:
-     - from:
-       - podSelector:
-           matchLabels:
-             app.kubernetes.io/name: nginx-ingress
-     egress:
-     - to:
-       - podSelector:
-           matchLabels:
-             app.kubernetes.io/name: postgresql
-   ```
-
-### Pod Security
-
-1. **Security Context**:
-   ```yaml
-   securityContext:
-     runAsNonRoot: true
-     runAsUser: 1000
-     allowPrivilegeEscalation: false
-     readOnlyRootFilesystem: true
-   ```
-
-2. **Resource Limits**:
-   ```yaml
-   resources:
-     requests:
-       memory: "256Mi"
-       cpu: "100m"
-     limits:
-       memory: "1Gi"
-       cpu: "1000m"
-   ```
-
-### Data Security
-
-1. **Encrypt Secrets**: Use external secret management
-2. **Database Encryption**: Enable at-rest and in-transit encryption
-3. **S3 Encryption**: Enable bucket encryption
-4. **Backup Encryption**: Encrypt backup files
-
-### Access Control
-
-1. **RBAC Configuration**:
-   ```yaml
-   apiVersion: v1
-   kind: ServiceAccount
-   metadata:
-     name: calculaud-sa
-   ---
-   apiVersion: rbac.authorization.k8s.io/v1
-   kind: Role
-   metadata:
-     name: calculaud-role
-   rules:
-   - apiGroups: [""]
-     resources: ["configmaps", "secrets"]
-     verbs: ["get", "list"]
-   ```
-
-2. **Authentication**: Configure with enterprise auth providers
-3. **Authorization**: Implement role-based access in application
-
-## Monitoring and Logging
-
-### Prometheus Metrics
-
-The application exposes metrics at `/metrics` endpoint:
-
-```yaml
-# ServiceMonitor for Prometheus Operator
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: calculaud-metrics
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: calculaud-be
-  endpoints:
-  - port: http
-    path: /metrics
-```
-
-### Log Aggregation
-
-#### EKS with CloudWatch
-```yaml
-# FluentBit configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: fluent-bit-config
-data:
-  fluent-bit.conf: |
-    [SERVICE]
-        Parsers_File parsers.conf
-    [INPUT]
-        Name tail
-        Path /var/log/containers/calculaud-*.log
-        Parser docker
-    [OUTPUT]
-        Name cloudwatch_logs
-        Match *
-        region us-east-1
-        log_group_name /calculaud/application
-```
-
-#### On-Premises with ELK Stack
-```bash
-# Install ELK stack
-helm repo add elastic https://helm.elastic.co
-helm install elasticsearch elastic/elasticsearch --namespace logging --create-namespace
-helm install kibana elastic/kibana --namespace logging
-helm install filebeat elastic/filebeat --namespace logging
-```
-
-### Health Checks
-
-The application provides multiple health check endpoints:
-
-- `/health` - Overall health status
-- `/health/live` - Liveness probe
-- `/health/ready` - Readiness probe
-- `/health/startup` - Startup probe
-
-Configure Kubernetes probes:
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health/live
-    port: 8000
-  initialDelaySeconds: 30
-  periodSeconds: 10
-
-readinessProbe:
-  httpGet:
-    path: /health/ready
-    port: 8000
-  initialDelaySeconds: 5
-  periodSeconds: 5
-```
-
-## Backup and Recovery
-
-### Database Backup
-
-#### Automated Backup with CronJob
-```yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: postgres-backup
-spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-          - name: postgres-backup
-            image: postgres:15-alpine
-            command:
-            - /bin/bash
-            - -c
-            - |
-              pg_dump -h postgres -U calculaud calculaud | gzip > /backups/backup-$(date +%Y%m%d-%H%M%S).sql.gz
-              find /backups -name "backup-*.sql.gz" -mtime +7 -delete
-            env:
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: password
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backups
-          volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: backup-pvc
-          restartPolicy: OnFailure
-```
-
-#### Manual Backup
-```bash
-# Docker Compose
-./docker-compose.scripts.sh backup
-
-# Kubernetes
-kubectl exec -it postgres-0 -- pg_dump -U calculaud calculaud | gzip > backup-$(date +%Y%m%d).sql.gz
-```
-
-### File Storage Backup
-
-#### S3 Storage Backup
-```bash
-# Using AWS CLI or compatible tools
-aws s3 sync s3://calculaud-files /backup/files/
-```
-
-### Disaster Recovery
-
-1. **Database Recovery**:
-   ```bash
-   # Restore from backup
-   gunzip -c backup-20240101.sql.gz | psql -h postgres -U calculaud calculaud
-   ```
-
-2. **Configuration Recovery**:
-   - Keep configuration files in version control
-   - Document environment-specific values
-   - Automate deployment with scripts
-
-3. **Testing Recovery**:
-   - Regular recovery drills
-   - Automated backup verification
-   - Document recovery procedures
+- **Metrics**: `/metrics` endpoint for Prometheus scraping
+- **Logs**: FluentBit → CloudWatch (EKS) or ELK stack (on-premises)  
+- **Health Checks**: `/health`, `/health/live`, `/health/ready`, `/health/startup`
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### 1. ImagePullBackOff
+**ImagePullBackOff:** Check image name/tag in values file, registry credentials, image existence
+**CrashLoopBackOff:** Check logs (`kubectl logs <pod> -n calculaud`), database connection, env vars, resources
+**Database Connection:** Verify DATABASE_URL, credentials, network connectivity
+**S3 Issues:** Check credentials, endpoint URL, bucket permissions
+**Ingress Problems:** Verify ingress controller, annotations, service endpoints, DNS
+
+### Debug Commands
+
 ```bash
-# Check image availability
-docker images | grep calculaud-be
-
-# Verify image repository configuration
-kubectl describe pod <pod-name> -n calculaud
-```
-
-**Solutions**:
-- Verify image name and tag in values file
-- Check container registry credentials
-- Ensure image exists in registry
-
-#### 2. CrashLoopBackOff
-```bash
-# Check application logs
-kubectl logs <pod-name> -n calculaud
-
-# Check previous container logs
-kubectl logs <pod-name> -n calculaud --previous
-```
-
-**Common Causes**:
-- Database connection issues
-- Missing environment variables
-- Configuration errors
-- Resource constraints
-
-#### 3. Database Connection Failed
-```bash
-# Check database connectivity
-kubectl exec -it <app-pod> -n calculaud -- curl postgres:5432
-
-# Test database connection
-kubectl exec -it postgres-0 -n calculaud -- psql -U calculaud -d calculaud -c "SELECT version();"
-```
-
-**Solutions**:
-- Verify DATABASE_URL format
-- Check database credentials
-- Ensure database is running and accessible
-- Verify network policies
-
-#### 4. S3 Storage Connection Issues
-```bash
-# Check S3 connectivity
-kubectl exec -it <app-pod> -n calculaud -- curl -I https://your-s3-service.domain.com
-
-# Test S3 access with AWS CLI
-aws s3 ls s3://calculaud-files --endpoint-url https://your-s3-service.domain.com
-```
-
-**Solutions**:
-- Verify S3 credentials and endpoint
-- Check bucket permissions
-- Ensure external S3 service is accessible
-
-#### 5. Ingress Not Working
-```bash
-# Check ingress controller
-kubectl get pods -n ingress-nginx
-
-# Check ingress configuration
-kubectl describe ingress calculaud-ingress -n calculaud
-
-# Check service endpoints
-kubectl get endpoints calculaud-be -n calculaud
-```
-
-**Solutions**:
-- Install/configure ingress controller
-- Verify ingress annotations
-- Check service selector labels
-- Verify DNS configuration
-
-### Debugging Commands
-
-#### Kubernetes
-```bash
-# Get pod status
+# Basic debugging
 kubectl get pods -n calculaud -o wide
-
-# Describe pod for events
-kubectl describe pod <pod-name> -n calculaud
-
-# Check logs
+kubectl describe pod <pod-name> -n calculaud  
 kubectl logs -f deployment/calculaud-be -n calculaud
-
-# Execute commands in pod
 kubectl exec -it <pod-name> -n calculaud -- /bin/bash
 
-# Port forward for local access
-kubectl port-forward svc/calculaud-be 8000:80 -n calculaud
-
-# Check resource usage
+# Performance monitoring
 kubectl top pods -n calculaud
 ```
 
-#### Docker Compose
-```bash
-# Check container status
-docker-compose -f docker-compose.onprem.yml ps
-
-# View logs
-docker-compose -f docker-compose.onprem.yml logs calculaud-app
-
-# Execute commands in container
-docker-compose -f docker-compose.onprem.yml exec calculaud-app /bin/bash
-
-# Check resource usage
-docker stats
-```
-
-### Performance Issues
-
-#### 1. Slow Response Times
-- Check resource limits and requests
-- Monitor database performance
-- Review application logs for slow queries
-- Check network latency
-
-#### 2. High Memory Usage
-```bash
-# Check memory limits
-kubectl describe pod <pod-name> -n calculaud | grep -A 5 Limits
-
-# Monitor memory usage
-kubectl top pod <pod-name> -n calculaud
-```
-
-**Solutions**:
-- Increase memory limits
-- Optimize application code
-- Review database query efficiency
-
-#### 3. Database Performance
-```bash
-# Check PostgreSQL performance
-kubectl exec -it postgres-0 -n calculaud -- psql -U calculaud -d calculaud -c "
-SELECT query, calls, total_time, mean_time 
-FROM pg_stat_statements 
-ORDER BY total_time DESC 
-LIMIT 10;"
-```
-
-### Getting Help
-
-1. **Check application logs** first for specific error messages
-2. **Review configuration** for typos or missing values
-3. **Verify connectivity** between components
-4. **Check resource constraints** (CPU, memory, storage)
-5. **Consult health check endpoints** for detailed status
-6. **Use debugging commands** to inspect system state
-
-For additional support:
-- Review the main README.md
-- Check the k8s/README.md for Kubernetes-specific guidance
-- Consult the CLAUDE.md for development guidelines
+**Troubleshooting Steps:**
+1. Check application logs and health endpoints (`/health`)
+2. Verify configuration and connectivity  
+3. Monitor resource usage (CPU/memory)
+4. Review README.md, k8s/README.md, CLAUDE.md for guidance

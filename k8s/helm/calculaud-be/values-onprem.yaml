@@ -217,23 +217,3 @@ existingSecret: ""
 # minio:
 #   enabled: false  # Always use external S3-compatible storage
 
-# Optional: Mock authentication service for testing
-authMock:
-  enabled: false  # Set to true for testing without external auth
-  image:
-    repository: mock-auth-server
-    tag: "latest"
-    pullPolicy: Never
-  service:
-    type: ClusterIP
-    port: 8080
-
-# On-premises backup configuration
-backup:
-  enabled: true
-  schedule: "0 2 * * *"  # Daily at 2 AM
-  retention: "7d"  # Keep 7 days of backups
-  storage:
-    type: "local"  # or "nfs"
-    path: "/opt/calculaud/backups"
-    size: "50Gi"
