@@ -222,11 +222,48 @@ gh api repos/:owner/:repo/environments/staging/deployment_protection_rules --met
   --field wait_timer=5
 ```
 
-## Step 6: Verify Configuration
+## Step 6: Configure Branch Protection Rules
+
+### Main Branch Protection
+Enforce CI checks and pull request requirements before merging to main:
+
+```bash
+# Enable branch protection with required CI checks
+gh api repos/:owner/:repo/branches/main/protection \
+  --method PUT \
+  --field required_status_checks='{"strict":true,"contexts":["CI / lint_and_test"]}' \
+  --field enforce_admins=true \
+  --field required_pull_request_reviews='{"dismiss_stale_reviews":true,"required_approving_review_count":1}' \
+  --field restrictions=null
+```
+
+### Additional Branch Protection Settings (Optional)
+```bash
+# Require conversation resolution
+gh api repos/:owner/:repo/branches/main/protection/required_conversation_resolution --method PUT
+
+# Require signed commits (optional)
+gh api repos/:owner/:repo/branches/main/protection/required_signatures --method POST
+
+# Enable auto-delete of head branches after merge (repository setting)
+gh api repos/:owner/:repo --method PATCH --field delete_branch_on_merge=true
+```
+
+### Branch Protection Features:
+- ✅ **No direct pushes to main** - All changes via pull requests
+- ✅ **CI must pass** - "CI / lint_and_test" check required 
+- ✅ **Up-to-date branches** - PR branch must be current with main
+- ✅ **Review requirement** - At least 1 approval needed
+- ✅ **Admin enforcement** - Rules apply to repository admins too
+
+## Step 7: Verify Configuration
 
 ```bash
 # List environments
 gh api repos/:owner/:repo/environments
+
+# Check branch protection rules
+gh api repos/:owner/:repo/branches/main/protection
 
 # List staging environment variables
 gh variable list --env staging
@@ -286,6 +323,20 @@ gh api repos/:owner/:repo/environments/staging
 gh api repos/:owner/:repo/environments/testing
 ```
 
+### Branch Protection Issues
+```bash
+# Check branch protection status
+gh api repos/:owner/:repo/branches/main/protection
+
+# If status checks don't appear in protection rules:
+# 1. Ensure CI workflow has run at least once on a PR
+# 2. Check exact status check names in a PR's "Checks" tab
+# 3. The format is usually: "[Workflow Name] / [Job Name]"
+
+# Temporarily disable protection (emergency use only)
+gh api repos/:owner/:repo/branches/main/protection --method DELETE
+```
+
 ### Variable/Secret Management
 ```bash
 # Update a variable
@@ -299,4 +350,13 @@ gh variable delete VARIABLE_NAME --env ENVIRONMENT_NAME
 
 # Delete a secret
 gh secret delete SECRET_NAME --env ENVIRONMENT_NAME
+```
+
+### Testing Your Setup
+```bash
+# Test branch protection by creating a failing PR:
+# 1. Create a test PR with failing tests
+# 2. Verify merge button is disabled until CI passes  
+# 3. Fix tests, confirm merge becomes available
+# 4. Verify staging deployment after merge to main
 ```
