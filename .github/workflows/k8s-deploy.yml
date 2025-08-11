@@ -41,6 +41,8 @@ jobs:
       environment: ${{ steps.env.outputs.environment }}
       image_tag: ${{ steps.env.outputs.image_tag }}
       namespace: ${{ steps.env.outputs.namespace }}
+      pr_branch_name: ${{ steps.env.outputs.pr_branch_name }}
+      deploy_timeout: ${{ steps.env.outputs.deploy_timeout }}
     steps:
     - name: Determine environment and image tag
       id: env
@@ -87,19 +89,23 @@ jobs:
           echo "image_tag=none" >> $GITHUB_OUTPUT
         fi
         
-        # Set namespace based on environment
+        # Set namespace and timeout based on environment
         case "${{ steps.env.outputs.environment || 'none' }}" in
           staging)
             echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
+            echo "deploy_timeout=600s" >> $GITHUB_OUTPUT
             ;;
           testing)
             echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
+            echo "deploy_timeout=300s" >> $GITHUB_OUTPUT
             ;;
           cleanup)
             echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
+            echo "deploy_timeout=300s" >> $GITHUB_OUTPUT
             ;;
           *)
             echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
+            echo "deploy_timeout=600s" >> $GITHUB_OUTPUT
             ;;
         esac
 
@@ -157,21 +163,19 @@ jobs:
         echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
         echo "✅ Built and pushed image: $IMAGE_URI"
 
-  # Deploy to staging environment
-  deploy-staging:
+  # Unified deployment job for both staging and testing environments
+  deploy:
     runs-on: ubuntu-latest
     needs: [setup, build-image]
-    if: needs.setup.outputs.environment == 'staging'
-    environment: staging
+    if: contains(fromJSON('["staging", "testing"]'), needs.setup.outputs.environment)
+    environment: ${{ needs.setup.outputs.environment }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Configure kubectl for staging cluster
+    - name: Configure kubectl
       run: |
-        echo "Configuring kubectl for staging cluster"
-        # Add your staging cluster configuration here
-        # For generic kubeconfig:
+        echo "Configuring kubectl for ${{ needs.setup.outputs.environment }} deployment"
         echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
 
@@ -180,94 +184,64 @@ jobs:
       with:
         version: '3.12.0'
 
-    - name: Generate staging values from template
+    - name: Create namespace (testing environment only)
+      if: needs.setup.outputs.environment == 'testing'
+      run: |
+        # Create namespace if it doesn't exist (testing environment uses dynamic namespaces)
+        kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Generate values from template
       env:
-        # Core configuration (automatically injected from staging environment)
+        # Dynamic values only (things that change per deployment)
         ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
         IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
-        AWS_REGION: ${{ vars.AWS_REGION }}
+        ENVIRONMENT: ${{ needs.setup.outputs.environment }}
         
-        # Environment-specific configuration
-        ENVIRONMENT: "staging"
-        REPLICA_COUNT: ${{ vars.REPLICA_COUNT }}
-        DEBUG: ${{ vars.DEBUG }}
-        
-        # Database configuration (secrets from staging environment)
+        # Secrets (can't be in template file for security)
         DB_HOST: ${{ secrets.DB_HOST }}
-        DB_PORT: ${{ vars.DB_PORT }}
         DB_USERNAME: ${{ secrets.DB_USERNAME }}
         DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_NAME: ${{ vars.DB_NAME }}
-        
-        # S3 configuration (secrets from staging environment)
         S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
         S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
-        S3_BUCKET: ${{ vars.S3_BUCKET }}
-        S3_BUCKET_URL: ${{ vars.S3_BUCKET_URL }}
-        S3_KEY_PREFIX: ${{ vars.S3_KEY_PREFIX }}
         
-        # Authentication configuration (mixed secrets/vars from staging environment)
-        AUTH_JWKS_URL: ${{ vars.AUTH_JWKS_URL }}
-        AUTH_ISSUER: ${{ vars.AUTH_ISSUER }}
-        AUTH_AUDIENCE: ${{ vars.AUTH_AUDIENCE }}
-        AUTH_TOKEN_URL: ${{ vars.AUTH_TOKEN_URL }}
-        AUTH_OIDC_URL: ${{ vars.AUTH_OIDC_URL }}
-        OAUTH_CLIENT_ID: ${{ vars.OAUTH_CLIENT_ID }}
-        
-        # Infrastructure configuration (vars from staging environment)
-        INGRESS_ENABLED: ${{ vars.INGRESS_ENABLED }}
-        INGRESS_CLASS: ${{ vars.INGRESS_CLASS }}
-        DOMAIN: ${{ vars.DOMAIN }}
-        SSL_CERT_ARN: ${{ vars.SSL_CERT_ARN }}
-        SERVICE_ACCOUNT_ROLE_ARN: ${{ vars.SERVICE_ACCOUNT_ROLE_ARN }}
-        
-        # Resource configuration (vars from staging environment)
-        RESOURCES_REQUEST_MEMORY: ${{ vars.RESOURCES_REQUEST_MEMORY }}
-        RESOURCES_REQUEST_CPU: ${{ vars.RESOURCES_REQUEST_CPU }}
-        RESOURCES_LIMIT_MEMORY: ${{ vars.RESOURCES_LIMIT_MEMORY }}
-        RESOURCES_LIMIT_CPU: ${{ vars.RESOURCES_LIMIT_CPU }}
-        
-        # Autoscaling configuration (vars from staging environment)
-        AUTOSCALING_ENABLED: ${{ vars.AUTOSCALING_ENABLED }}
-        AUTOSCALING_MIN_REPLICAS: ${{ vars.AUTOSCALING_MIN_REPLICAS }}
-        AUTOSCALING_MAX_REPLICAS: ${{ vars.AUTOSCALING_MAX_REPLICAS }}
-        
-        # Health check configuration (vars from staging environment)
-        HEALTHCHECK_LIVENESS_INITIAL_DELAY: ${{ vars.HEALTHCHECK_LIVENESS_INITIAL_DELAY }}
-        HEALTHCHECK_READINESS_FAILURE_THRESHOLD: ${{ vars.HEALTHCHECK_READINESS_FAILURE_THRESHOLD }}
-        
-        # Application configuration (vars from staging environment)
-        LOG_LEVEL: ${{ vars.LOG_LEVEL }}
-        WORKERS: ${{ vars.WORKERS }}
-        MAX_FILE_SIZE_MB: ${{ vars.MAX_FILE_SIZE_MB }}
-        DEFAULT_PAGE_SIZE: ${{ vars.DEFAULT_PAGE_SIZE }}
-        
-        # Optional existing secret
-        EXISTING_SECRET: ${{ vars.EXISTING_SECRET }}
+        # Everything else (DB_NAME, S3_BUCKET, AUTH_*, REPLICA_COUNT, DEBUG, etc.) 
+        # should be configured in template defaults, not here
       run: |
-        echo "🔄 Generating staging values from template..."
+        echo "🔄 Generating ${{ needs.setup.outputs.environment }} values from template..."
+        if [[ "${{ needs.setup.outputs.environment }}" == "testing" ]]; then
+          echo "📝 PR Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+          echo "📝 PR Namespace: ${{ needs.setup.outputs.namespace }}"
+        fi
         
         # Generate values file from universal template
-        envsubst < k8s/helm/calculaud-be/values.yaml.template > values-staging-generated.yaml
+        envsubst < k8s/helm/calculaud-be/values.yaml.template > values-generated.yaml
         
-        echo "✅ Generated staging values file"
+        echo "✅ Generated ${{ needs.setup.outputs.environment }} values file"
         echo "📋 Preview of generated configuration:"
-        head -20 values-staging-generated.yaml
+        head -15 values-generated.yaml
 
     - name: Validate generated template
       run: |
         echo "🔍 Validating generated template..."
         
-        # Check for any remaining unsubstituted variables
-        if grep -q '\${' values-staging-generated.yaml; then
-          echo "❌ Found unsubstituted variables in generated file:"
-          grep '\${' values-staging-generated.yaml || true
-          echo "::error::Template generation failed - unsubstituted variables found"
-          exit 1
+        # Check for any remaining unsubstituted variables (except optional ones with defaults)
+        if grep -q '\${[^}]*}' values-generated.yaml; then
+          echo "⚠️  Found potentially unsubstituted variables in generated file:"
+          grep '\${[^}]*}' values-generated.yaml || true
+          
+          # Check if they're required variables (those without defaults) - these should fail
+          REQUIRED_VARS="ECR_REPOSITORY|IMAGE_TAG|ENVIRONMENT|DB_HOST|DB_USERNAME|DB_PASSWORD|DB_NAME|S3_ACCESS_KEY|S3_SECRET_KEY|S3_BUCKET|AUTH_JWKS_URL|AUTH_ISSUER|AUTH_AUDIENCE|AUTH_TOKEN_URL|AUTH_OIDC_URL|OAUTH_CLIENT_ID"
+          if grep -E "\\\$\{($REQUIRED_VARS)[^}]*\}" values-generated.yaml; then
+            echo "❌ Found unsubstituted required variables"
+            echo "::error::Template generation failed - required variables missing"
+            exit 1
+          else
+            echo "ℹ️  Only optional variables with defaults remain unsubstituted (this is OK)"
+          fi
         fi
         
         # Validate YAML syntax
-        if ! python -c "import yaml; yaml.safe_load(open('values-staging-generated.yaml'))" 2>/dev/null; then
+        if ! python -c "import yaml; yaml.safe_load(open('values-generated.yaml'))" 2>/dev/null; then
           echo "❌ Generated YAML is invalid"
           echo "::error::Generated values file contains invalid YAML"
           exit 1
@@ -275,171 +249,23 @@ jobs:
         
         echo "✅ Template validation passed"
 
-    - name: Deploy to staging
+    - name: Deploy application
       run: |
         # Deploy using Helm with generated values file
         helm upgrade calculaud-be k8s/helm/calculaud-be \
           --install \
           --namespace ${{ needs.setup.outputs.namespace }} \
-          --values values-staging-generated.yaml \
+          --values values-generated.yaml \
           --wait \
-          --timeout=600s
+          --timeout=${{ needs.setup.outputs.deploy_timeout }}
         
-        echo "✅ Staging deployment completed"
+        echo "✅ ${{ needs.setup.outputs.environment }} deployment completed"
 
     - name: Cleanup generated files
       if: always()
       run: |
         # Remove generated values files for security
-        rm -f values-staging-generated.yaml
-
-    - name: Verify deployment
-      run: |
-        kubectl rollout status deployment/calculaud-be -n ${{ needs.setup.outputs.namespace }}
-        kubectl get pods -n ${{ needs.setup.outputs.namespace }} -l app.kubernetes.io/name=calculaud-be
-
-  # Deploy to testing environment (PR deployments)
-  deploy-testing:
-    runs-on: ubuntu-latest
-    needs: [setup, build-image]
-    if: needs.setup.outputs.environment == 'testing'
-    environment: testing
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Configure kubectl for PR deployment
-      run: |
-        echo "Configuring kubectl for PR deployment"
-        # Use staging cluster for PR deployments
-        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-        chmod 600 $HOME/.kube/config
-
-    - name: Setup Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: '3.12.0'
-
-    - name: Create testing namespace
-      run: |
-        # Create namespace if it doesn't exist
-        kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
-
-    - name: Generate testing values from template
-      env:
-        # Core configuration (automatically injected from testing environment)
-        ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-        IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
-        AWS_REGION: ${{ vars.AWS_REGION }}
-        
-        # Environment-specific configuration
-        ENVIRONMENT: "testing"
-        REPLICA_COUNT: ${{ vars.REPLICA_COUNT }}
-        DEBUG: ${{ vars.DEBUG }}
-        
-        # PR Branch information for S3 key prefix
-        PR_BRANCH_NAME: ${{ needs.setup.outputs.pr_branch_name }}
-        
-        # Database configuration (secrets from testing environment - shared test DB)
-        DB_HOST: ${{ secrets.DB_HOST }}
-        DB_PORT: ${{ vars.DB_PORT }}
-        DB_USERNAME: ${{ secrets.DB_USERNAME }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_NAME: ${{ vars.DB_NAME }}
-        
-        # S3 configuration (secrets from testing environment - shared test bucket)
-        S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
-        S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
-        S3_BUCKET: ${{ vars.S3_BUCKET }}
-        S3_BUCKET_URL: ${{ vars.S3_BUCKET_URL }}
-        S3_KEY_PREFIX: "pr-files/${{ needs.setup.outputs.pr_branch_name }}/"
-        
-        # Authentication configuration (mixed secrets/vars from testing environment)
-        AUTH_JWKS_URL: ${{ vars.AUTH_JWKS_URL }}
-        AUTH_ISSUER: ${{ vars.AUTH_ISSUER }}
-        AUTH_AUDIENCE: ${{ vars.AUTH_AUDIENCE }}
-        AUTH_TOKEN_URL: ${{ vars.AUTH_TOKEN_URL }}
-        AUTH_OIDC_URL: ${{ vars.AUTH_OIDC_URL }}
-        OAUTH_CLIENT_ID: ${{ vars.OAUTH_CLIENT_ID }}
-        
-        # Infrastructure configuration (vars from testing environment - minimal)
-        INGRESS_ENABLED: ${{ vars.INGRESS_ENABLED }}
-        
-        # Resource configuration (vars from testing environment - minimal)
-        RESOURCES_REQUEST_MEMORY: ${{ vars.RESOURCES_REQUEST_MEMORY }}
-        RESOURCES_REQUEST_CPU: ${{ vars.RESOURCES_REQUEST_CPU }}
-        RESOURCES_LIMIT_MEMORY: ${{ vars.RESOURCES_LIMIT_MEMORY }}
-        RESOURCES_LIMIT_CPU: ${{ vars.RESOURCES_LIMIT_CPU }}
-        
-        # Health check configuration (vars from testing environment - faster)
-        HEALTHCHECK_LIVENESS_INITIAL_DELAY: ${{ vars.HEALTHCHECK_LIVENESS_INITIAL_DELAY }}
-        HEALTHCHECK_READINESS_FAILURE_THRESHOLD: ${{ vars.HEALTHCHECK_READINESS_FAILURE_THRESHOLD }}
-        
-        # Application configuration (vars from testing environment)
-        LOG_LEVEL: ${{ vars.LOG_LEVEL }}
-        WORKERS: ${{ vars.WORKERS }}
-        MAX_FILE_SIZE_MB: ${{ vars.MAX_FILE_SIZE_MB }}
-        DEFAULT_PAGE_SIZE: ${{ vars.DEFAULT_PAGE_SIZE }}
-        
-        # Optional existing secret
-        EXISTING_SECRET: ${{ vars.EXISTING_SECRET }}
-      run: |
-        echo "🔄 Generating PR values from template..."
-        echo "📝 PR Branch: $PR_BRANCH_NAME"
-        echo "📝 PR Namespace: ${{ needs.setup.outputs.namespace }}"
-        
-        # Generate values file from universal template
-        envsubst < k8s/helm/calculaud-be/values.yaml.template > values-pr-generated.yaml
-        
-        echo "✅ Generated PR values file"
-        echo "📋 Preview of generated configuration:"
-        head -15 values-pr-generated.yaml
-
-    - name: Validate generated PR template
-      run: |
-        echo "🔍 Validating generated PR template..."
-        
-        # Check for any remaining unsubstituted variables (except optional ones)
-        if grep -q '\${[^}]*}' values-pr-generated.yaml; then
-          echo "⚠️  Found potentially unsubstituted variables in generated file:"
-          grep '\${[^}]*}' values-pr-generated.yaml || true
-          
-          # Check if they're required variables (fail) or optional ones (warn)
-          if grep -q '\${TEST_' values-pr-generated.yaml; then
-            echo "❌ Found unsubstituted required TEST_ variables"
-            echo "::error::PR template generation failed - required variables missing"
-            exit 1
-          else
-            echo "ℹ️  Only optional variables remain unsubstituted (this is OK)"
-          fi
-        fi
-        
-        # Validate YAML syntax
-        if ! python -c "import yaml; yaml.safe_load(open('values-pr-generated.yaml'))" 2>/dev/null; then
-          echo "❌ Generated YAML is invalid"
-          echo "::error::Generated PR values file contains invalid YAML"
-          exit 1
-        fi
-        
-        echo "✅ PR template validation passed"
-
-    - name: Deploy to PR environment
-      run: |
-        # Deploy using Helm with generated PR values file
-        helm upgrade calculaud-be k8s/helm/calculaud-be \
-          --install \
-          --namespace ${{ needs.setup.outputs.namespace }} \
-          --values values-pr-generated.yaml \
-          --wait \
-          --timeout=300s
-        
-        echo "✅ PR deployment completed"
-
-    - name: Cleanup generated files
-      if: always()
-      run: |
-        # Remove generated values files for security
-        rm -f values-pr-generated.yaml
+        rm -f values-generated.yaml
 
     - name: Verify deployment
       run: |
@@ -448,10 +274,13 @@ jobs:
 
     - name: Get deployment info
       run: |
-        echo "🚀 PR Environment Deployed Successfully!"
+        echo "🚀 ${{ needs.setup.outputs.environment }} Environment Deployed Successfully!"
+        echo "Environment: ${{ needs.setup.outputs.environment }}"
         echo "Namespace: ${{ needs.setup.outputs.namespace }}"
-        echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
         echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
+        if [[ "${{ needs.setup.outputs.environment }}" == "testing" ]]; then
+          echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+        fi
         
         # Get service info
         kubectl get svc -n ${{ needs.setup.outputs.namespace }}
@@ -493,12 +322,12 @@ jobs:
   # Notify on deployment completion
   notify:
     runs-on: ubuntu-latest
-    needs: [setup, build-image, deploy-staging, deploy-testing, cleanup-pr]
+    needs: [setup, build-image, deploy, cleanup-pr]
     if: always() && needs.setup.outputs.environment != 'none'
     steps:
     - name: Deployment notification
       run: |
-        if [[ "${{ needs.deploy-staging.result }}" == "success" || "${{ needs.deploy-testing.result }}" == "success" || "${{ needs.cleanup-pr.result }}" == "success" ]]; then
+        if [[ "${{ needs.deploy.result }}" == "success" || "${{ needs.cleanup-pr.result }}" == "success" ]]; then
           if [[ "${{ needs.setup.outputs.environment }}" == "cleanup" ]]; then
             echo "🧹 PR environment cleanup completed!"
             echo "Cleaned up namespace: ${{ needs.setup.outputs.namespace }}"
