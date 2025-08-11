@@ -44,70 +44,45 @@ jobs:
       pr_branch_name: ${{ steps.env.outputs.pr_branch_name }}
       deploy_timeout: ${{ steps.env.outputs.deploy_timeout }}
     steps:
-    - name: Determine environment and image tag
+    - name: Determine environment and configuration
       id: env
       run: |
+        # Determine environment and image tag based on trigger
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          
-          # Generate image tag if not provided
-          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
-            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
-          else
-            # Generate timestamp-based tag
-            echo "image_tag=manual-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-          fi
-          
-          # Handle testing environment branch naming
-          if [[ "${{ github.event.inputs.environment }}" == "testing" ]]; then
-            # Get PR info from context or input
-            if [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
-              PR_NUMBER="${{ github.event.inputs.pr_number }}"
-              # Get branch name from PR (this would require API call, simplified for now)
-              BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
-            else
-              BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
-            fi
-            
-            # Sanitize branch name for Kubernetes namespace
-            SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
-            echo "pr_branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
-          fi
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          [[ -z "$IMAGE_TAG" ]] && IMAGE_TAG="manual-$(date +'%Y%m%d-%H%M%S')"
         elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "closed" ]]; then
-          echo "environment=cleanup" >> $GITHUB_OUTPUT
-          echo "image_tag=none" >> $GITHUB_OUTPUT
-          
-          # Get branch name for cleanup
-          BRANCH_NAME="${{ github.head_ref }}"
-          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
-          echo "pr_branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+          ENVIRONMENT="cleanup"
+          IMAGE_TAG="none"
         elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-          echo "environment=staging" >> $GITHUB_OUTPUT
-          echo "image_tag=main-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          ENVIRONMENT="staging"
+          IMAGE_TAG="main-$(date +'%Y%m%d-%H%M%S')"
         else
-          echo "environment=none" >> $GITHUB_OUTPUT
-          echo "image_tag=none" >> $GITHUB_OUTPUT
+          ENVIRONMENT="none"
+          IMAGE_TAG="none"
         fi
         
-        # Set namespace and timeout based on environment
-        case "${{ steps.env.outputs.environment || 'none' }}" in
-          staging)
-            echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
-            echo "deploy_timeout=600s" >> $GITHUB_OUTPUT
-            ;;
-          testing)
-            echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
-            echo "deploy_timeout=300s" >> $GITHUB_OUTPUT
-            ;;
-          cleanup)
-            echo "namespace=calculaud-${{ steps.env.outputs.pr_branch_name }}" >> $GITHUB_OUTPUT
-            echo "deploy_timeout=300s" >> $GITHUB_OUTPUT
-            ;;
-          *)
-            echo "namespace=calculaud-staging" >> $GITHUB_OUTPUT
-            echo "deploy_timeout=600s" >> $GITHUB_OUTPUT
-            ;;
-        esac
+        # Handle branch-specific environments (testing/cleanup)
+        if [[ "$ENVIRONMENT" == "testing" || "$ENVIRONMENT" == "cleanup" ]]; then
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+          NAMESPACE="calculaud-$SANITIZED_BRANCH"
+          DEPLOY_TIMEOUT="300s"
+          echo "pr_branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+        elif [[ "$ENVIRONMENT" == "staging" ]]; then
+          NAMESPACE="calculaud-staging"
+          DEPLOY_TIMEOUT="600s"
+        else
+          NAMESPACE="calculaud-staging"
+          DEPLOY_TIMEOUT="600s"
+        fi
+        
+        # Set all outputs
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+        echo "namespace=$NAMESPACE" >> $GITHUB_OUTPUT
+        echo "deploy_timeout=$DEPLOY_TIMEOUT" >> $GITHUB_OUTPUT
 
   # Build and push Docker image to ECR
   build-image:
