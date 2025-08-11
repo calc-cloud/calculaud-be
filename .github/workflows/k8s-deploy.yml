@@ -149,10 +149,10 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Configure kubectl
-      run: |
-        echo "Configuring kubectl for ${{ needs.setup.outputs.environment }} deployment"
-        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-        chmod 600 $HOME/.kube/config
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBECONFIG }}
 
     - name: Setup Helm
       uses: azure/setup-helm@v3
@@ -252,10 +252,10 @@ jobs:
     if: needs.setup.outputs.environment == 'cleanup'
     steps:
     - name: Configure kubectl for cleanup
-      run: |
-        echo "Configuring kubectl for PR cleanup"
-        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-        chmod 600 $HOME/.kube/config
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBECONFIG }}
 
     - name: Setup Helm
       uses: azure/setup-helm@v3
