@@ -422,7 +422,7 @@ create_documentation() {
 
 ## Access Points
 
-- **Application**: Via NodePort, LoadBalancer, or port-forward
+- **Application**: Via NGINX Ingress, NodePort, or port-forward
 - **API Documentation**: {application-url}/docs
 - **S3 Storage**: External service (configuration required)
 
@@ -572,6 +572,13 @@ if [[ "$SERVICE_TYPE" == "NodePort" ]]; then
     print_message $GREEN "🎉 Installation completed successfully!"
     print_message $BLUE "Access your application at: http://$NODE_IP:$NODE_PORT"
     print_message $BLUE "API documentation at: http://$NODE_IP:$NODE_PORT/docs"
+# Check if ingress is enabled and provide appropriate access information
+INGRESS_ENABLED=$(helm get values calculaud-be -n "$NAMESPACE" -o json | jq -r '.ingress.enabled // false')
+if [[ "$INGRESS_ENABLED" == "true" ]]; then
+    INGRESS_HOST=$(helm get values calculaud-be -n "$NAMESPACE" -o json | jq -r '.ingress.hosts[0].host // "calculaud.local.domain"')
+    print_message $GREEN "🎉 Installation completed successfully!"
+    print_message $BLUE "Access your application at: http://$INGRESS_HOST (configure DNS/hosts file)"
+    print_message $BLUE "API documentation at: http://$INGRESS_HOST/docs"
 elif [[ "$SERVICE_TYPE" == "LoadBalancer" ]]; then
     print_message $GREEN "🎉 Installation completed successfully!"
     print_message $BLUE "Waiting for LoadBalancer IP assignment..."

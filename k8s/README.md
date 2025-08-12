@@ -136,7 +136,8 @@ ingress:
 
 **Prerequisites**: 
 - EKS cluster configured with kubectl access
-- AWS Load Balancer Controller installed
+- NGINX Ingress Controller installed
+- cert-manager for SSL certificates
 - EBS CSI driver configured  
 - External Secrets Operator (optional)
 - Proper IAM roles and policies
@@ -163,7 +164,7 @@ helm upgrade --install calculaud-be helm/calculaud-be \
 ```
 
 **Features**:
-- Application Load Balancer (ALB) integration
+- NGINX Ingress with cert-manager SSL
 - EBS persistent storage
 - AWS Secrets Manager integration
 - CloudWatch monitoring and logging
@@ -200,7 +201,7 @@ helm upgrade --install calculaud-be helm/calculaud-be \
 
 **Features**:
 - Flexible storage options (local, NFS, etc.)
-- NodePort, Ingress, or LoadBalancer access
+- NodePort, NGINX Ingress, or OpenShift Routes access
 - External PostgreSQL and S3-compatible storage required
 - Optional monitoring integration
 

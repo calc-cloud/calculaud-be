@@ -184,7 +184,7 @@ aws:
 # Staging environment specific configurations:
 # - Higher resource limits and requests
 # - Autoscaling enabled
-# - Ingress with ALB configuration
+# - Ingress with NGINX configuration
 # - Anti-affinity rules
 # - Multiple replicas
 # - Enhanced health checks

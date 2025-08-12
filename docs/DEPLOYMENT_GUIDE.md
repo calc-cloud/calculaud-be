@@ -38,7 +38,7 @@ Deploy Calculaud Backend to AWS EKS or on-premises Kubernetes environments.
 
 ## AWS EKS Deployment
 
-**Prerequisites:** EKS cluster with AWS Load Balancer Controller, EBS CSI driver, and proper IAM roles.
+**Prerequisites:** EKS cluster with NGINX Ingress Controller, EBS CSI driver, and proper IAM roles.
 
 ### Deploy Application
 ```bash
@@ -61,7 +61,7 @@ Uses GitHub Environments with `envsubst` templating:
 **Setup**: Configure GitHub Environments in Repository → Settings → Environments. See `docs/github-setup-commands.md` for detailed setup.
 
 ### Features
-- Auto-scaling (HPA/VPA), ALB with SSL, EBS volumes, CloudWatch integration
+- Auto-scaling (HPA/VPA), NGINX Ingress with cert-manager SSL, EBS volumes, CloudWatch integration
 - **Staging**: Main branch, dedicated resources
 - **PR**: Feature branches, minimal resources, shared test DB
 

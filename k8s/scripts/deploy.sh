@@ -190,11 +190,13 @@ environment_setup() {
                 print_message $YELLOW "Warning: No ingress controller found. Consider installing nginx-ingress or using NodePort service."
             fi
             
-            # Check for load balancer
-            if kubectl get svc -A | grep -q "LoadBalancer"; then
-                print_message $GREEN "✓ Load balancer service detected"
+            # Check for ingress controller
+            if kubectl get ingressclass 2>/dev/null | grep -q nginx; then
+                print_message $GREEN "✓ NGINX ingress controller detected"
+            elif kubectl get ingressclass 2>/dev/null | grep -q openshift; then
+                print_message $GREEN "✓ OpenShift Routes available"
             else
-                print_message $YELLOW "Warning: No LoadBalancer services found. Consider installing MetalLB for on-premises load balancing."
+                print_message $YELLOW "Warning: No ingress controller found. Consider installing NGINX Ingress Controller."
             fi
             
             # On-premises deployment uses external PostgreSQL and S3 storage

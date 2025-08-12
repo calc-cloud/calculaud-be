@@ -35,7 +35,7 @@ cd calculaud-onprem-*
 
 | Service | EKS | On-Prem K8s |
 |---------|-----|-------------|
-| **Application** | ALB DNS | NodePort/Ingress/Port-Forward |
+| **Application** | NGINX Ingress | NodePort/NGINX Ingress/OpenShift Routes |
 | **API Docs** | `/docs` | `/docs` |
 | **MinIO Console** | N/A | NodePort/Port-Forward (port 9001) |
 | **Health Checks** | `/health` | `/health` |
@@ -168,7 +168,7 @@ curl http://localhost:9000/minio/health/live
 ### Complete EKS Setup (2 minutes)
 ```bash
 #!/bin/bash
-# Assumes EKS cluster with ALB, EBS CSI, etc. already configured
+# Assumes EKS cluster with NGINX Ingress, EBS CSI, etc. already configured
 ./k8s/scripts/deploy.sh -e eks -n calculaud-prod
 ./k8s/scripts/migrate.sh -n calculaud-prod
 ```

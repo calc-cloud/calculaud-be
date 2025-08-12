@@ -62,21 +62,20 @@ service:
 
 # On-premises ingress configuration
 ingress:
-  enabled: false  # Disable if no ingress controller available
-  
-  # Enable if you have NGINX Ingress Controller or Traefik
-  # enabled: true
-  # className: "nginx"  # or "traefik"
-  # annotations:
-  #   nginx.ingress.kubernetes.io/rewrite-target: /
-  #   nginx.ingress.kubernetes.io/ssl-redirect: "false"  # No SSL for internal
-  #   nginx.ingress.kubernetes.io/proxy-body-size: "512m"
-  # hosts:
-  #   - host: calculaud.local.domain
-  #     paths:
-  #       - path: /
-  #         pathType: Prefix
-  # tls: []  # No TLS for internal deployment
+  enabled: true   # Enable NGINX ingress by default
+  className: "nginx"  # Use NGINX Ingress Controller (supports both K8s and OpenShift)
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # No SSL for internal by default
+    nginx.ingress.kubernetes.io/proxy-body-size: "512m"
+    # OpenShift compatibility (ignored on standard Kubernetes)
+    route.openshift.io/termination: "edge"
+  hosts:
+    - host: calculaud.local.domain
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []  # Add TLS config if needed for your environment
 
 # Conservative resource requirements for on-premises
 resources:

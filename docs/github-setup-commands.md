@@ -96,9 +96,10 @@ gh variable set OAUTH_CLIENT_ID --env staging --body "calculaud-staging-client"
 
 # Infrastructure configuration
 gh variable set INGRESS_ENABLED --env staging --body "true"
-gh variable set INGRESS_CLASS --env staging --body "alb"
+gh variable set INGRESS_CLASS --env staging --body "nginx"
 gh variable set DOMAIN --env staging --body "api-staging.calculaud.com"
-gh variable set SSL_CERT_ARN --env staging --body "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT-ID"
+# SSL handled by cert-manager with NGINX (no ACM certificate needed)
+# gh variable set SSL_CERT_ARN --env staging --body "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT-ID"
 gh variable set SERVICE_ACCOUNT_ROLE_ARN --env staging --body "arn:aws:iam::ACCOUNT:role/calculaud-staging-service-role"
 
 # Resource configuration

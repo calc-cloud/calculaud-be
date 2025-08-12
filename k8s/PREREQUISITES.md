@@ -110,10 +110,13 @@ kubectl get storageclass
 kubectl get ingressclass
 ```
 
-### Load Balancer (Optional)
-- MetalLB for bare-metal clusters
-- Cloud provider load balancers
-- HAProxy/NGINX for manual load balancing
+### Ingress Controllers (Recommended)
+- **NGINX Ingress Controller** (works on both Kubernetes and OpenShift)
+- **OpenShift Routes** (native to OpenShift, automatically converts Ingress resources)
+- MetalLB for bare-metal LoadBalancer services (optional)
+- HAProxy/Traefik alternatives (optional)
+
+**OpenShift Note**: OpenShift automatically converts standard Kubernetes Ingress resources to native Routes. No additional configuration needed - use the same Helm chart templates.
 
 ## 📋 Pre-Deployment Checklist
 
