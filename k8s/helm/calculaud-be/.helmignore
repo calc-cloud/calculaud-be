@@ -14,10 +14,10 @@
 values.yaml.template
 
 # Development and testing files
-**/test/
-**/tests/
-**/*_test.yaml
-**/*-test.yaml
+test/
+tests/
+*_test.yaml
+*-test.yaml
 
 # Documentation that shouldn't be packaged
 README.md
