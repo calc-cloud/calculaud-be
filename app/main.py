@@ -1,15 +1,17 @@
 import asyncio
 import signal
-import sys
 from contextlib import asynccontextmanager
+from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
 from .analytics.router import router as analytics_router
 from .auth.dependencies import require_auth
 from .auth.router import router as auth_router
 from .config import settings
+from .database import get_db
 from .files.router import router as files_router
 from .health import (
     detailed_health_check,
@@ -200,12 +202,12 @@ def health_live():
 
 
 @app.get("/health/ready")
-def health_ready():
+def health_ready(db: Annotated[Session, Depends(get_db)]):
     """
     Kubernetes readiness probe endpoint.
     Returns 200 if the application is ready to serve requests, 503 if not ready.
     """
-    return readiness_check()
+    return readiness_check(db)
 
 
 @app.get("/health/startup")
@@ -218,11 +220,8 @@ def health_startup():
 
 
 @app.get("/health")
-def health_check():
+def health_check(db: Annotated[Session, Depends(get_db)]):
     """
     Detailed health check endpoint for monitoring and debugging.
     """
-    return detailed_health_check()
-
-
-# Note: Startup/shutdown events are now handled in the lifespan context manager above
+    return detailed_health_check(db)

@@ -123,7 +123,7 @@ def liveness_check() -> dict[str, Any]:
         )
 
 
-def readiness_check(db: Session = Depends(get_db)) -> dict[str, Any]:
+def readiness_check(db: Session) -> dict[str, Any]:
     """
     Kubernetes readiness probe check.
     This should fail if the application can't serve requests.
@@ -208,7 +208,7 @@ def startup_check() -> dict[str, Any]:
         )
 
 
-def detailed_health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
+def detailed_health_check(db: Session) -> dict[str, Any]:
     """
     Comprehensive health check with detailed information.
     This is useful for monitoring and debugging.
