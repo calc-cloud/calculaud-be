@@ -181,7 +181,7 @@ jobs:
         ## External Dependencies (Expected to be Available)
         
         - 🔗 PostgreSQL database (external)
-        - 🔗 S3-compatible storage (external MinIO/AWS S3/etc.)
+        - 🔗 S3-compatible storage (external AWS S3/etc.)
         - ✅ Kubernetes Helm charts
         - ✅ Deployment scripts
         - ✅ Configuration templates

@@ -345,8 +345,8 @@ include_sample_data() {
     cat > "$data_dir/.env.sample" << 'EOF'
 # Sample environment configuration for testing
 POSTGRES_PASSWORD=TestPassword123!
-MINIO_ACCESS_KEY=testuser
-MINIO_SECRET_KEY=TestSecret123!
+S3_ACCESS_KEY=testuser
+S3_SECRET_KEY=TestSecret123!
 GRAFANA_PASSWORD=admin123
 LOG_LEVEL=DEBUG
 EOF

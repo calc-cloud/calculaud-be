@@ -208,8 +208,3 @@ securityContext:
 
 # No existing secret - create inline
 existingSecret: ""
-
-# MinIO deployment - not included, external S3-compatible storage assumed
-# minio:
-#   enabled: false  # Always use external S3-compatible storage
-

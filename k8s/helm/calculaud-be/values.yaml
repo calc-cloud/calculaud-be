@@ -43,7 +43,7 @@ s3:
   accessKeyId: "your-access-key-id"         # CHANGE THIS!
   secretAccessKey: "your-secret-access-key" # CHANGE THIS!
   region: "us-east-1"
-  endpointUrl: ""  # For non-AWS S3-compatible storage (MinIO, etc.)
+  endpointUrl: ""  # For non-AWS S3-compatible storage
   bucketName: "calculaud-files"
   bucketUrl: "https://calculaud-files.s3.amazonaws.com"
   keyPrefix: "files/"

@@ -37,7 +37,6 @@ cd calculaud-onprem-*
 |---------|-----|-------------|
 | **Application** | NGINX Ingress | NodePort/NGINX Ingress/OpenShift Routes |
 | **API Docs** | `/docs` | `/docs` |
-| **MinIO Console** | N/A | NodePort/Port-Forward (port 9001) |
 | **Health Checks** | `/health` | `/health` |
 
 ## Configuration Approach
@@ -101,11 +100,11 @@ kubectl exec -it postgres-0 -n calculaud -- psql -U calculaud calculaud
 # Database
 DATABASE_URL=postgresql://user:pass@host:5432/db
 
-# S3/MinIO
+# S3 Storage
 S3_ACCESS_KEY_ID=access-key
 S3_SECRET_ACCESS_KEY=secret-key
 S3_BUCKET_NAME=bucket-name
-S3_ENDPOINT_URL=http://minio:9000  # for MinIO
+S3_ENDPOINT_URL=https://s3.amazonaws.com  # for AWS S3 or S3-compatible storage
 
 # Authentication
 AUTH_JWKS_URL=https://auth/.well-known/jwks.json
@@ -148,10 +147,10 @@ kubectl exec -it <app-pod> -n calculaud -- nc -zv postgres 5432
 # Fix: Verify DATABASE_URL format and credentials
 ```
 
-### MinIO/S3 Access Issues
+### S3 Access Issues
 ```bash
-# Test MinIO health
-curl http://localhost:9000/minio/health/live
+# Test S3 connectivity (example with AWS CLI)
+aws s3 ls s3://your-bucket-name/
 
 # Fix: Check credentials and endpoint URL
 ```
