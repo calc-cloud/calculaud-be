@@ -18,14 +18,11 @@ config:
   maxFileSizeMb: ${MAX_FILE_SIZE_MB:-128}
   defaultPageSize: ${DEFAULT_PAGE_SIZE:-20}
 
-# External PostgreSQL configuration
-postgresql:
-  external:
-    host: "${DB_HOST}"
-    port: ${DB_PORT:-5432}
-    username: "${DB_USERNAME}"
-    password: "${DB_PASSWORD}"
-    database: "${DB_NAME}"
+# Database configuration (provide full URL externally)
+database:
+  # DATABASE_URL should be provided externally via CI/CD environment variables
+  # Expected format: "postgresql://username:password@host:5432/database"
+  url: "${DATABASE_URL}"
 
 # S3 configuration
 s3:

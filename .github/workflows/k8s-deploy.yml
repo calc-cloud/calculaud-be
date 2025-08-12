@@ -173,13 +173,11 @@ jobs:
         ENVIRONMENT: ${{ needs.setup.outputs.environment }}
         
         # Secrets (can't be in template file for security)
-        DB_HOST: ${{ secrets.DB_HOST }}
-        DB_USERNAME: ${{ secrets.DB_USERNAME }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
         S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
         S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
         
-        # Everything else (DB_NAME, S3_BUCKET, AUTH_*, REPLICA_COUNT, DEBUG, etc.) 
+        # Everything else (S3_BUCKET, AUTH_*, REPLICA_COUNT, DEBUG, etc.) 
         # should be configured in template defaults, not here
       run: |
         echo "🔄 Generating ${{ needs.setup.outputs.environment }} values from template..."

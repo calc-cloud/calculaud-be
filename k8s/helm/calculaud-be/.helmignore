@@ -1,0 +1,58 @@
+# Helm ignore file
+# Patterns to exclude when building packages
+
+# Version control
+.git/
+.gitignore
+
+# CI/CD and development files
+.github/
+.vscode/
+.idea/
+
+# Template files (used for CI/CD generation, not for packaging)
+values.yaml.template
+
+# Development and testing files
+**/test/
+**/tests/
+**/*_test.yaml
+**/*-test.yaml
+
+# Documentation that shouldn't be packaged
+README.md
+CHANGELOG.md
+LICENSE
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+*.sublime-*
+*.code-workspace
+
+# Local values files (typically contain secrets)
+values-local.yaml
+values-dev.yaml
+my-values.yaml
+local-values.yaml
+
+# Generated files
+values-generated.yaml
+
+# Backup files
+*.bak
+*.backup

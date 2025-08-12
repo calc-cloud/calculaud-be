@@ -62,13 +62,6 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Database URL for external PostgreSQL
-*/}}
-{{- define "calculaud-be.databaseUrl" -}}
-{{- printf "postgresql://%s:%s@%s:%s/%s" .Values.postgresql.external.username "$(DATABASE_PASSWORD)" .Values.postgresql.external.host (.Values.postgresql.external.port | default 5432) .Values.postgresql.external.database }}
-{{- end }}
-
-{{/*
 Create image name
 */}}
 {{- define "calculaud-be.image" -}}

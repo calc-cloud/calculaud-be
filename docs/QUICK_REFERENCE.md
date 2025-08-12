@@ -51,7 +51,7 @@ cd calculaud-onprem-*
 **Key Features:**
 - **GitHub Environments**: Environment-scoped secrets and variables
 - **Universal Template**: Single `values.yaml.template` for staging/testing
-- **Clean Configuration**: No prefixed secrets (`DB_HOST` vs `STAGING_DB_HOST`)
+- **Clean Configuration**: No prefixed secrets (`DATABASE_URL` vs `STAGING_DATABASE_URL`)
 
 ## Common Commands
 

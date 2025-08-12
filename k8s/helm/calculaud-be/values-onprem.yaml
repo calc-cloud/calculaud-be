@@ -18,14 +18,11 @@ config:
   maxFileSizeMb: 512
   defaultPageSize: 50
 
-# External PostgreSQL (assumed to be already available)
-postgresql:
-  external:
-    host: "postgres.yourdomain.local"
-    port: 5432
-    username: "calculaud"
-    password: "your-secure-password"
-    database: "calculaud"
+# Database configuration (provide full URL externally)
+database:
+  # DATABASE_URL should be provided externally via secret management or environment
+  # Example: "postgresql://calculaud:password@postgres.yourdomain.local:5432/calculaud"
+  url: ""  # Leave empty - provide externally
 
 # S3-compatible storage configuration for on-premises
 s3:

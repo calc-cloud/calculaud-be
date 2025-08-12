@@ -31,14 +31,11 @@ config:
   usdToIlsRate: 3.7
   maxFileSizeMb: 1024
 
-# PostgreSQL configuration (external only)
-postgresql:
-  external:
-    host: "postgresql.example.com"
-    port: 5432
-    username: "calculaud"
-    password: "your-external-password"
-    database: "calculaud"
+# Database configuration (provide full URL externally)
+database:
+  # DATABASE_URL should be provided externally via secret management or CI/CD
+  # Example: "postgresql://username:password@host:5432/database"
+  url: ""  # Leave empty - provide externally
 
 # S3 Configuration
 s3:

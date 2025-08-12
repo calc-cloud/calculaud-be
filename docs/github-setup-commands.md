@@ -79,9 +79,7 @@ gh variable set AWS_BUILD_ROLE_ARN --env staging --body "arn:aws:iam::<ACCOUNT>:
 gh variable set REPLICA_COUNT --env staging --body "2"
 gh variable set DEBUG --env staging --body "false"
 
-# Database configuration (non-sensitive)
-gh variable set DB_PORT --env staging --body "5432"
-gh variable set DB_NAME --env staging --body "calculaud_staging"
+# Database configuration is now provided as full DATABASE_URL secret (see secrets section)
 
 # S3 configuration (non-sensitive)
 gh variable set S3_BUCKET --env staging --body "calculaud-staging-files"
@@ -130,10 +128,8 @@ gh variable set EXISTING_SECRET --env staging --body "calculaud-staging-secrets"
 
 ### Staging Environment Secrets (Private)
 ```bash
-# Database credentials
-gh secret set DB_HOST --env staging --body "calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com"
-gh secret set DB_USERNAME --env staging --body "calculaud_staging"
-gh secret set DB_PASSWORD --env staging --body "your-staging-db-password"
+# Database connection (provide full DATABASE_URL)
+gh secret set DATABASE_URL --env staging --body "postgresql://calculaud_staging:your-staging-db-password@calculaud-staging.cluster-xxx.us-east-1.rds.amazonaws.com:5432/calculaud_staging"
 
 # S3 credentials
 gh secret set S3_ACCESS_KEY --env staging --body "your-staging-s3-access-key"
@@ -156,9 +152,7 @@ gh variable set AWS_BUILD_ROLE_ARN --env testing --body "arn:aws:iam::<ACCOUNT>:
 gh variable set REPLICA_COUNT --env testing --body "1"
 gh variable set DEBUG --env testing --body "true"
 
-# Database configuration (shared test database)
-gh variable set DB_PORT --env testing --body "5432"
-gh variable set DB_NAME --env testing --body "calculaud_test"
+# Database configuration is now provided as full DATABASE_URL secret (see secrets section)
 
 # S3 configuration (shared test bucket)
 gh variable set S3_BUCKET --env testing --body "calculaud-test-files"
@@ -197,10 +191,8 @@ gh variable set EXISTING_SECRET --env testing --body ""
 
 ### Testing Environment Secrets (Private)
 ```bash
-# Database credentials (shared test database)
-gh secret set DB_HOST --env testing --body "calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com"
-gh secret set DB_USERNAME --env testing --body "calculaud_test"
-gh secret set DB_PASSWORD --env testing --body "your-test-db-password"
+# Database connection (provide full DATABASE_URL)
+gh secret set DATABASE_URL --env testing --body "postgresql://calculaud_test:your-test-db-password@calculaud-test.cluster-xxx.us-east-1.rds.amazonaws.com:5432/calculaud_test"
 
 # S3 credentials (shared test bucket)
 gh secret set S3_ACCESS_KEY --env testing --body "your-test-s3-access-key"
@@ -285,7 +277,7 @@ gh secret list --env testing
 1. **Environment Scoped**: 
    - Secrets and variables are automatically injected based on workflow environment
    - Same variable names across environments, different values
-   - Example: `DB_HOST` has different values in `staging` vs `testing` environments
+   - Example: `DATABASE_URL` has different values in `staging` vs `testing` environments
 
 2. **Clear Separation**:
    - **Variables** (public): Configuration that's not sensitive (URLs, resource limits, feature flags)
