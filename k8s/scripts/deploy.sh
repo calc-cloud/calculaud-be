@@ -15,7 +15,6 @@ CONFIG_FILE=""
 DRY_RUN=false
 UPGRADE_TIMEOUT="600s"
 CREATE_NAMESPACE=true
-AUTO_PROCESS_CONFIG=true
 PLATFORM=""  # Will be determined based on environment
 
 # Colors for output
