@@ -102,28 +102,24 @@ service:
   # loadBalancerSourceRanges: []
   # nodePort: 30080
 
-# Ingress configuration
+# Platform configuration (must be set for deployment)
+platform: ""  # Set to "eks" or "openshift" based on target platform
+
+# Ingress configuration (disabled - using LoadBalancer service for EKS)
 ingress:
-  enabled: true
-  className: "nginx"  # Change based on your ingress controller
+  enabled: false  # EKS uses LoadBalancer service, OpenShift uses Routes
+
+# OpenShift Route configuration (used when platform: "openshift")
+route:
+  enabled: false  # Will be enabled based on platform
+  host: calculaud-api.example.com  # CHANGE THIS!
+  path: /
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "1024m"
-    # For cert-manager
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # For OpenShift compatibility
-    route.openshift.io/termination: "edge"
-  hosts:
-    - host: calculaud-api.example.com  # CHANGE THIS!
-      paths:
-        - path: /
-          pathType: Prefix
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
   tls:
-    - secretName: calculaud-be-tls
-      hosts:
-        - calculaud-api.example.com  # CHANGE THIS!
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
 
 # Resource limits and requests
 resources:

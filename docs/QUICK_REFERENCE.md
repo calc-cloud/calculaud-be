@@ -11,9 +11,9 @@
 ./k8s/scripts/migrate.sh -n calculaud-prod
 ```
 
-### On-Premises Kubernetes
+### On-Premises OpenShift
 ```bash
-# Deploy application (assumes K8s cluster exists)
+# Deploy application (assumes OpenShift cluster exists)
 ./k8s/scripts/deploy.sh -e onprem -n calculaud
 
 # Run migrations
@@ -33,9 +33,9 @@ cd calculaud-onprem-*
 
 ## Access Points
 
-| Service | EKS | On-Prem K8s |
-|---------|-----|-------------|
-| **Application** | NGINX Ingress | NodePort/NGINX Ingress/OpenShift Routes |
+| Service | EKS | On-Prem OpenShift |
+|---------|-----|----------------|
+| **Application** | NodePort (30080) | OpenShift Routes |
 | **API Docs** | `/docs` | `/docs` |
 | **Health Checks** | `/health` | `/health` |
 
@@ -45,7 +45,7 @@ cd calculaud-onprem-*
 |-------------|--------------|---------|
 | **Staging** | GitHub Environment + `values.yaml.template` | Production-like testing with dedicated resources |
 | **Testing** | GitHub Environment + `values.yaml.template` | Lightweight PR testing with shared resources |
-| **On-Premises** | `values-onprem.yaml` | Local deployment with external services |
+| **On-Premises** | `values-onprem.yaml` | OpenShift deployment with external services |
 
 **Key Features:**
 - **GitHub Environments**: Environment-scoped secrets and variables

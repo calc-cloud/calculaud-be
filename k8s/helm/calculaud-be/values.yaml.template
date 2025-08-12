@@ -49,19 +49,23 @@ auth:
     clientId: "${OAUTH_CLIENT_ID}"
     scopes: "openid profile email"
 
-# Service configuration
+# Platform configuration - EKS for staging/testing
+platform: "eks"
+
+# Service configuration - NodePort for simple EKS access
 service:
-  type: ClusterIP
+  type: NodePort
   port: 80
+  nodePort: 30080  # Fixed port for consistent access
   annotations: {}
 
-# Ingress configuration (environment-specific)
+# Disable ingress when using NodePort service
 ingress:
-  enabled: ${INGRESS_ENABLED:-false}
-  className: "${INGRESS_CLASS:-}"
-  annotations: {}
-  hosts: []
-  tls: []
+  enabled: false
+
+# Disable OpenShift Routes for EKS
+route:
+  enabled: false
 
 # Environment-specific resource configuration
 resources:

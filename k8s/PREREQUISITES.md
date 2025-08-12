@@ -1,6 +1,29 @@
-# On-Premises Infrastructure Prerequisites
+# Infrastructure Prerequisites
 
-This document outlines the external infrastructure components that must be available before deploying Calculaud Backend on-premises.
+This document outlines the platform-specific infrastructure requirements for deploying Calculaud Backend.
+
+## 🏗️ AWS EKS Prerequisites
+
+### Required AWS Services
+- **EKS Cluster** (1.24+) with proper IAM roles
+- **EBS CSI Driver** for persistent volumes
+
+### Setup Commands
+```bash
+# No additional setup required - NodePort service works out of the box
+# Access application on any node IP at port 30080
+```
+
+### Required GitHub Environment Variables
+```bash
+# Set in GitHub Repository → Settings → Environments
+ECR_REPOSITORY=123456789012.dkr.ecr.us-east-1.amazonaws.com/calculaud-be
+# No ingress host or SSL certificate needed for NodePort
+```
+
+## 🏢 On-Premises OpenShift Prerequisites
+
+This section outlines the external infrastructure components that must be available before deploying Calculaud Backend on OpenShift.
 
 ## 🗄️ Required External Services
 

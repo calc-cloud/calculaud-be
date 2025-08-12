@@ -16,6 +16,7 @@ DRY_RUN=false
 UPGRADE_TIMEOUT="600s"
 CREATE_NAMESPACE=true
 AUTO_PROCESS_CONFIG=true
+PLATFORM=""  # Will be determined based on environment
 
 # Colors for output
 RED='\033[0;31m'
@@ -142,10 +143,29 @@ check_context() {
     print_message $GREEN "✓ Connected to Kubernetes cluster"
 }
 
+# Determine platform based on environment
+determine_platform() {
+    case $ENVIRONMENT in
+        staging|testing|pr)
+            PLATFORM="eks"
+            ;;
+        onprem)
+            PLATFORM="openshift"
+            ;;
+        *)
+            print_message $RED "Error: Unsupported environment: $ENVIRONMENT"
+            print_message $YELLOW "Supported environments: staging, testing, pr, onprem"
+            exit 1
+            ;;
+    esac
+    
+    print_message $BLUE "Detected platform: $PLATFORM for environment: $ENVIRONMENT"
+}
+
 # Environment-specific checks and setup
 environment_setup() {
-    case $ENVIRONMENT in
-        staging|pr)
+    case $PLATFORM in
+        eks)
             print_message $BLUE "Setting up for AWS EKS deployment ($ENVIRONMENT)..."
             
             # Check AWS CLI
@@ -167,14 +187,25 @@ environment_setup() {
                 print_message $YELLOW "Warning: Current context may not be an EKS cluster"
             fi
             
+            # EKS uses NodePort service type - no ingress controller needed
+            print_message $GREEN "✓ EKS NodePort service will be used for external access (port 30080)"
+            
             # PR-specific setup
             if [[ "$ENVIRONMENT" == "pr" ]]; then
                 print_message $BLUE "Setting up PR environment with minimal resources"
                 print_message $YELLOW "Note: PR environments use shared test database and S3 bucket"
             fi
             ;;
-        onprem)
-            print_message $BLUE "Setting up for on-premises deployment..."
+        openshift)
+            print_message $BLUE "Setting up for OpenShift deployment..."
+            
+            # Check for OpenShift-specific features
+            if kubectl api-resources | grep -q "route.openshift.io"; then
+                print_message $GREEN "✓ OpenShift Routes API available"
+            else
+                print_message $RED "Error: OpenShift Routes API not found. Ensure you're connected to an OpenShift cluster."
+                exit 1
+            fi
             
             # Check for common on-premises requirements
             if kubectl get storageclass &> /dev/null; then
@@ -183,24 +214,8 @@ environment_setup() {
                 print_message $YELLOW "Warning: No storage classes found. You may need to configure persistent storage."
             fi
             
-            # Check for ingress controller
-            if kubectl get ingressclass &> /dev/null; then
-                print_message $GREEN "✓ Ingress controller detected"
-            else
-                print_message $YELLOW "Warning: No ingress controller found. Consider installing nginx-ingress or using NodePort service."
-            fi
-            
-            # Check for ingress controller
-            if kubectl get ingressclass 2>/dev/null | grep -q nginx; then
-                print_message $GREEN "✓ NGINX ingress controller detected"
-            elif kubectl get ingressclass 2>/dev/null | grep -q openshift; then
-                print_message $GREEN "✓ OpenShift Routes available"
-            else
-                print_message $YELLOW "Warning: No ingress controller found. Consider installing NGINX Ingress Controller."
-            fi
-            
             # On-premises deployment uses external PostgreSQL and S3 storage
-            print_message $GREEN "✓ On-premises deployment configured for external services"
+            print_message $GREEN "✓ OpenShift deployment configured for external services"
             print_message $BLUE "Note: Ensure external PostgreSQL and S3-compatible storage are available"
             ;;
     esac
@@ -270,6 +285,10 @@ deploy() {
         print_message $YELLOW "Using custom values: $VALUES_FILE"
     fi
     
+    # Set platform value
+    HELM_CMD="$HELM_CMD --set platform=$PLATFORM"
+    print_message $YELLOW "Using platform: $PLATFORM"
+    
     # Add dry-run flag if requested
     if [[ "$DRY_RUN" == "true" ]]; then
         HELM_CMD="$HELM_CMD --dry-run"
@@ -307,10 +326,21 @@ show_status() {
         print_message $BLUE "Service status:"
         kubectl get svc -n "$NAMESPACE" -l "app.kubernetes.io/name=calculaud-be"
         
-        # Show ingress status (if enabled)
-        if kubectl get ingress -n "$NAMESPACE" &> /dev/null; then
-            print_message $BLUE "Ingress status:"
-            kubectl get ingress -n "$NAMESPACE"
+        # Show platform-specific access method
+        if [[ "$PLATFORM" == "eks" ]]; then
+            print_message $BLUE "EKS NodePort service status:"
+            kubectl get svc -n "$NAMESPACE" -l "app.kubernetes.io/name=calculaud-be" -o wide
+            
+            # Show access information
+            NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null || kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+            if [[ -n "$NODE_IP" ]]; then
+                print_message $GREEN "🌐 Access your application at: http://$NODE_IP:30080"
+            else
+                print_message $YELLOW "⏳ Node IP not found. Use kubectl get nodes to find the external IP and access via :30080"
+            fi
+        elif [[ "$PLATFORM" == "openshift" ]]; then
+            print_message $BLUE "OpenShift Route status:"
+            kubectl get route -n "$NAMESPACE" 2>/dev/null || print_message $YELLOW "No routes found"
         fi
     fi
 }
@@ -325,6 +355,7 @@ main() {
     
     check_dependencies
     check_context
+    determine_platform
     environment_setup
     create_namespace
     validate_chart

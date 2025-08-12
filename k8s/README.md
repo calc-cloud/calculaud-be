@@ -15,49 +15,60 @@ k8s/
 ├── helm/
 │   └── calculaud-be/    # Helm chart
 │       ├── Chart.yaml
-│       ├── values.yaml
-│       ├── values-dev.yaml
-│       ├── values-prod.yaml
+│       ├── values.yaml              # Base values with platform options
+│       ├── values.yaml.template     # Template for EKS environments
+│       ├── values-onprem.yaml       # OpenShift-specific values
 │       └── templates/
+│           ├── deployment.yaml
+│           ├── service.yaml
+│           ├── ingress.yaml         # AWS ALB (EKS only)
+│           └── route.yaml           # OpenShift Routes (OpenShift only)
 └── scripts/
-    ├── deploy.sh        # Deployment script
-    └── migrate.sh       # Database migration script
+    ├── deploy.sh                    # Platform-aware deployment
+    ├── migrate.sh                   # Database migrations
+    └── package-for-onprem.sh        # Air-gapped deployment packaging
 ```
 
-## 🚀 Quick Start
+## 🚀 Platform-Specific Deployments
 
-### Prerequisites
+### AWS EKS Deployment
 
-- Kubernetes cluster (1.19+)
-- `kubectl` configured to access your cluster
+**Prerequisites:**
+- EKS cluster with AWS Load Balancer Controller
+- `kubectl` configured for EKS
 - `helm` (v3.8+)
-- Docker image: `calculaud/calculaud-be` pushed to your registry
-
-### 1. Deploy to Development
+- ACM SSL certificate (for HTTPS)
 
 ```bash
-# Deploy with default development settings
-./k8s/scripts/deploy.sh -e dev
+# Deploy to staging (uses ALB ingress)
+./k8s/scripts/deploy.sh -e staging -n calculaud-staging
 
-# Or deploy with custom values
-./k8s/scripts/deploy.sh -e dev -f my-custom-values.yaml
+# Deploy to PR environment
+./k8s/scripts/deploy.sh -e testing -n calculaud-pr-123
+
+# Run migrations
+./k8s/scripts/migrate.sh -n calculaud-staging
 ```
 
-### 2. Run Database Migrations
+**Features:** Simple NodePort service (port 30080), EKS-optimized resource limits, no additional AWS permissions needed.
+
+### On-Premises OpenShift Deployment  
+
+**Prerequisites:**
+- OpenShift cluster (4.10+)
+- `oc`/`kubectl` configured for OpenShift
+- `helm` (v3.8+)
+- External PostgreSQL and S3-compatible storage
 
 ```bash
-# Run Alembic migrations
+# Deploy to OpenShift (uses Routes)
+./k8s/scripts/deploy.sh -e onprem -n calculaud
+
+# Run migrations
 ./k8s/scripts/migrate.sh -n calculaud
-
-# Check current migration status
-./k8s/scripts/migrate.sh -c current
 ```
 
-### 3. Deploy to Production
-
-```bash
-# Deploy to production environment
-./k8s/scripts/deploy.sh -e prod -n calculaud-prod
+**Features:** Native OpenShift Routes, HAProxy load balancing, edge TLS termination, external service integration.
 
 # Run migrations in production
 ./k8s/scripts/migrate.sh -n calculaud-prod

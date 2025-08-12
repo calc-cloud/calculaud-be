@@ -30,15 +30,21 @@ Deploy Calculaud Backend to AWS EKS or on-premises Kubernetes environments.
 - Valid AWS credentials with EKS permissions
 - VPC and subnets configured
 
-#### On-Premises
-- Kubernetes cluster (1.24+) with kubectl configured
+#### On-Premises OpenShift
+- OpenShift cluster (4.10+) with oc/kubectl configured
 - Storage class configured
-- Ingress controller (recommended)
-- Load balancer solution (recommended)
+- OpenShift Routes API available (native - no external ingress controller needed)
+- External PostgreSQL and S3-compatible storage
 
 ## AWS EKS Deployment
 
-**Prerequisites:** EKS cluster with NGINX Ingress Controller, EBS CSI driver, and proper IAM roles.
+**Prerequisites:** EKS cluster with EBS CSI driver and proper IAM roles.
+
+### Key Features
+- **NodePort Service:** Simple NodePort service for external access (no ingress controller required)
+- **Auto-scaling:** Kubernetes HPA with EKS cluster autoscaler
+- **Direct Access:** Access via any node IP on port 30080
+- **No External Dependencies:** Zero additional AWS permissions needed
 
 ### Deploy Application
 ```bash
@@ -61,26 +67,37 @@ Uses GitHub Environments with `envsubst` templating:
 **Setup**: Configure GitHub Environments in Repository → Settings → Environments. See `docs/github-setup-commands.md` for detailed setup.
 
 ### Features
-- Auto-scaling (HPA/VPA), NGINX Ingress with cert-manager SSL, EBS volumes, CloudWatch integration
+- Auto-scaling (HPA/VPA), NodePort service access, EBS volumes, CloudWatch integration
 - **Staging**: Main branch, dedicated resources
 - **PR**: Feature branches, minimal resources, shared test DB
 
 ### PR Deployment
 Deploy via GitHub Actions → "Deploy to Kubernetes" → Select `pr` environment and branch. Access via port-forward: `kubectl port-forward svc/calculaud-be 8000:80 -n <namespace>`
 
-## On-Premises Deployment
+## On-Premises OpenShift Deployment
 
-**Prerequisites:** Kubernetes cluster with storage class and optional ingress/load balancer.
+**Prerequisites:** OpenShift cluster with storage class. External PostgreSQL and S3-compatible storage required.
 
+### Key Features
+- **Native OpenShift Routes:** Uses OpenShift Routes directly (no external ingress controller needed)
+- **Edge TLS Termination:** Automatic HTTPS with OpenShift router
+- **HAProxy Load Balancing:** Built-in load balancing and health checks
+- **External Services:** Designed for external PostgreSQL and S3 storage
+
+### Deploy Application
 ```bash
 # Deploy and migrate
 ./k8s/scripts/deploy.sh -e onprem -n calculaud
 ./k8s/scripts/migrate.sh -n calculaud
 ```
 
-**Configuration:** Edit `k8s/helm/calculaud-be/values-onprem.yaml` for external PostgreSQL, service type (NodePort/LoadBalancer), and ingress settings.
+**Configuration:** Edit `k8s/helm/calculaud-be/values-onprem.yaml` for:
+- External PostgreSQL connection details
+- S3-compatible storage configuration
+- OpenShift Route hostname
+- Resource limits for your environment
 
-**Access:** NodePort (`:30080`), LoadBalancer, Ingress, or port-forward: `kubectl port-forward svc/calculaud-be 8000:80 -n calculaud`
+**Access:** OpenShift Route provides direct HTTPS access at configured hostname (default: `calculaud.local.domain`)
 
 ## Air-Gapped Deployment
 

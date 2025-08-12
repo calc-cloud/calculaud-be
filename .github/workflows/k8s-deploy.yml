@@ -172,6 +172,9 @@ jobs:
         IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
         ENVIRONMENT: ${{ needs.setup.outputs.environment }}
         
+        # Platform-specific configuration
+        PLATFORM: "eks"  # All CI/CD environments use EKS
+        
         # Secrets (can't be in template file for security)
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
         S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}

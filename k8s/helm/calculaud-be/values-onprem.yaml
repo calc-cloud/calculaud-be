@@ -60,22 +60,25 @@ service:
   # type: LoadBalancer
   # loadBalancerIP: "192.168.1.100"  # Static IP from MetalLB pool
 
-# On-premises ingress configuration
-ingress:
-  enabled: true   # Enable NGINX ingress by default
-  className: "nginx"  # Use NGINX Ingress Controller (supports both K8s and OpenShift)
+# Platform configuration - OpenShift for on-premises
+platform: "openshift"
+
+# OpenShift Route configuration (replaces ingress)
+route:
+  enabled: true
+  host: calculaud.local.domain
+  path: /
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # No SSL for internal by default
-    nginx.ingress.kubernetes.io/proxy-body-size: "512m"
-    # OpenShift compatibility (ignored on standard Kubernetes)
-    route.openshift.io/termination: "edge"
-  hosts:
-    - host: calculaud.local.domain
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []  # Add TLS config if needed for your environment
+    # OpenShift-specific route annotations
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Disable ingress for OpenShift (using Routes instead)
+ingress:
+  enabled: false
 
 # Conservative resource requirements for on-premises
 resources:
