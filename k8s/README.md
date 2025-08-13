@@ -80,28 +80,23 @@ k8s/
 
 The Helm chart supports different environments through values files:
 
-- `values.yaml` - Default configuration
-- `values-dev.yaml` - Development overrides
-- `values-prod.yaml` - Production overrides
+- `values.yaml` - Default configuration  
+- `values.yaml.template` - Template for EKS environments
+- `values-onprem.yaml` - OpenShift-specific configuration
 
 ### Key Configuration Options
 
 #### Database Configuration
 
+**External PostgreSQL Required:**
 ```yaml
-postgresql:
-  # Use in-cluster PostgreSQL
-  enabled: true
-  password: "your-secure-password"
-  
-  # Or use external database
-  enabled: false
-  external:
-    host: "your-postgres-host"
-    username: "calculaud"
-    password: "your-password"
-    database: "calculaud"
+# Database connection via environment variable
+database:
+  # Provide full DATABASE_URL externally
+  url: "postgresql://username:password@host:5432/database"
 ```
+
+All deployments require external PostgreSQL - no in-cluster database is provided.
 
 #### S3 Configuration
 
@@ -124,21 +119,23 @@ auth:
   audience: "calculaud-api"
 ```
 
-#### Ingress Configuration
+#### Access Configuration
 
+**EKS - NodePort Service:**
 ```yaml
-ingress:
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080  # Fixed port for consistent access
+```
+
+**OpenShift - Routes:**
+```yaml
+route:
   enabled: true
-  className: "nginx"  # or "openshift-default" for OpenShift
-  hosts:
-    - host: api.calculaud.com
-      paths:
-        - path: /
-          pathType: Prefix
+  host: "calculaud.your-domain.com"
   tls:
-    - secretName: calculaud-tls
-      hosts:
-        - api.calculaud.com
+    termination: edge
 ```
 
 ## 🏗️ Platform-Specific Deployment
@@ -147,39 +144,39 @@ ingress:
 
 **Prerequisites**: 
 - EKS cluster configured with kubectl access
-- NGINX Ingress Controller installed
-- cert-manager for SSL certificates
-- EBS CSI driver configured  
-- External Secrets Operator (optional)
-- Proper IAM roles and policies
+- EBS CSI driver configured (for persistent storage)
+- External PostgreSQL database
+- AWS S3 bucket for file storage
+- Proper IAM roles and policies (if using IRSA)
 
 **Quick Setup**:
 ```bash
-# Deploy application
-./scripts/deploy.sh -e eks -n calculaud-prod
+# Deploy application  
+./k8s/scripts/deploy.sh -e eks -n calculaud-prod
 
 # Run migrations
-./scripts/migrate.sh -n calculaud-prod
+./k8s/scripts/migrate.sh -n calculaud-prod
 ```
 
 **Manual Setup**:
 ```bash
-# Deploy with EKS-optimized configuration
-helm upgrade --install calculaud-be helm/calculaud-be \
-  -f helm/calculaud-be/values-eks.yaml \
+# Deploy with EKS configuration using values template
+envsubst < k8s/helm/calculaud-be/values.yaml.template > values-generated.yaml
+helm upgrade --install calculaud-be k8s/helm/calculaud-be \
+  -f values-generated.yaml \
   --namespace calculaud-prod \
   --create-namespace
 
 # Run migrations
-./scripts/migrate.sh -n calculaud-prod
+./k8s/scripts/migrate.sh -n calculaud-prod
 ```
 
 **Features**:
-- NGINX Ingress with cert-manager SSL
-- EBS persistent storage
-- AWS Secrets Manager integration
-- CloudWatch monitoring and logging
-- IRSA for secure AWS service access
+- NodePort service for simple external access (port 30080)
+- EBS persistent storage for logs and temp files
+- ECR integration for container images
+- CloudWatch monitoring and logging support
+- IRSA support for secure AWS service access (optional)
 
 ### On-Premises (Recommended for Self-Hosted)
 
@@ -192,28 +189,28 @@ helm upgrade --install calculaud-be helm/calculaud-be \
 **Quick Setup**:
 ```bash
 # Deploy application
-./scripts/deploy.sh -e onprem -n calculaud
+./k8s/scripts/deploy.sh -e onprem -n calculaud
 
-# Run migrations
-./scripts/migrate.sh -n calculaud
+# Run migrations  
+./k8s/scripts/migrate.sh -n calculaud
 ```
 
 **Manual Setup**:
 ```bash
 # Deploy with on-premises configuration
-helm upgrade --install calculaud-be helm/calculaud-be \
-  -f helm/calculaud-be/values-onprem.yaml \
+helm upgrade --install calculaud-be k8s/helm/calculaud-be \
+  -f k8s/helm/calculaud-be/values-onprem.yaml \
   --namespace calculaud \
   --create-namespace
 
 # Run migrations
-./scripts/migrate.sh -n calculaud
+./k8s/scripts/migrate.sh -n calculaud
 ```
 
 **Features**:
 - Flexible storage options (local, NFS, etc.)
-- NodePort, NGINX Ingress, or OpenShift Routes access
-- External PostgreSQL and S3-compatible storage required
+- OpenShift Routes for external access
+- External PostgreSQL and S3-compatible storage required  
 - Optional monitoring integration
 
 
@@ -221,7 +218,7 @@ helm upgrade --install calculaud-be helm/calculaud-be \
 
 **Create Package** (with internet access):
 ```bash
-./scripts/package-for-onprem.sh
+./k8s/scripts/package-for-onprem.sh
 ```
 
 **Deploy Package** (without internet):
@@ -236,9 +233,10 @@ cd calculaud-onprem-*
 
 ```bash
 # Deploy with OpenShift-specific settings
-helm upgrade --install calculaud-be helm/calculaud-be \
-  --set ingress.enabled=false \
-  --set openshift.route.enabled=true
+helm upgrade --install calculaud-be k8s/helm/calculaud-be \
+  -f k8s/helm/calculaud-be/values-onprem.yaml \
+  --namespace calculaud \
+  --create-namespace
 ```
 
 ## 📊 Monitoring & Health Checks
