@@ -6,12 +6,11 @@ import logging
 import time
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from .config import settings
-from .database import get_db
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

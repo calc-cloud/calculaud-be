@@ -1,25 +1,17 @@
 import asyncio
 import signal
 from contextlib import asynccontextmanager
-from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 
 from .analytics.router import router as analytics_router
 from .auth.dependencies import require_auth
 from .auth.router import router as auth_router
 from .config import settings
-from .database import get_db
 from .files.router import router as files_router
-from .health import (
-    detailed_health_check,
-    liveness_check,
-    mark_startup_complete,
-    readiness_check,
-    startup_check,
-)
+from .health import mark_startup_complete
+from .health.router import router as health_router
 from .hierarchies.router import router as hierarchies_router
 from .predefined_flows.router import router as predefined_flows_router
 from .purchases.router import router as purchases_router
@@ -98,6 +90,13 @@ app.include_router(
     auth_router,
     prefix=f"{settings.api_v1_prefix}/auth",
     tags=["auth"],
+)
+
+# Include health router - no authentication required for health checks
+app.include_router(
+    health_router,
+    prefix="/health",
+    tags=["health"],
 )
 
 # Include routers - all protected by authentication
@@ -189,39 +188,3 @@ app.include_router(
 @app.get("/")
 def root():
     return {"message": settings.app_name, "version": settings.version}
-
-
-# Kubernetes health check endpoints
-@app.get("/health/live")
-def health_live():
-    """
-    Kubernetes liveness probe endpoint.
-    Returns 200 if the application is alive, 503 if it should be restarted.
-    """
-    return liveness_check()
-
-
-@app.get("/health/ready")
-def health_ready(db: Annotated[Session, Depends(get_db)]):
-    """
-    Kubernetes readiness probe endpoint.
-    Returns 200 if the application is ready to serve requests, 503 if not ready.
-    """
-    return readiness_check(db)
-
-
-@app.get("/health/startup")
-def health_startup():
-    """
-    Kubernetes startup probe endpoint.
-    Returns 200 if the application has started successfully, 503 if still starting.
-    """
-    return startup_check()
-
-
-@app.get("/health")
-def health_check(db: Annotated[Session, Depends(get_db)]):
-    """
-    Detailed health check endpoint for monitoring and debugging.
-    """
-    return detailed_health_check(db)
