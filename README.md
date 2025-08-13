@@ -6,29 +6,22 @@
 
 Procurement Management System backend built with FastAPI.
 
-## Docker Deployment
+## Deployment
 
-This project includes automated Docker image building and publishing to DockerHub via GitHub Actions.
+This project supports multiple deployment platforms via automated CI/CD with Helm charts and Docker containers.
 
-### Setup Instructions
+### Supported Platforms
 
-1. **Configure GitHub Secrets**
-   
-   Go to your repository Settings → Secrets and variables → Actions, and add:
-   - `DOCKERHUB_USERNAME`: Your DockerHub username
-   - `DOCKERHUB_TOKEN`: Your DockerHub access token (not password)
+- **AWS EKS**: NodePort service with ALB integration
+- **OpenShift**: Native Routes for ingress
+- **Docker**: Standalone container deployment
 
-2. **Configure Repository Variables** (Optional)
-   
-   Go to your repository Settings → Secrets and variables → Actions → Variables tab:
-   - `DOCKER_IMAGE_NAME`: Custom image name (defaults to repository name)
+### Deployment Configuration
 
-3. **Generate DockerHub Access Token**
-   
-   1. Go to DockerHub → Account Settings → Security
-   2. Click "New Access Token"
-   3. Give it a descriptive name (e.g., "GitHub Actions")
-   4. Copy the token and add it as `DOCKERHUB_TOKEN` secret
+Configure GitHub secrets for automated deployment:
+- `ECR_REPOSITORY`: AWS ECR repository URL
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: AWS credentials
+- Environment-specific database and auth configurations
 
 ### How It Works
 
@@ -43,27 +36,33 @@ The CI/CD pipeline consists of three workflows:
 **CD Pipeline** (`cd.yml`):
 - Runs on pushes to `main` branch only
 - Waits for CI workflow to complete successfully
-- Builds production-optimized Docker image
-- Pushes to DockerHub with development tags:
-  - `latest` (for main branch)
-  - `main-{timestamp}` (for main branch with timestamp)
-  - `{git-sha}` (for specific commits)
+- Builds and pushes Docker image to ECR
+- Deploys to staging environment using Helm
+- Supports EKS and OpenShift platforms
 
 **Release Pipeline** (`release.yml`):
 - Runs when a GitHub release is published
 - Waits for CI workflow to complete successfully
-- Builds production-optimized Docker image with version
-- Pushes to DockerHub with release tags:
-  - `v{version}` (e.g., `v1.0.0`)
-  - `{version}` (e.g., `1.0.0`)
-  - `latest` (updated to release version)
+- Builds and tags Docker image for production
+- Deploys to production environment via Helm
+- Creates versioned releases with proper tagging
 
 ### Manual Deployment
 
-You can also trigger the CD deployment manually:
-1. Go to Actions → CD - Build and Deploy
-2. Click "Run workflow"
-3. Optionally specify a custom tag
+**Kubernetes/Helm**:
+```bash
+# Deploy to staging
+./scripts/deploy-staging.sh
+
+# Deploy to production  
+./scripts/deploy-production.sh
+```
+
+**Docker**:
+```bash
+docker build -t calculaud-be .
+docker run -p 8000:8000 calculaud-be
+```
 
 ## 🚀 Release Process
 
@@ -102,40 +101,24 @@ You can also trigger the CD deployment manually:
    - Docker images are built and pushed with proper tags
    - Check Actions tab for deployment status
 
-### Release Tags
+### Configuration
 
-Each release creates multiple Docker tags:
-- `youruser/calculaud-be:v1.0.0`
-- `youruser/calculaud-be:1.0.0`
-- `youruser/calculaud-be:latest` (updated to release)
+**Helm Values**:
+- `values.yaml.template`: Universal template for all environments
+- `values-onprem.yaml`: OpenShift-specific configuration
+- Environment variables injected via GitHub Actions
 
-### Running Locally
-
-```bash
-# Build the image
-docker build -t calculaud-be .
-
-# Run the container
-docker run -p 8000:8000 calculaud-be
-```
-
-### Environment Variables
-
-The application supports these environment variables:
+**Key Configuration**:
 - `DATABASE_URL`: PostgreSQL connection string
-- `AWS_ACCESS_KEY_ID`: AWS credentials for S3
-- `AWS_SECRET_ACCESS_KEY`: AWS credentials for S3
-- `S3_BUCKET_NAME`: S3 bucket name
-- `AUTH_JWKS_URL`: Authentication JWKS URL
-- `AUTH_ISSUER`: Authentication issuer
-- `AUTH_AUDIENCE`: Authentication audience
+- `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`: AWS S3 storage
+- `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`: Authentication
+- Platform-specific ingress (Routes vs NodePort)
 
-### Docker Image Features
-
-- Non-root user for security
-- Health check endpoint at `/health`
-- Optimized layer caching
-- AMD64 architecture support
+**Health Checks**:
+- `/health/live`: Liveness probe
+- `/health/ready`: Readiness probe  
+- `/health/startup`: Startup probe
+- `/health/`: Detailed monitoring endpoint
 
 ### Development
 
