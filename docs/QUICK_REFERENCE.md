@@ -167,7 +167,7 @@ aws s3 ls s3://your-bucket-name/
 ### Complete EKS Setup (2 minutes)
 ```bash
 #!/bin/bash
-# Assumes EKS cluster with NGINX Ingress, EBS CSI, etc. already configured
+# Assumes EKS cluster with NodePort access and EBS CSI configured
 ./k8s/scripts/deploy.sh -e eks -n calculaud-prod
 ./k8s/scripts/migrate.sh -n calculaud-prod
 ```
