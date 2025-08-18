@@ -51,10 +51,12 @@ class Settings(BaseSettings):
     # OAuth2 Client Configuration (for Swagger UI authorization)
     oauth_client_id: str | None = None
     oauth_scopes: Annotated[str, Field(default="openid")]
+    fastmcp_experimental_enable_new_openapi_parser: bool = True
 
     model_config = SettingsConfigDict(
-        env_file=".test.env" if os.getenv("TESTING") else find_dotenv()
+        env_file=".test.env" if os.getenv("TESTING") else find_dotenv(),
+        extra="ignore",  # Ignore unknown environment variables during migration
     )
 
 
-settings = Settings()  # type: ignore
+settings = Settings()

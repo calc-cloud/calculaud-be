@@ -27,7 +27,9 @@ from app.pagination import PaginatedResult, PaginationParams, create_paginated_r
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[Hierarchy])
+@router.get(
+    "/", response_model=PaginatedResult[Hierarchy], operation_id="get_hierarchies"
+)
 def get_hierarchies(
     pagination: PaginationParams = Depends(),
     type_filter: HierarchyTypeEnum | None = Query(None, description="Filter by type"),
@@ -53,7 +55,9 @@ def get_hierarchies(
     return create_paginated_result(hierarchies, total, pagination)
 
 
-@router.get("/tree", response_model=list[HierarchyTree])
+@router.get(
+    "/tree", response_model=list[HierarchyTree], operation_id="get_hierarchy_tree"
+)
 def get_hierarchy_tree(
     hierarchy_id: int | None = Query(
         None, description="Get tree for specific hierarchy"
@@ -70,7 +74,7 @@ def get_hierarchy_tree(
         )
 
 
-@router.get("/{hierarchy_id}", response_model=Hierarchy)
+@router.get("/{hierarchy_id}", response_model=Hierarchy, operation_id="get_hierarchy")
 def get_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
     """Get a specific hierarchy by ID."""
     try:
@@ -82,7 +86,11 @@ def get_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
         )
 
 
-@router.get("/{hierarchy_id}/children", response_model=list[Hierarchy])
+@router.get(
+    "/{hierarchy_id}/children",
+    response_model=list[Hierarchy],
+    operation_id="get_hierarchy_children",
+)
 def get_hierarchy_children(
     hierarchy_id: int,
     limit: int = Query(

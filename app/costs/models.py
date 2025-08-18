@@ -11,9 +11,20 @@ if TYPE_CHECKING:
 
 
 class CurrencyEnum(PyEnum):
-    SUPPORT_USD = "SUPPORT_USD"
-    AVAILABLE_USD = "AVAILABLE_USD"
-    ILS = "ILS"
+    """
+    Currency types for procurement costs with organizational budget categories.
+
+    Business Context:
+    - USD currencies represent different budget allocations from US sources
+    - ILS represents local Israeli Shekel budget and expenses
+    - Analytics combine USD types and convert between currencies for reporting
+    """
+
+    SUPPORT_USD = "SUPPORT_USD"  # US support budget allocation for procurement
+    AVAILABLE_USD = (
+        "AVAILABLE_USD"  # Available US dollar budget for general procurement
+    )
+    ILS = "ILS"  # Israeli Shekel local budget and supplier payments
 
 
 class Cost(Base):

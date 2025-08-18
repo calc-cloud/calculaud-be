@@ -14,7 +14,7 @@ from app.suppliers.schemas import Supplier, SupplierCreate, SupplierUpdate
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[Supplier])
+@router.get("/", response_model=PaginatedResult[Supplier], operation_id="get_suppliers")
 def get_suppliers(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
@@ -29,7 +29,7 @@ def get_suppliers(
     return create_paginated_result(suppliers, total, pagination)
 
 
-@router.get("/{supplier_id}", response_model=Supplier)
+@router.get("/{supplier_id}", response_model=Supplier, operation_id="get_supplier")
 def get_supplier(supplier_id: int, db: Session = Depends(get_db)):
     """Get a specific supplier by ID."""
     supplier = service.get_supplier(db, supplier_id)

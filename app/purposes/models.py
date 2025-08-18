@@ -29,10 +29,19 @@ if TYPE_CHECKING:
 
 
 class StatusEnum(PyEnum):
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    SIGNED = "SIGNED"
-    PARTIALLY_SUPPLIED = "PARTIALLY_SUPPLIED"
+    """
+    Procurement purpose workflow status indicating current stage of the procurement process.
+
+    Business Workflow:
+    IN_PROGRESS → COMPLETED → SIGNED → PARTIALLY_SUPPLIED
+    """
+
+    IN_PROGRESS = "IN_PROGRESS"  # Active procurement, workflow stages in progress, awaiting approvals
+    COMPLETED = (
+        "COMPLETED"  # All workflow stages finished, ready for final management approval
+    )
+    SIGNED = "SIGNED"  # Management approved, procurement authorized, awaiting supplier delivery
+    PARTIALLY_SUPPLIED = "PARTIALLY_SUPPLIED"  # Supplier delivered part of order, remaining items pending
 
 
 class Purpose(Base):

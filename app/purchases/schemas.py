@@ -11,25 +11,34 @@ from app.stages.schemas import StageResponse
 
 
 class PurchaseBase(BaseModel):
-    """Base schema for purchase."""
+    """Base schema for purchase with purpose relationship."""
 
-    purpose_id: int
+    purpose_id: int  # ID of the parent procurement purpose this purchase belongs to
 
 
 class PurchaseCreate(PurchaseBase):
-    """Schema for creating a purchase."""
+    """Schema for creating a purchase with initial costs."""
 
-    costs: list[CostBase] = []
+    costs: list[CostBase] = []  # List of initial cost entries (amount + currency)
 
 
 class PurchaseResponse(PurchaseBase):
-    """Schema for purchase response."""
+    """
+    Complete purchase data with workflow stages, costs, and computed approval tracking.
 
-    id: int
-    creation_date: datetime
-    costs: list[Cost] = []
-    pending_authority: ResponsibleAuthorityResponse | None = None
-    flow_stages: list[StageResponse | list[StageResponse]] = []
+    Represents a purchase workflow within a procurement purpose, containing the actual
+    approval stages, financial costs, and computed fields for workflow management.
+    """
+
+    id: int  # Unique purchase identifier
+    creation_date: datetime  # When this purchase workflow was initiated
+    costs: list[Cost] = []  # All cost entries with amounts and currencies
+    pending_authority: ResponsibleAuthorityResponse | None = (
+        None  # Person who needs to act next (computed)
+    )
+    flow_stages: list[StageResponse | list[StageResponse]] = (
+        []
+    )  # Workflow stages grouped by priority
 
     @field_validator("flow_stages", mode="after")
     def calculate_days_since_previous_stage(
@@ -119,7 +128,12 @@ class PurchaseResponse(PurchaseBase):
     @computed_field
     @cached_property
     def current_pending_stages(self) -> list[StageResponse]:
-        """Get stages in the current incomplete priority level."""
+        """
+        Get all incomplete stages at the current priority level that need attention.
+
+        Business Logic: Returns stages that are blocking workflow progress.
+        Multiple stages can be pending simultaneously if they're at the same priority level.
+        """
         if not self.flow_stages:
             return []
 
@@ -142,7 +156,13 @@ class PurchaseResponse(PurchaseBase):
     @computed_field
     @property
     def days_since_last_completion(self) -> int | None:
-        """Calculate days elapsed since the last completed stage."""
+        """
+        Calculate days elapsed since the last completed stage (workflow delay indicator).
+
+        Business Use: Identifies stalled workflows and measures approval delays.
+        Returns None for first priority stages or when all stages are complete.
+        Used for sorting by urgency and delay reporting.
+        """
         if not self.flow_stages:
             return None
 

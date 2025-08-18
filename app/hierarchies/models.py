@@ -11,15 +11,25 @@ if TYPE_CHECKING:
 
 
 class HierarchyTypeEnum(PyEnum):
-    # IMPORTANT: The order of these enum values matters for hierarchy validation
-    # Higher level types should come first, lower level types should come after
-    # Valid hierarchy: UNIT -> CENTER -> ANAF -> MADOR -> TEAM
-    # A child type can only be assigned to a parent of a higher hierarchy level (not equal)
-    UNIT = "UNIT"
-    CENTER = "CENTER"
-    ANAF = "ANAF"
-    MADOR = "MADOR"
-    TEAM = "TEAM"
+    """
+    Organizational hierarchy levels in descending order of authority.
+
+    Business Hierarchy (Top to Bottom):
+    UNIT (highest) → CENTER → ANAF → MADOR → TEAM (lowest)
+
+    Validation Rules:
+    - Child entities can only be assigned to parents of higher hierarchy level
+    - Procurement purposes inherit permissions from their hierarchy level
+    - Approval workflows follow hierarchy chain upward for authorization
+
+    IMPORTANT: Enum order matters for validation logic - DO NOT reorder!
+    """
+
+    UNIT = "UNIT"  # Top-level organizational unit (highest authority)
+    CENTER = "CENTER"  # Major operational center within unit
+    ANAF = "ANAF"  # Branch/division within center
+    MADOR = "MADOR"  # Department within branch
+    TEAM = "TEAM"  # Working team within department (lowest level)
 
 
 class Hierarchy(Base):
