@@ -105,9 +105,36 @@ service:
 # Platform configuration (must be set for deployment)
 platform: ""  # Set to "eks" or "openshift" based on target platform
 
-# Ingress configuration (disabled - using LoadBalancer service for EKS)
+# Ingress configuration (ALB for EKS, disabled for OpenShift)
 ingress:
-  enabled: false  # EKS uses LoadBalancer service, OpenShift uses Routes
+  enabled: true  # EKS uses ALB ingress, OpenShift uses Routes
+  className: "alb"
+  groupName: "calculaud"  # Shared ALB group name for all environments
+  groupOrder: 100  # Default priority (will be overridden per environment)
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+  hosts:
+    - host: ""  # Will be set based on environment
+      paths:
+        - path: /staging  # Default path for staging
+          pathType: Prefix
+  tls: []  # TLS will be handled by ALB
+
+# Environment-specific configuration for path-based routing
+environment:
+  name: ""  # Will be set during deployment (staging, pr, etc.)
+  pathPrefix: ""  # Will be computed based on environment name
+  # Path mapping:
+  # - staging: /staging
+  # - pr environments: /{branch-name}
 
 # OpenShift Route configuration (used when platform: "openshift")
 route:

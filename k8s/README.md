@@ -50,7 +50,7 @@ k8s/
 ./k8s/scripts/migrate.sh -n calculaud-staging
 ```
 
-**Features:** Simple NodePort service (port 30080), EKS-optimized resource limits, no additional AWS permissions needed.
+**Features:** Internal AWS ALB ingress with path-based routing, VPC-only access, EKS-optimized resource limits, automatic SSL termination, health checks.
 
 ### On-Premises OpenShift Deployment  
 
@@ -121,13 +121,21 @@ auth:
 
 #### Access Configuration
 
-**EKS - NodePort Service:**
+**EKS - Internal ALB Ingress:**
 ```yaml
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal  # VPC-only access
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
 service:
-  type: NodePort
+  type: ClusterIP  # Used with ALB ingress
   port: 80
-  nodePort: 30080  # Fixed port for consistent access
 ```
+
+**Note**: Internal ALB requires VPN, Direct Connect, or bastion host access.
 
 **OpenShift - Routes:**
 ```yaml
@@ -144,10 +152,12 @@ route:
 
 **Prerequisites**: 
 - EKS cluster configured with kubectl access
+- AWS Load Balancer Controller installed
 - EBS CSI driver configured (for persistent storage)
 - External PostgreSQL database
 - AWS S3 bucket for file storage
 - Proper IAM roles and policies (if using IRSA)
+- SSL certificate in AWS Certificate Manager (for HTTPS)
 
 **Quick Setup**:
 ```bash
@@ -172,11 +182,19 @@ helm upgrade --install calculaud-be k8s/helm/calculaud-be \
 ```
 
 **Features**:
-- NodePort service for simple external access (port 30080)
+- Internal ALB ingress with path-based routing (/staging, /{branch-name})
+- VPC-only access for enhanced security
+- Automatic SSL termination and health checks
 - EBS persistent storage for logs and temp files
 - ECR integration for container images
 - CloudWatch monitoring and logging support
 - IRSA support for secure AWS service access (optional)
+
+**Path-Based Routing with Shared Internal ALB**:
+- **Staging**: `https://internal-alb-url/staging` (priority: 100)
+- **PR Environments**: `https://internal-alb-url/{branch-name}` (priority: 200)
+- All environments share the same internal ALB via ingress groups
+- **Access**: Requires VPN, Direct Connect, or bastion host
 
 ### On-Premises (Recommended for Self-Hosted)
 

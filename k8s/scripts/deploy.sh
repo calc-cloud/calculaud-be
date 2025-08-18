@@ -186,8 +186,13 @@ environment_setup() {
                 print_message $YELLOW "Warning: Current context may not be an EKS cluster"
             fi
             
-            # EKS uses NodePort service type - no ingress controller needed
-            print_message $GREEN "✓ EKS NodePort service will be used for external access (port 30080)"
+            # Check for AWS Load Balancer Controller
+            if kubectl get deployment -n kube-system aws-load-balancer-controller &> /dev/null; then
+                print_message $GREEN "✓ AWS Load Balancer Controller found"
+            else
+                print_message $YELLOW "Warning: AWS Load Balancer Controller not found. ALB ingress may not work."
+                print_message $YELLOW "Install it with: kubectl apply -k \"github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master\""
+            fi
             
             # PR-specific setup
             if [[ "$ENVIRONMENT" == "pr" ]]; then
@@ -288,6 +293,30 @@ deploy() {
     HELM_CMD="$HELM_CMD --set platform=$PLATFORM"
     print_message $YELLOW "Using platform: $PLATFORM"
     
+    # Set environment-specific values for path-based routing
+    HELM_CMD="$HELM_CMD --set environment.name=$ENVIRONMENT"
+    
+    # Set path prefix and ingress group order based on environment
+    case $ENVIRONMENT in
+        staging)
+            HELM_CMD="$HELM_CMD --set environment.pathPrefix=/staging"
+            HELM_CMD="$HELM_CMD --set ingress.groupOrder=100"
+            print_message $YELLOW "Using path prefix: /staging (priority: 100)"
+            ;;
+        pr|testing)
+            # Use branch name or namespace as path prefix for PR environments
+            BRANCH_NAME=${NAMESPACE##*-}  # Extract last part after dash
+            HELM_CMD="$HELM_CMD --set environment.pathPrefix=/$BRANCH_NAME"
+            HELM_CMD="$HELM_CMD --set ingress.groupOrder=200"
+            print_message $YELLOW "Using path prefix: /$BRANCH_NAME (priority: 200)"
+            ;;
+        *)
+            HELM_CMD="$HELM_CMD --set environment.pathPrefix=/$ENVIRONMENT"
+            HELM_CMD="$HELM_CMD --set ingress.groupOrder=200"
+            print_message $YELLOW "Using path prefix: /$ENVIRONMENT (priority: 200)"
+            ;;
+    esac
+    
     # Add dry-run flag if requested
     if [[ "$DRY_RUN" == "true" ]]; then
         HELM_CMD="$HELM_CMD --dry-run"
@@ -327,15 +356,27 @@ show_status() {
         
         # Show platform-specific access method
         if [[ "$PLATFORM" == "eks" ]]; then
-            print_message $BLUE "EKS NodePort service status:"
-            kubectl get svc -n "$NAMESPACE" -l "app.kubernetes.io/name=calculaud-be" -o wide
+            print_message $BLUE "ALB Ingress status:"
+            kubectl get ingress -n "$NAMESPACE" -l "app.kubernetes.io/name=calculaud-be" -o wide
             
-            # Show access information
-            NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null || kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-            if [[ -n "$NODE_IP" ]]; then
-                print_message $GREEN "🌐 Access your application at: http://$NODE_IP:30080"
+            # Show ALB access information
+            ALB_ADDRESS=$(kubectl get ingress -n "$NAMESPACE" -l "app.kubernetes.io/name=calculaud-be" -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+            if [[ -n "$ALB_ADDRESS" ]]; then
+                case $ENVIRONMENT in
+                    staging)
+                        print_message $GREEN "🌐 Access your application at: https://$ALB_ADDRESS/staging"
+                        ;;
+                    pr|testing)
+                        BRANCH_NAME=${NAMESPACE##*-}
+                        print_message $GREEN "🌐 Access your application at: https://$ALB_ADDRESS/$BRANCH_NAME"
+                        ;;
+                    *)
+                        print_message $GREEN "🌐 Access your application at: https://$ALB_ADDRESS/$ENVIRONMENT"
+                        ;;
+                esac
+                print_message $BLUE "Note: All environments share the same ALB via ingress groups"
             else
-                print_message $YELLOW "⏳ Node IP not found. Use kubectl get nodes to find the external IP and access via :30080"
+                print_message $YELLOW "⏳ ALB address not ready yet. Use kubectl get ingress -n $NAMESPACE to check status"
             fi
         elif [[ "$PLATFORM" == "openshift" ]]; then
             print_message $BLUE "OpenShift Route status:"

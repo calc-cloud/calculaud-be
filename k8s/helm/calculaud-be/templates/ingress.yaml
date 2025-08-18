@@ -1,9 +1,12 @@
 {{- if and (eq .Values.platform "eks") .Values.ingress.enabled -}}
+{{- $environmentPath := .Values.environment.pathPrefix | default (printf "/%s" .Values.environment.name) -}}
 {{- $fullName := include "calculaud-be.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
 {{- if and .Values.ingress.className (not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class")) }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
 {{- end }}
+{{- $_ := set .Values.ingress.annotations "alb.ingress.kubernetes.io/group.name" .Values.ingress.groupName }}
+{{- $_ := set .Values.ingress.annotations "alb.ingress.kubernetes.io/group.order" (toString .Values.ingress.groupOrder) }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -41,10 +44,9 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .pathType }}
+          - path: {{ $environmentPath }}
+            {{- if semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion }}
+            pathType: Prefix
             {{- end }}
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
@@ -56,6 +58,5 @@ spec:
               serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
               {{- end }}
-          {{- end }}
     {{- end }}
 {{- end }}

@@ -35,9 +35,11 @@ cd calculaud-onprem-*
 
 | Service | EKS | On-Prem OpenShift |
 |---------|-----|----------------|
-| **Application** | NodePort (30080) | OpenShift Routes |
-| **API Docs** | `/docs` | `/docs` |
-| **Health Checks** | `/health` | `/health` |
+| **Application** | ALB Ingress (HTTPS) | OpenShift Routes |
+| **Staging** | `https://alb-url/staging` | Routes |
+| **PR Environments** | `https://alb-url/{branch-name}` | Routes |
+| **API Docs** | `/docs` (via ALB path) | `/docs` |
+| **Health Checks** | `/health` (via ALB path) | `/health` |
 
 ## Configuration Approach
 
@@ -68,7 +70,7 @@ kubectl describe pod <pod-name> -n calculaud
 # Execute in pod
 kubectl exec -it <pod-name> -n calculaud -- /bin/bash
 
-# Port forward
+# Port forward (alternative to ALB access)
 kubectl port-forward svc/calculaud-be 8000:80 -n calculaud
 ```
 
@@ -155,21 +157,22 @@ aws s3 ls s3://your-bucket-name/
 # Fix: Check credentials and endpoint URL
 ```
 
-## Port Mappings
+## Access Methods
 
-### Kubernetes NodePort Defaults
-- **Application**: 30080
-- **Grafana**: 32000
-- **Prometheus**: 32001
+### Shared Internal ALB Ingress (EKS)
+- **Staging**: `https://internal-alb-hostname/staging` (priority: 100)
+- **PR Environments**: `https://internal-alb-hostname/{branch-name}` (priority: 200)
+- All environments use the same internal ALB via ingress groups
+- **Access**: Requires VPN, Direct Connect, or bastion host
 
 ## Quick Setup Scripts
 
 ### Complete EKS Setup (2 minutes)
 ```bash
 #!/bin/bash
-# Assumes EKS cluster with NodePort access and EBS CSI configured
-./k8s/scripts/deploy.sh -e eks -n calculaud-prod
-./k8s/scripts/migrate.sh -n calculaud-prod
+# Assumes EKS cluster with ALB controller and EBS CSI configured
+./k8s/scripts/deploy.sh -e staging -n calculaud-staging
+./k8s/scripts/migrate.sh -n calculaud-staging
 ```
 
 ### Complete On-Prem Setup (2 minutes)

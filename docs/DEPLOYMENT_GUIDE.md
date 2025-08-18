@@ -29,6 +29,8 @@ Deploy Calculaud Backend to AWS EKS or on-premises Kubernetes environments.
 - eksctl 0.150+
 - Valid AWS credentials with EKS permissions
 - VPC and subnets configured
+- AWS Load Balancer Controller installed on EKS cluster
+- SSL certificate in AWS Certificate Manager (for HTTPS)
 
 #### On-Premises OpenShift
 - OpenShift cluster (4.10+) with oc/kubectl configured
@@ -41,10 +43,12 @@ Deploy Calculaud Backend to AWS EKS or on-premises Kubernetes environments.
 **Prerequisites:** EKS cluster with EBS CSI driver and proper IAM roles.
 
 ### Key Features
-- **NodePort Service:** Simple NodePort service for external access (no ingress controller required)
+- **Internal ALB Ingress:** AWS Application Load Balancer with path-based routing (VPC-only)
 - **Auto-scaling:** Kubernetes HPA with EKS cluster autoscaler
-- **Direct Access:** Access via any node IP on port 30080
-- **No External Dependencies:** Zero additional AWS permissions needed
+- **SSL Termination:** Automatic HTTPS with AWS Certificate Manager
+- **Health Checks:** ALB target group health monitoring
+- **Path-Based Routing:** Environment isolation via URL paths (/staging, /{branch-name})
+- **Enhanced Security:** VPC-only access, requires VPN or bastion host
 
 ### Deploy Application
 ```bash
@@ -67,12 +71,13 @@ Uses GitHub Environments with `envsubst` templating:
 **Setup**: Configure GitHub Environments in Repository → Settings → Environments. See `docs/github-setup-commands.md` for detailed setup.
 
 ### Features
-- Auto-scaling (HPA/VPA), NodePort service access, EBS volumes, CloudWatch integration
-- **Staging**: Main branch, dedicated resources
-- **PR**: Feature branches, minimal resources, shared test DB
+- Auto-scaling (HPA/VPA), ALB ingress with path-based routing, EBS volumes, CloudWatch integration
+- **Staging**: Main branch, dedicated resources, accessible at `https://internal-alb-url/staging` (VPN required)
+- **PR**: Feature branches, minimal resources, shared test DB, accessible at `https://internal-alb-url/{branch-name}` (VPN required)
+- All environments share a single internal ALB via ingress groups
 
 ### PR Deployment
-Deploy via GitHub Actions → "Deploy to Kubernetes" → Select `pr` environment and branch. Access via port-forward: `kubectl port-forward svc/calculaud-be 8000:80 -n <namespace>`
+Deploy via GitHub Actions → "Deploy to Kubernetes" → Select `pr` environment and branch. Access via internal ALB URL with branch path: `https://internal-alb-url/{branch-name}` (e.g., `https://internal-alb-url/feature-auth`) - VPN access required.
 
 ## On-Premises OpenShift Deployment
 
