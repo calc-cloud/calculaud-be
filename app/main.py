@@ -1,5 +1,3 @@
-import asyncio
-import signal
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -23,9 +21,6 @@ from .stage_types.router import router as stage_types_router
 from .stages.router import router as stages_router
 from .suppliers.router import router as suppliers_router
 
-# Global shutdown event
-shutdown_event = asyncio.Event()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,25 +30,10 @@ async def lifespan(app: FastAPI):
     # Startup
     mark_startup_complete()
 
-    # Setup signal handlers for graceful shutdown
-    def signal_handler(signum, frame):
-        print(f"Received signal {signum}, initiating graceful shutdown...")
-        shutdown_event.set()
-
-    # Register signal handlers (SIGTERM is sent by Kubernetes for pod termination)
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-
     yield
 
-    # Shutdown - wait for shutdown event or timeout
-    if shutdown_event.is_set():
-        print("Performing graceful shutdown...")
-
-        # Give active requests time to complete
-        await asyncio.sleep(2)
-
-        print("Graceful shutdown completed")
+    # Shutdown - let uvicorn handle graceful shutdown
+    print("Application shutdown complete")
 
 
 # Swagger UI OAuth configuration
