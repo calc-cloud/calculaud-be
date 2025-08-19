@@ -1,5 +1,4 @@
 import logging
-from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Set
 
 import fastapi_mcp
@@ -9,6 +8,7 @@ from fastapi_mcp import FastApiMCP
 
 from app.auth.dependencies import require_auth
 
+from .ai.router import router as ai_router
 from .analytics.router import router as analytics_router
 from .auth.router import router as auth_router
 from .config import settings
@@ -148,6 +148,13 @@ app.include_router(
     tags=["analytics"],
 )
 
+app.include_router(
+    ai_router,
+    dependencies=protected_dependencies,
+    prefix=f"{settings.api_v1_prefix}/ai",
+    tags=["ai"],
+)
+
 
 @app.get("/")
 def root():
@@ -244,8 +251,11 @@ try:
     # Mount the MCP server directly to your app
     mcp.mount_http()
 
+    # Store MCP instance in app for AI service access
+    app.mcp = mcp
+
     logger.info(
         "FastMCP server mounted at /mcp - endpoints auto-discovered as MCP tools"
     )
 except Exception as e:
-    print(e)
+    logger.info(f"Failed to Set up FastMCP server with error: {e}")

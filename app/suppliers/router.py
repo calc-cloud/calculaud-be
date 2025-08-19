@@ -18,11 +18,63 @@ router = APIRouter()
 def get_suppliers(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
-        None, description="Search suppliers by name (case-insensitive)"
+        None,
+        description=(
+            "Search suppliers by name (not case-sensitive). "
+            "Examples: 'Google' matches 'Google LLC', 'Microsoft Corp', 'ABC-123'. "
+            "Supports company names, abbreviations, and alphanumeric codes. "
+            "Leave empty to retrieve all suppliers. "
+            "Special characters are allowed. Minimum 1 character when provided."
+        ),
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all suppliers with pagination and optional search."""
+    """
+    Retrieve suppliers from the procurement system with advanced filtering and pagination.
+
+    **Purpose**: Search and list supplier companies registered in the procurement system.
+    Use this function to find specific suppliers by name or retrieve all available suppliers.
+
+    **When to use this function**:
+    - User asks for suppliers: "show me suppliers", "list suppliers", "find suppliers"
+    - Searching by company name: "find Google suppliers", "search for Microsoft"
+    - Getting all suppliers: "get all suppliers", "list all companies"
+    - Browsing supplier directory with pagination
+
+    **Parameters**:
+    - **search** (optional): Company name search term
+      - Format: Any string, partial matching supported
+      - Examples: "Google" → matches "Google LLC", "Google Inc"
+      - Examples: "Corp" → matches "Microsoft Corp", "ABC Corp"
+      - Case-sensitive: "google" does NOT match "Google LLC", use exact case
+      - Empty/null: Returns all suppliers
+      - Edge cases: Special characters allowed, single character searches supported
+
+    - **pagination**: Standard pagination with page/limit
+      - Default: page=1, limit=100
+      - Maximum limit: 1000 items per page
+
+    **Response Format**:
+    - **items**: Array of supplier objects with id, name, file_icon
+    - **total**: Total count of matching suppliers
+    - **page/limit**: Current pagination parameters
+    - **has_next/has_prev**: Navigation flags
+
+    **Example Responses**:
+    - Search "Google": Returns suppliers with names containing "Google"
+    - Empty search: Returns all suppliers (paginated)
+    - No matches: Returns empty items array with total=0
+
+    **Edge Cases**:
+    - Invalid page numbers: Returns empty results
+    - Search too broad: Results are paginated automatically
+    - No suppliers exist: Returns empty array with total=0
+    - Database unavailable: Raises 500 error
+
+    **Business Context**:
+    Suppliers are companies/vendors in the procurement system that provide
+    goods and services. Each supplier has a unique name and optional icon attachment.
+    """
     suppliers, total = service.get_suppliers(
         db=db, pagination=pagination, search=search
     )

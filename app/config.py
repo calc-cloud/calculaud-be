@@ -51,7 +51,12 @@ class Settings(BaseSettings):
     # OAuth2 Client Configuration (for Swagger UI authorization)
     oauth_client_id: str | None = None
     oauth_scopes: Annotated[str, Field(default="openid")]
-    fastmcp_experimental_enable_new_openapi_parser: bool = True
+
+    # AI Configuration (Universal LLM support)
+    llm_base_url: Annotated[str, Field(default="https://api.openai.com/v1")]
+    llm_api_key: Annotated[str, Field(default="")]
+    model_name: Annotated[str, Field(default="gpt-4o")]
+    mcp_server_url: Annotated[str, Field(default="http://localhost:8000/mcp")]
 
     model_config = SettingsConfigDict(
         env_file=".test.env" if os.getenv("TESTING") else find_dotenv(),
