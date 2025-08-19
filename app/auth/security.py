@@ -29,18 +29,14 @@ class OpenIdConnect(SecurityBase):
 
     def __init__(
         self,
-        openid_connect_url: str | None = None,
         audience: str | None = None,
-        algorithm: str = "RS256",
         scopes_claim: str = "roles",
     ):
         """
         Initialize OpenID Connect authentication with OIDC discovery.
 
         Args:
-            openid_connect_url: OpenID Connect discovery URL
             audience: Expected audience in JWT tokens
-            algorithm: JWT signing algorithm (default: RS256)
             scopes_claim: Name of the claim containing user roles/scopes
         """
 
@@ -49,10 +45,6 @@ class OpenIdConnect(SecurityBase):
         # Use provided values or fall back to settings
         self.audience = audience or settings.auth_audience
         self.scopes_claim = scopes_claim
-
-        # Get algorithm from discovery or use provided default
-        supported_algorithms = oidc_discovery_service.get_supported_algorithms()
-        self.algorithm = algorithm if algorithm != "RS256" else supported_algorithms[0]
 
         # Initialize JWKS client with discovered URL
         jwks_url = oidc_discovery_service.get_jwks_uri()
@@ -100,7 +92,7 @@ class OpenIdConnect(SecurityBase):
             claims = pyjwt.decode(
                 token,
                 signing_key.key,
-                algorithms=[self.algorithm],
+                algorithms=oidc_discovery_service.get_supported_algorithms(),
                 audience=self.audience if self.audience else None,
                 issuer=issuer,
             )
