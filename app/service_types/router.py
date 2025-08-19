@@ -10,7 +10,9 @@ from app.service_types.schemas import ServiceType, ServiceTypeCreate, ServiceTyp
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[ServiceType])
+@router.get(
+    "/", response_model=PaginatedResult[ServiceType], operation_id="get_service_types"
+)
 def get_service_types(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
@@ -25,7 +27,9 @@ def get_service_types(
     return create_paginated_result(service_types, total, pagination)
 
 
-@router.get("/{service_type_id}", response_model=ServiceType)
+@router.get(
+    "/{service_type_id}", response_model=ServiceType, operation_id="get_service_type"
+)
 def get_service_type(service_type_id: int, db: Session = Depends(get_db)):
     """Get a specific service type by ID."""
     service_type = service.get_service_type(db, service_type_id)

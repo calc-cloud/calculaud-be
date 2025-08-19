@@ -17,7 +17,11 @@ from app.responsible_authorities.schemas import (
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[ResponsibleAuthorityResponse])
+@router.get(
+    "/",
+    response_model=PaginatedResult[ResponsibleAuthorityResponse],
+    operation_id="get_responsible_authorities",
+)
 def get_responsible_authorities(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
@@ -32,7 +36,11 @@ def get_responsible_authorities(
     return create_paginated_result(authorities, total, pagination)
 
 
-@router.get("/{authority_id}", response_model=ResponsibleAuthorityResponse)
+@router.get(
+    "/{authority_id}",
+    response_model=ResponsibleAuthorityResponse,
+    operation_id="get_responsible_authority",
+)
 def get_responsible_authority(authority_id: int, db: Session = Depends(get_db)):
     """Get a specific responsible authority by ID."""
     authority = service.get_responsible_authority(db, authority_id)

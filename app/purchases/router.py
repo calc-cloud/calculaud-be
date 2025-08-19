@@ -20,7 +20,9 @@ def create_purchase(
     return service.create_purchase(db, purchase_data)
 
 
-@router.get("/{purchase_id}", response_model=PurchaseResponse)
+@router.get(
+    "/{purchase_id}", response_model=PurchaseResponse, operation_id="get_purchase"
+)
 def get_purchase(
     purchase_id: int,
     db: Session = Depends(get_db),

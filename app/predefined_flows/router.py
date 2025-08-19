@@ -22,6 +22,7 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=PaginatedResult[PredefinedFlowResponse | PredefinedFlowEditResponse],
+    operation_id="get_predefined_flows",
 )
 def get_predefined_flows(
     pagination: PaginationParams = Depends(),
@@ -53,7 +54,9 @@ def get_predefined_flows(
 
 
 @router.get(
-    "/{flow_id}", response_model=PredefinedFlowResponse | PredefinedFlowEditResponse
+    "/{flow_id}",
+    response_model=PredefinedFlowResponse | PredefinedFlowEditResponse,
+    operation_id="get_predefined_flow",
 )
 def get_predefined_flow(
     flow_id: int,

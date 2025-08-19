@@ -10,7 +10,11 @@ from app.stage_types.schemas import StageTypeCreate, StageTypeResponse, StageTyp
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[StageTypeResponse])
+@router.get(
+    "/",
+    response_model=PaginatedResult[StageTypeResponse],
+    operation_id="get_stage_types",
+)
 def get_stage_types(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
@@ -25,7 +29,9 @@ def get_stage_types(
     return create_paginated_result(stage_types, total, pagination)
 
 
-@router.get("/{stage_type_id}", response_model=StageTypeResponse)
+@router.get(
+    "/{stage_type_id}", response_model=StageTypeResponse, operation_id="get_stage_type"
+)
 def get_stage_type(stage_type_id: int, db: Session = Depends(get_db)):
     """Get a specific stage type by ID."""
     stage_type = service.get_stage_type(db, stage_type_id)

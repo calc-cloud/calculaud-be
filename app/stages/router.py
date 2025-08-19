@@ -35,7 +35,7 @@ def update_stage(
         raise HTTPException(status_code=400, detail=e.message)
 
 
-@router.get("/{stage_id}", response_model=StageResponse)
+@router.get("/{stage_id}", response_model=StageResponse, operation_id="get_stage")
 def get_stage(
     stage_id: int,
     db: Session = Depends(get_db),

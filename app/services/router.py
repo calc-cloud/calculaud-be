@@ -14,7 +14,7 @@ from app.services.schemas import Service, ServiceCreate, ServiceUpdate
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedResult[Service])
+@router.get("/", response_model=PaginatedResult[Service], operation_id="get_services")
 def get_services(
     pagination: PaginationParams = Depends(),
     search: str | None = Query(
@@ -32,7 +32,7 @@ def get_services(
     return create_paginated_result(services, total, pagination)
 
 
-@router.get("/{service_id}", response_model=Service)
+@router.get("/{service_id}", response_model=Service, operation_id="get_service")
 def get_service(service_id: int, db: Session = Depends(get_db)):
     """Get a specific service by ID."""
     db_service = service.get_service(db, service_id)
