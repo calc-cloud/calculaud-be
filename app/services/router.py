@@ -25,7 +25,7 @@ def get_services(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all services with pagination, optional search, and service_type_id filter."""
+    """Get services with pagination, search, and service type filtering."""
     services, total = service.get_services(
         db=db, pagination=pagination, search=search, service_type_id=service_type_id
     )
@@ -34,7 +34,7 @@ def get_services(
 
 @router.get("/{service_id}", response_model=Service, operation_id="get_service")
 def get_service(service_id: int, db: Session = Depends(get_db)):
-    """Get a specific service by ID."""
+    """Get specific service by ID."""
     db_service = service.get_service(db, service_id)
     if not db_service:
         raise HTTPException(

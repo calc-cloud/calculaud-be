@@ -20,7 +20,7 @@ def get_service_types(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all service types with pagination and optional search."""
+    """Get service types with pagination and search support."""
     service_types, total = service.get_service_types(
         db=db, pagination=pagination, search=search
     )
@@ -31,7 +31,7 @@ def get_service_types(
     "/{service_type_id}", response_model=ServiceType, operation_id="get_service_type"
 )
 def get_service_type(service_type_id: int, db: Session = Depends(get_db)):
-    """Get a specific service type by ID."""
+    """Get specific service type by ID."""
     service_type = service.get_service_type(db, service_type_id)
     if not service_type:
         raise HTTPException(

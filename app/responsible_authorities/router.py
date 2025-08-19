@@ -29,7 +29,7 @@ def get_responsible_authorities(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all responsible authorities with pagination and optional search."""
+    """Get responsible authorities with pagination and search support."""
     authorities, total = service.get_responsible_authorities(
         db=db, pagination=pagination, search=search
     )
@@ -42,7 +42,7 @@ def get_responsible_authorities(
     operation_id="get_responsible_authority",
 )
 def get_responsible_authority(authority_id: int, db: Session = Depends(get_db)):
-    """Get a specific responsible authority by ID."""
+    """Get specific responsible authority by ID."""
     authority = service.get_responsible_authority(db, authority_id)
     if not authority:
         raise HTTPException(

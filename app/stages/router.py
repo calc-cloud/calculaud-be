@@ -40,11 +40,7 @@ def get_stage(
     stage_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    Get a stage by ID.
-
-    - **stage_id**: The ID of the stage to retrieve
-    """
+    """Get specific stage by ID."""
     stage = service.get_stage(db, stage_id)
     if not stage:
         raise HTTPException(

@@ -34,7 +34,7 @@ def get_predefined_flows(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all predefined flows with pagination and optional search."""
+    """Get predefined flows with pagination, search, and edit format support."""
     if edit_format:
         # Get flows and convert to edit format
         flows, total = service.get_predefined_flows(
@@ -65,7 +65,7 @@ def get_predefined_flow(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get a specific predefined flow by ID."""
+    """Get specific predefined flow by ID with optional edit format."""
     if edit_format:
         flow = service.get_predefined_flow_edit_format(db, flow_id)
         if not flow:

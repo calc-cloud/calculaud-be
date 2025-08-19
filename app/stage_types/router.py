@@ -22,7 +22,7 @@ def get_stage_types(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all stage types with pagination and optional search."""
+    """Get stage types with pagination and search support."""
     stage_types, total = service.get_stage_types(
         db=db, pagination=pagination, search=search
     )
@@ -33,7 +33,7 @@ def get_stage_types(
     "/{stage_type_id}", response_model=StageTypeResponse, operation_id="get_stage_type"
 )
 def get_stage_type(stage_type_id: int, db: Session = Depends(get_db)):
-    """Get a specific stage type by ID."""
+    """Get specific stage type by ID."""
     stage_type = service.get_stage_type(db, stage_type_id)
     if not stage_type:
         raise HTTPException(

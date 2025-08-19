@@ -41,7 +41,7 @@ def get_hierarchies(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get all hierarchies with filtering, searching, sorting, and pagination."""
+    """Get hierarchies with filtering, search, sort, and pagination support."""
     hierarchies, total = service.get_hierarchies(
         db=db,
         pagination=pagination,
@@ -64,7 +64,7 @@ def get_hierarchy_tree(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get hierarchy tree structure."""
+    """Get hierarchical tree structure for organizational navigation."""
     try:
         return service.get_hierarchy_tree(db, hierarchy_id)
     except HierarchyNotFound as e:
@@ -76,7 +76,7 @@ def get_hierarchy_tree(
 
 @router.get("/{hierarchy_id}", response_model=Hierarchy, operation_id="get_hierarchy")
 def get_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
-    """Get a specific hierarchy by ID."""
+    """Get specific hierarchy by ID."""
     try:
         return service.get_hierarchy_by_id(db, hierarchy_id)
     except HierarchyNotFound as e:
@@ -98,7 +98,7 @@ def get_hierarchy_children(
     ),
     db: Session = Depends(get_db),
 ):
-    """Get direct children of a hierarchy."""
+    """Get direct children of a specific hierarchy."""
     try:
         service.get_hierarchy_by_id(db, hierarchy_id)  # Validate hierarchy exists
         hierarchies, _ = service.get_hierarchies(

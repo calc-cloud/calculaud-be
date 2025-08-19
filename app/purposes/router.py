@@ -35,37 +35,7 @@ def get_purposes(
     params: Annotated[GetPurposesRequest, Query()],
     db: Session = Depends(get_db),
 ):
-    """
-    Search and retrieve procurement purposes with comprehensive filtering and analysis.
-
-    🎯 **Primary Use Cases:**
-    - Search specific procurement requests: "Show me laptop purchases", "Find IT equipment"
-    - Filter by workflow status: "Get all pending approvals", "Show completed purchases"
-    - Organizational filtering: "IT department purchases", "Show purposes from Unit X"
-    - Financial analysis: "High-value equipment over $10,000", "This quarter's expenses"
-    - Timeline tracking: "Recent purchases needing attention", "Delayed approvals"
-    - Authority management: "Show purposes waiting for John's approval"
-
-    📊 **Returns:** Paginated list with full purpose details including:
-    - Purchase workflow stages and current status
-    - Cost breakdown by currency (ILS, USD)
-    - File attachments and documentation
-    - Organizational hierarchy and supplier information
-    - Pending authority (who needs to act next on workflow)
-    - Calculated fields like days since last completion
-
-    💡 **Search Tips:**
-    - Use 'search' for flexible text matching across descriptions, stage values, and services
-    - Combine multiple filters for precise results (status + hierarchy + date range)
-    - Sort by 'days_since_last_completion' to prioritize stalled purchases
-    - Filter by 'pending_authority_id' to see what needs specific person's attention
-
-    🔍 **Common Query Patterns:**
-    - "Show me all IN_PROGRESS IT purchases from last month"
-    - "Find expensive equipment waiting for approval"
-    - "Get purposes with delays in their workflow"
-    - "Show all purchases from supplier X this year"
-    """
+    """Get purposes with comprehensive filtering, search, and pagination support."""
     purposes, total = service.get_purposes(
         db=db,
         params=params,
@@ -81,18 +51,6 @@ def export_csv(
 ):
     """
     Export purposes to CSV file with full filtering capabilities.
-
-    🎯 **Use Cases:**
-    - Generate reports for management: "Export all IT purchases this quarter"
-    - Compliance documentation: "Export all completed high-value purchases"
-    - Data analysis: "Export purposes with delays for external analysis"
-    - Audit preparation: "Export all purchases from specific suppliers"
-
-    📋 **CSV Contents:** Complete purpose data including hierarchy, costs, stages, supplier info
-
-    ⚡ **Performance:** Applies same filters as get_purposes but exports all matching results (no pagination)
-
-    💾 **File Format:** Auto-generated filename with current date (purposes_export_DD-MM-YYYY.csv)
     """
     csv_content = export_purposes_csv(db=db, params=params)
 
@@ -111,22 +69,7 @@ def export_csv(
 
 @router.get("/{purpose_id}", response_model=Purpose, operation_id="get_purpose")
 def get_purpose(purpose_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieve detailed information for a specific procurement purpose.
-
-    🎯 **Use Cases:**
-    - View complete purpose details: "Show me purpose #123"
-    - Check workflow status: "What's the status of purchase ID 456?"
-    - Review approval chain: "Who needs to approve purpose #789 next?"
-    - Analyze purchase history: "Show full details of completed purchase"
-
-    📊 **Returns:** Complete purpose with all related data:
-    - Full workflow stages with completion dates and values
-    - All costs by currency and purchase breakdown
-    - File attachments and documentation
-    - Current pending authority (next approver)
-    - Organizational hierarchy and supplier details
-    """
+    """Get specific purpose by ID with complete details and relationships."""
     purpose = service.get_purpose(db, purpose_id)
     if not purpose:
         raise HTTPException(

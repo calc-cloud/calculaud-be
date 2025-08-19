@@ -27,7 +27,7 @@ def get_purchase(
     purchase_id: int,
     db: Session = Depends(get_db),
 ):
-    """Get a purchase by ID."""
+    """Get specific purchase by ID."""
     try:
         return service.get_purchase(db, purchase_id)
     except PurchaseNotFound as e:

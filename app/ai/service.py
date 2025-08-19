@@ -39,7 +39,7 @@ async def ask_ai_with_mcp(question: str, request: Request) -> str:
             params={
                 "url": settings.mcp_server_url,
                 "headers": {"Authorization": f"Bearer {extract_bearer_token(request)}"},
-                "timeout": 30,
+                "timeout": 60,
             },
             cache_tools_list=True,
             name="Calculaud MCP Server",
