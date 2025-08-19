@@ -36,14 +36,11 @@ s3:
   useSsl: true
   storageClass: ""
 
-# Authentication configuration for on-premises
+# Authentication configuration for on-premises (OIDC Discovery)
+# JWKS URL, issuer, token endpoint, and algorithm are auto-discovered from oidcUrl
 auth:
-  jwksUrl: "https://auth.yourdomain.local/.well-known/jwks.json"
-  issuer: "https://auth.yourdomain.local/"
+  oidcUrl: "https://auth.yourdomain.local/.well-known/openid-configuration"
   audience: "calculaud-api"
-  algorithm: "RS256"
-  tokenEndpointUrl: "https://auth.yourdomain.local/oauth/token"
-  oidcUrl: "https://auth.yourdomain.local/"
   
   oauth:
     clientId: "calculaud-onprem-client"

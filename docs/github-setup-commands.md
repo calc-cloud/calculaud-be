@@ -86,12 +86,10 @@ gh variable set S3_BUCKET --env staging --body "calculaud-staging-files"
 gh variable set S3_BUCKET_URL --env staging --body "https://calculaud-staging-files.s3.us-east-1.amazonaws.com"
 gh variable set S3_KEY_PREFIX --env staging --body "files/"
 
-# Authentication configuration (non-sensitive URLs and identifiers)
-gh variable set AUTH_JWKS_URL --env staging --body "https://your-auth-provider/.well-known/jwks.json"
-gh variable set AUTH_ISSUER --env staging --body "https://your-auth-provider/"
+# Authentication configuration (OIDC Discovery)
+# All endpoints (JWKS, issuer, token) are auto-discovered from AUTH_OIDC_URL
+gh variable set AUTH_OIDC_URL --env staging --body "https://your-auth-provider/.well-known/openid-configuration"
 gh variable set AUTH_AUDIENCE --env staging --body "calculaud-api"
-gh variable set AUTH_TOKEN_URL --env staging --body "https://your-auth-provider/oauth/token"
-gh variable set AUTH_OIDC_URL --env staging --body "https://your-auth-provider/"
 gh variable set OAUTH_CLIENT_ID --env staging --body "calculaud-staging-client"
 
 # Infrastructure configuration
@@ -159,12 +157,10 @@ gh variable set DEBUG --env testing --body "true"
 gh variable set S3_BUCKET --env testing --body "calculaud-test-files"
 gh variable set S3_BUCKET_URL --env testing --body "https://calculaud-test-files.s3.us-east-1.amazonaws.com"
 
-# Authentication configuration (test environment)
-gh variable set AUTH_JWKS_URL --env testing --body "https://your-test-auth-provider/.well-known/jwks.json"
-gh variable set AUTH_ISSUER --env testing --body "https://your-test-auth-provider/"
+# Authentication configuration (OIDC Discovery - test environment)
+# All endpoints (JWKS, issuer, token) are auto-discovered from AUTH_OIDC_URL
+gh variable set AUTH_OIDC_URL --env testing --body "https://your-test-auth-provider/.well-known/openid-configuration"
 gh variable set AUTH_AUDIENCE --env testing --body "calculaud-test-api"
-gh variable set AUTH_TOKEN_URL --env testing --body "https://your-test-auth-provider/oauth/token"
-gh variable set AUTH_OIDC_URL --env testing --body "https://your-test-auth-provider/"
 gh variable set OAUTH_CLIENT_ID --env testing --body "calculaud-test-client"
 
 # Infrastructure configuration (minimal for testing)

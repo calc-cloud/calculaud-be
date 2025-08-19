@@ -116,7 +116,7 @@ tar -xzf calculaud-onprem-*.tar.gz && cd calculaud-onprem-* && ./install.sh
 
 ## Configuration
 
-**Environment Variables:** Configure DATABASE_URL, S3 credentials, AUTH_JWKS_URL/ISSUER/AUDIENCE, and app settings (DEBUG, LOG_LEVEL, WORKERS).
+**Environment Variables:** Configure DATABASE_URL, S3 credentials, AUTH_OIDC_URL/AUDIENCE (other auth endpoints auto-discovered), and app settings (DEBUG, LOG_LEVEL, WORKERS).
 
 **Secrets:** 
 - **AWS**: Use AWS Secrets Manager with External Secrets Operator

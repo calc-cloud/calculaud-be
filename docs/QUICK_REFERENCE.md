@@ -108,9 +108,9 @@ S3_SECRET_ACCESS_KEY=secret-key
 S3_BUCKET_NAME=bucket-name
 S3_ENDPOINT_URL=https://s3.amazonaws.com  # for AWS S3 or S3-compatible storage
 
-# Authentication
-AUTH_JWKS_URL=https://auth/.well-known/jwks.json
-AUTH_ISSUER=https://auth/
+# Authentication (OIDC Discovery)
+# JWKS URL, issuer, and token endpoint are auto-discovered
+AUTH_OIDC_URL=https://auth/.well-known/openid-configuration
 AUTH_AUDIENCE=calculaud-api
 ```
 

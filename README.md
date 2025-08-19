@@ -111,7 +111,7 @@ docker run -p 8000:8000 calculaud-be
 **Key Configuration**:
 - `DATABASE_URL`: PostgreSQL connection string
 - `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`: AWS S3 storage
-- `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`: Authentication
+- `AUTH_OIDC_URL` / `AUTH_AUDIENCE`: Authentication (other endpoints auto-discovered)
 - Platform-specific ingress (Routes vs NodePort)
 
 **Health Checks**:

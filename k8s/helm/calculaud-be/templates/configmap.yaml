@@ -36,4 +36,3 @@ data:
   
   # OAuth2 settings (non-sensitive)
   OAUTH_SCOPES: {{ .Values.auth.oauth.scopes | quote }}
-  AUTH_ALGORITHM: {{ .Values.auth.algorithm | quote }}

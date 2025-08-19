@@ -50,14 +50,11 @@ s3:
   useSsl: true
   storageClass: ""  # Optional: STANDARD, REDUCED_REDUNDANCY, etc.
 
-# Authentication configuration
+# Authentication configuration (OIDC Discovery)
+# JWKS URL, issuer, token endpoint, and algorithm are auto-discovered from oidcUrl
 auth:
-  jwksUrl: "https://your-auth-provider.com/.well-known/jwks.json"    # CHANGE THIS!
-  issuer: "https://your-auth-provider.com/"                         # CHANGE THIS!
-  audience: "calculaud-api"                                         # CHANGE THIS!
-  algorithm: "RS256"
-  tokenEndpointUrl: "https://your-auth-provider.com/oauth/token"    # CHANGE THIS!
-  oidcUrl: "https://your-auth-provider.com/"                       # CHANGE THIS!
+  oidcUrl: "https://your-auth-provider.com/.well-known/openid-configuration"  # CHANGE THIS!
+  audience: "calculaud-api"                                                   # CHANGE THIS!
   
   oauth:
     clientId: "your-client-id"  # CHANGE THIS!

@@ -36,14 +36,11 @@ s3:
   useSsl: true
   storageClass: ""
 
-# Authentication configuration
+# Authentication configuration (OIDC Discovery)
+# JWKS URL, issuer, token endpoint, and algorithm are auto-discovered from oidcUrl
 auth:
-  jwksUrl: "${AUTH_JWKS_URL}"
-  issuer: "${AUTH_ISSUER}"
-  audience: "${AUTH_AUDIENCE}"
-  algorithm: "RS256"
-  tokenEndpointUrl: "${AUTH_TOKEN_URL}"
   oidcUrl: "${AUTH_OIDC_URL}"
+  audience: "${AUTH_AUDIENCE}"
   
   oauth:
     clientId: "${OAUTH_CLIENT_ID}"
