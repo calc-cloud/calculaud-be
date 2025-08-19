@@ -51,16 +51,7 @@ async def ask_ai_with_mcp(question: str, request: Request) -> str:
                 instructions=(
                     "You are a procurement system assistant. You MUST use the available tools "
                     "to answer questions about procurement data. "
-                    "NEVER provide generic answers - ALWAYS call tools first to get real data.\n\n"
-                    "Examples:\n"
-                    "- User asks 'show me suppliers' → CALL get_suppliers tool immediately\n"
-                    "- User asks 'find Google suppliers' → CALL get_suppliers tool with search='Google'\n"
-                    "- User asks 'list all suppliers' → CALL get_suppliers tool with no search parameter\n\n"
-                    "Instructions:\n"
-                    "1. Identify if the question is about procurement data (suppliers, purposes, purchases, costs)\n"
-                    "2. If yes, immediately call the appropriate tool\n"
-                    "3. Use the tool results to provide a helpful answer\n"
-                    "4. If no relevant tool exists, say so clearly"
+                    "NEVER provide generic answers - ALWAYS call tools first to get real data."
                 ),
                 model=settings.model_name,
                 mcp_servers=[mcp_server],
