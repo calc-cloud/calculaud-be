@@ -1,0 +1,59 @@
+{{- if eq .Values.platform "openshift" -}}
+{{- if .Values.route.enabled -}}
+{{- $fullName := include "calculaud-be.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "calculaud-be.labels" . | nindent 4 }}
+    app.kubernetes.io/component: route
+  {{- with .Values.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.route.host }}
+  host: {{ .Values.route.host }}
+  {{- end }}
+  {{- if .Values.route.path }}
+  path: {{ .Values.route.path }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ $fullName }}
+    weight: 100
+  port:
+    targetPort: {{ $svcPort }}
+  {{- if .Values.route.tls }}
+  tls:
+    {{- if .Values.route.tls.termination }}
+    termination: {{ .Values.route.tls.termination }}
+    {{- end }}
+    {{- if .Values.route.tls.insecureEdgeTerminationPolicy }}
+    insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy }}
+    {{- end }}
+    {{- if .Values.route.tls.certificate }}
+    certificate: |
+{{ .Values.route.tls.certificate | indent 6 }}
+    {{- end }}
+    {{- if .Values.route.tls.key }}
+    key: |
+{{ .Values.route.tls.key | indent 6 }}
+    {{- end }}
+    {{- if .Values.route.tls.caCertificate }}
+    caCertificate: |
+{{ .Values.route.tls.caCertificate | indent 6 }}
+    {{- end }}
+    {{- if .Values.route.tls.destinationCACertificate }}
+    destinationCACertificate: |
+{{ .Values.route.tls.destinationCACertificate | indent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.route.wildcardPolicy }}
+  wildcardPolicy: {{ .Values.route.wildcardPolicy }}
+  {{- end }}
+{{- end }}
+{{- end }}

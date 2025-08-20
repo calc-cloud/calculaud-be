@@ -73,7 +73,6 @@ class TokenRequest(BaseModel):
         ),
     ]
     client_id: str
-    client_secret: str | None = None
     username: str | None = None
     password: str | None = None
     code: str | None = None

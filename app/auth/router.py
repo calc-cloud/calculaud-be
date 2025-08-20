@@ -4,8 +4,7 @@ import requests
 from fastapi import APIRouter, Form, HTTPException
 from pydantic import ValidationError
 
-from app.config import settings
-
+from .oidc_discovery import oidc_discovery_service
 from .schemas import TokenRequest, TokenResponse
 
 router = APIRouter(
@@ -27,6 +26,9 @@ def proxy_oauth_token(data: Annotated[TokenRequest, Form()]) -> TokenResponse:
     allowing the frontend to avoid CORS restrictions when requesting tokens.
     """
     try:
+        # Get token endpoint from OIDC discovery
+        token_endpoint = oidc_discovery_service.get_token_endpoint()
+
         # Prepare headers for the request
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -41,7 +43,7 @@ def proxy_oauth_token(data: Annotated[TokenRequest, Form()]) -> TokenResponse:
 
         # Make the request to OAuth server
         response = requests.post(
-            settings.auth_token_endpoint_url,
+            token_endpoint,
             data=form_data,
             headers=headers,
             timeout=30.0,
@@ -70,5 +72,3 @@ def proxy_oauth_token(data: Annotated[TokenRequest, Form()]) -> TokenResponse:
         raise HTTPException(
             status_code=502, detail=f"Invalid response from OAuth server: {str(e)}"
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

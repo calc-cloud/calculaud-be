@@ -41,12 +41,8 @@ class Settings(BaseSettings):
     usd_to_ils_rate: Annotated[float, Field(default=3.7)]
 
     # Authentication Configuration
-    auth_jwks_url: str
-    auth_issuer: str
+    auth_oidc_url: str  # OIDC discovery URL (.well-known/openid-configuration)
     auth_audience: str | None = None
-    auth_algorithm: Annotated[str, Field(default="RS256")]
-    auth_token_endpoint_url: str
-    auth_oidc_url: str
 
     # OAuth2 Client Configuration (for Swagger UI authorization)
     oauth_client_id: str | None = None

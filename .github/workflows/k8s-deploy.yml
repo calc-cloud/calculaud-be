@@ -1,0 +1,307 @@
+# Kubernetes deployment workflow using Helm
+# Deploys to different environments based on branch/tag
+
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: 
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'testing'
+        type: choice
+        options:
+        - staging
+        - testing
+      image_tag:
+        description: 'Docker image tag to deploy (auto-generated if empty)'
+        required: false
+        default: ''
+      pr_number:
+        description: 'PR number for deployment (auto-detected if empty)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write  # Required for AWS OIDC authentication
+
+jobs:
+  # Determine deployment environment and image tag
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      image_tag: ${{ steps.env.outputs.image_tag }}
+      namespace: ${{ steps.env.outputs.namespace }}
+      pr_branch_name: ${{ steps.env.outputs.pr_branch_name }}
+      deploy_timeout: ${{ steps.env.outputs.deploy_timeout }}
+    steps:
+    - name: Determine environment and configuration
+      id: env
+      run: |
+        # Determine environment and image tag based on trigger
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          [[ -z "$IMAGE_TAG" ]] && IMAGE_TAG="manual-$(date +'%Y%m%d-%H%M%S')"
+        elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "closed" ]]; then
+          ENVIRONMENT="cleanup"
+          IMAGE_TAG="none"
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="staging"
+          IMAGE_TAG="main-$(date +'%Y%m%d-%H%M%S')"
+        else
+          ENVIRONMENT="none"
+          IMAGE_TAG="none"
+        fi
+        
+        # Handle branch-specific environments (testing/cleanup)
+        if [[ "$ENVIRONMENT" == "testing" || "$ENVIRONMENT" == "cleanup" ]]; then
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+          NAMESPACE="calculaud-$SANITIZED_BRANCH"
+          DEPLOY_TIMEOUT="300s"
+          echo "pr_branch_name=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+        elif [[ "$ENVIRONMENT" == "staging" ]]; then
+          NAMESPACE="calculaud-staging"
+          DEPLOY_TIMEOUT="600s"
+        else
+          NAMESPACE="calculaud-staging"
+          DEPLOY_TIMEOUT="600s"
+        fi
+        
+        # Set all outputs
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+        echo "namespace=$NAMESPACE" >> $GITHUB_OUTPUT
+        echo "deploy_timeout=$DEPLOY_TIMEOUT" >> $GITHUB_OUTPUT
+
+  # Build and push Docker image to ECR
+  build-image:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.environment != 'none' && needs.setup.outputs.environment != 'cleanup'
+    outputs:
+      image_uri: ${{ steps.image.outputs.image_uri }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ vars.AWS_BUILD_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ vars.ECR_REPOSITORY }}
+        tags: |
+          type=raw,value=${{ needs.setup.outputs.image_tag }}
+          type=sha,prefix={{branch}}-
+          type=ref,event=branch
+          type=ref,event=pr
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: Set image URI output
+      id: image
+      run: |
+        IMAGE_URI="${{ vars.ECR_REPOSITORY }}:${{ needs.setup.outputs.image_tag }}"
+        echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+        echo "✅ Built and pushed image: $IMAGE_URI"
+
+  # Unified deployment job for both staging and testing environments
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [setup, build-image]
+    if: contains(fromJSON('["staging", "testing"]'), needs.setup.outputs.environment)
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+
+    - name: Create namespace (testing environment only)
+      if: needs.setup.outputs.environment == 'testing'
+      run: |
+        # Create namespace if it doesn't exist (testing environment uses dynamic namespaces)
+        kubectl create namespace ${{ needs.setup.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Generate values from template
+      env:
+        # Dynamic values only (things that change per deployment)
+        ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
+        ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+        
+        # Platform-specific configuration
+        PLATFORM: "eks"  # All CI/CD environments use EKS
+        
+        # Secrets (can't be in template file for security)
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+        S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+        
+        # Everything else (S3_BUCKET, AUTH_*, REPLICA_COUNT, DEBUG, etc.) 
+        # should be configured in template defaults, not here
+      run: |
+        echo "🔄 Generating ${{ needs.setup.outputs.environment }} values from template..."
+        if [[ "${{ needs.setup.outputs.environment }}" == "testing" ]]; then
+          echo "📝 PR Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+          echo "📝 PR Namespace: ${{ needs.setup.outputs.namespace }}"
+        fi
+        
+        # Generate values file from universal template
+        envsubst < k8s/helm/calculaud-be/values.yaml.template > values-generated.yaml
+        
+        echo "✅ Generated ${{ needs.setup.outputs.environment }} values file"
+        echo "📋 Preview of generated configuration:"
+        head -15 values-generated.yaml
+
+    - name: Validate Helm template and values
+      run: |
+        echo "🔍 Validating Helm template and generated values..."
+        
+        # Use Helm's native validation - this will fail if required values are missing
+        # or if the template generates invalid Kubernetes manifests
+        helm template calculaud-be k8s/helm/calculaud-be \
+          --values values-generated.yaml \
+          --validate \
+          --namespace ${{ needs.setup.outputs.namespace }} \
+          > /dev/null
+        
+        echo "✅ Helm template validation passed"
+
+    - name: Deploy application
+      run: |
+        # Deploy using Helm with generated values file
+        helm upgrade calculaud-be k8s/helm/calculaud-be \
+          --install \
+          --namespace ${{ needs.setup.outputs.namespace }} \
+          --values values-generated.yaml \
+          --wait \
+          --timeout=${{ needs.setup.outputs.deploy_timeout }}
+        
+        echo "✅ ${{ needs.setup.outputs.environment }} deployment completed"
+
+    - name: Cleanup generated files
+      if: always()
+      run: |
+        # Remove generated values files for security
+        rm -f values-generated.yaml
+
+    - name: Verify deployment
+      run: |
+        kubectl rollout status deployment/calculaud-be -n ${{ needs.setup.outputs.namespace }}
+        kubectl get pods -n ${{ needs.setup.outputs.namespace }} -l app.kubernetes.io/name=calculaud-be
+
+    - name: Get deployment info
+      run: |
+        echo "🚀 ${{ needs.setup.outputs.environment }} Environment Deployed Successfully!"
+        echo "Environment: ${{ needs.setup.outputs.environment }}"
+        echo "Namespace: ${{ needs.setup.outputs.namespace }}"
+        echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
+        if [[ "${{ needs.setup.outputs.environment }}" == "testing" ]]; then
+          echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+        fi
+        
+        # Get service info
+        kubectl get svc -n ${{ needs.setup.outputs.namespace }}
+
+  # Cleanup PR environment
+  cleanup-pr:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.environment == 'cleanup'
+    steps:
+    - name: Configure kubectl for cleanup
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+
+    - name: Cleanup PR environment
+      run: |
+        echo "🧹 Cleaning up PR environment: ${{ needs.setup.outputs.namespace }}"
+        
+        # Uninstall Helm release if it exists
+        if helm list -n ${{ needs.setup.outputs.namespace }} | grep -q calculaud-be; then
+          helm uninstall calculaud-be -n ${{ needs.setup.outputs.namespace }}
+        fi
+        
+        # Delete namespace
+        if kubectl get namespace ${{ needs.setup.outputs.namespace }} >/dev/null 2>&1; then
+          kubectl delete namespace ${{ needs.setup.outputs.namespace }}
+          echo "✅ Cleaned up namespace: ${{ needs.setup.outputs.namespace }}"
+        else
+          echo "ℹ️  Namespace ${{ needs.setup.outputs.namespace }} does not exist"
+        fi
+
+  # Notify on deployment completion
+  notify:
+    runs-on: ubuntu-latest
+    needs: [setup, build-image, deploy, cleanup-pr]
+    if: always() && needs.setup.outputs.environment != 'none'
+    steps:
+    - name: Deployment notification
+      run: |
+        if [[ "${{ needs.deploy.result }}" == "success" || "${{ needs.cleanup-pr.result }}" == "success" ]]; then
+          if [[ "${{ needs.setup.outputs.environment }}" == "cleanup" ]]; then
+            echo "🧹 PR environment cleanup completed!"
+            echo "Cleaned up namespace: ${{ needs.setup.outputs.namespace }}"
+          else
+            echo "✅ Deployment to ${{ needs.setup.outputs.environment }} completed successfully!"
+            echo "Environment: ${{ needs.setup.outputs.environment }}"
+            echo "Image Tag: ${{ needs.setup.outputs.image_tag }}"
+            echo "Namespace: ${{ needs.setup.outputs.namespace }}"
+            if [[ "${{ needs.setup.outputs.environment }}" == "testing" ]]; then
+              echo "Branch: ${{ needs.setup.outputs.pr_branch_name }}"
+            fi
+          fi
+        else
+          echo "❌ Operation failed"
+          exit 1
+        fi
