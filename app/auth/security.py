@@ -39,16 +39,14 @@ class OpenIdConnect(SecurityBase):
             audience: Expected audience in JWT tokens
             scopes_claim: Name of the claim containing user roles/scopes
         """
-
         self.oidc_url = oidc_discovery_service.oidc_url
 
         # Use provided values or fall back to settings
         self.audience = audience or settings.auth_audience
         self.scopes_claim = scopes_claim
 
-        # Initialize JWKS client with discovered URL
-        jwks_url = oidc_discovery_service.get_jwks_uri()
-        self.jwks_client = PyJWKClient(jwks_url)
+        # Lazy initialization for JWKS client only
+        self._jwks_client = None
 
         # Create OpenAPI model
         self.model = OpenIdConnectModel(
@@ -56,6 +54,14 @@ class OpenIdConnect(SecurityBase):
             description="OpenID Connect authentication with auto-discovery",
         )
         self.scheme_name = "OpenIdConnect"
+
+    @property
+    def jwks_client(self) -> PyJWKClient:
+        """Lazy initialization of JWKS client."""
+        if self._jwks_client is None:
+            jwks_url = oidc_discovery_service.get_jwks_uri()
+            self._jwks_client = PyJWKClient(jwks_url)
+        return self._jwks_client
 
     async def __call__(
         self, security_scopes: SecurityScopes, request: Request
