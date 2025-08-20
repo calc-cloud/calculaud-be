@@ -13,9 +13,10 @@ OUTPUT_FILE="calculaud-onprem-$(date +%Y%m%d-%H%M%S).tar.gz"
 TEMP_DIR=$(mktemp -d)
 
 # Docker images to package (external services assumed to be already available)
-DOCKER_IMAGES=(
-    "calculaud/calculaud-be:latest"
-)
+# Note: IMAGE_TAG will be set from command line argument
+get_docker_images() {
+    echo "calculaud/calculaud-be:$IMAGE_TAG"
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -41,12 +42,14 @@ usage() {
     echo "  --skip-build            Skip building application Docker image"
     echo "  --include-data          Include sample data and seeds"
     echo "  --compress-level LEVEL  Compression level 1-9 [default: 6]"
+    echo "  --image-tag TAG         Docker image tag to package [default: latest]"
     echo "  -h, --help              Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                      Create package with default settings"
     echo "  $0 -o my-package.tar.gz Create package with custom name"
     echo "  $0 --skip-docker        Create package without Docker images"
+    echo "  $0 --image-tag v1.2.3   Create package with specific image tag"
     exit 1
 }
 
@@ -55,6 +58,7 @@ SKIP_DOCKER=false
 SKIP_BUILD=false
 INCLUDE_DATA=false
 COMPRESS_LEVEL=6
+IMAGE_TAG="latest"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -80,6 +84,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --compress-level)
             COMPRESS_LEVEL="$2"
+            shift 2
+            ;;
+        --image-tag)
+            IMAGE_TAG="$2"
             shift 2
             ;;
         -h|--help)
@@ -129,9 +137,9 @@ build_docker_image() {
     print_message $BLUE "🔨 Building Calculaud application Docker image..."
     cd "$PROJECT_ROOT"
     
-    # Build with version tag
+    # Build with specified tag
     VERSION=$(date +%Y%m%d-%H%M%S)
-    docker build -t calculaud/calculaud-be:latest -t "calculaud/calculaud-be:$VERSION" \
+    docker build -t "calculaud/calculaud-be:$IMAGE_TAG" \
         --build-arg VERSION="$VERSION" .
     
     print_message $GREEN "✅ Docker image built successfully"
@@ -149,7 +157,10 @@ package_docker_images() {
     local docker_dir="$PACKAGE_DIR/docker-images"
     mkdir -p "$docker_dir"
     
-    for image in "${DOCKER_IMAGES[@]}"; do
+    # Get docker images dynamically
+    local images=($(get_docker_images))
+    
+    for image in "${images[@]}"; do
         print_message $BLUE "  📦 Saving $image..."
         local filename=$(echo "$image" | sed 's/[/:.]/-/g')
         
@@ -262,66 +273,7 @@ create_config_files() {
     local config_dir="$PACKAGE_DIR/config"
     mkdir -p "$config_dir"
     
-    # Create Nginx configuration
-    cat > "$config_dir/nginx.conf" << 'EOF'
-events {
-    worker_connections 1024;
-}
-
-http {
-    upstream backend {
-        server calculaud-app:8000;
-    }
-    
-    server {
-        listen 80;
-        server_name _;
-        
-        client_max_body_size 512M;
-        
-        location / {
-            proxy_pass http://backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-        
-        location /health {
-            proxy_pass http://backend/health;
-            access_log off;
-        }
-    }
-}
-EOF
-    
-    # Create Prometheus configuration
-    cat > "$config_dir/prometheus.yml" << 'EOF'
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-
-scrape_configs:
-  - job_name: 'calculaud-app'
-    static_configs:
-      - targets: ['calculaud-app:8000']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
-    metrics_path: '/metrics'
-    scrape_interval: 60s
-
-  - job_name: 's3-storage'
-    static_configs:
-      - targets: ['your-s3-service:443']
-    metrics_path: '/metrics'
-    scrape_interval: 60s
-EOF
-    
-    print_message $GREEN "✅ Configuration files created"
+    print_message $GREEN "✅ Configuration files directory created"
 }
 
 # Include sample data
@@ -347,7 +299,6 @@ include_sample_data() {
 POSTGRES_PASSWORD=TestPassword123!
 S3_ACCESS_KEY=testuser
 S3_SECRET_KEY=TestSecret123!
-GRAFANA_PASSWORD=admin123
 LOG_LEVEL=DEBUG
 EOF
     
@@ -422,7 +373,7 @@ create_documentation() {
 
 ## Access Points
 
-- **Application**: Via NGINX Ingress, NodePort, or port-forward
+- **Application**: Via Kubernetes Ingress, NodePort, or port-forward
 - **API Documentation**: {application-url}/docs
 - **S3 Storage**: External service (configuration required)
 
@@ -430,7 +381,7 @@ create_documentation() {
 
 ### Common Issues
 
-1. **Port Conflicts**: Modify ports in docker-compose.onprem.yml
+1. **Port Conflicts**: Modify ports in Kubernetes service configuration
 2. **Insufficient Resources**: Reduce replica counts in configuration
 3. **Network Issues**: Check firewall and proxy settings
 
@@ -618,9 +569,6 @@ Contents:
 ├── docs/                   # Deployment documentation
 ├── docker-images/          # Docker images (if included)
 $(if [[ "$INCLUDE_DATA" == "true" ]]; then echo "├── data/                   # Sample data and configurations"; fi)
-├── docker-compose.onprem.yml      # Docker Compose configuration
-├── .env.onprem.template    # Environment template
-├── docker-compose.scripts.sh      # Deployment scripts
 ├── install.sh              # Automated installer
 └── PACKAGE_MANIFEST.txt    # This file
 
@@ -628,7 +576,8 @@ Docker Images Included:
 EOF
     
     if [[ "$SKIP_DOCKER" == "false" ]]; then
-        for image in "${DOCKER_IMAGES[@]}"; do
+        local images=($(get_docker_images))
+        for image in "${images[@]}"; do
             echo "- $image" >> "$manifest_file"
         done
     else
@@ -638,8 +587,8 @@ EOF
     cat >> "$manifest_file" << EOF
 
 Deployment Options:
-1. Docker Compose (Simple): ./install.sh
-2. Kubernetes: See docs/DEPLOYMENT_GUIDE.md
+1. Kubernetes (Automated): ./install.sh
+2. Kubernetes (Manual): See docs/DEPLOYMENT_GUIDE.md
 
 System Requirements:
 - CPU: 2+ cores

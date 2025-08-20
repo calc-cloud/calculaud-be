@@ -121,7 +121,9 @@ jobs:
         # Create package
         ./k8s/scripts/package-for-onprem.sh \
           --output "${PACKAGE_NAME}.tar.gz" \
-          --compress-level 6
+          --compress-level 6 \
+          --image-tag "${{ needs.determine-config.outputs.image_tag }}" \
+          --skip-build
         
         # Get package info
         PACKAGE_FILE="${PACKAGE_NAME}.tar.gz"
