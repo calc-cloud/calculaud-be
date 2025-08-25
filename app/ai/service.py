@@ -42,6 +42,7 @@ async def ask_ai_with_mcp(question: str, request: Request) -> str:
                 "timeout": 60,
             },
             cache_tools_list=True,
+            client_session_timeout_seconds=30,
             name="Calculaud MCP Server",
         ) as mcp_server:
 

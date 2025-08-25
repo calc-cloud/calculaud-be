@@ -5,6 +5,7 @@ import fastapi_mcp
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_mcp import FastApiMCP
+import httpx
 
 from app.auth.dependencies import require_auth
 
@@ -241,6 +242,7 @@ logger.info("Setting up FastMCP server")
 try:
     mcp = FastApiMCP(
         app,
+        # http_client=httpx.AsyncClient(timeout=20),
         name="Calculaud MCP",
         description="MCP Server For Calculaud",
         describe_all_responses=True,

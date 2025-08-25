@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     # AI Configuration (Universal LLM support)
     llm_base_url: Annotated[str, Field(default="https://api.openai.com/v1")]
     llm_api_key: Annotated[str, Field(default="")]
-    model_name: Annotated[str, Field(default="gpt-4o")]
+    model_name: Annotated[str, Field(default="gpt-4o-mini")]
     mcp_server_url: Annotated[str, Field(default="http://localhost:8000/mcp")]
 
     model_config = SettingsConfigDict(
