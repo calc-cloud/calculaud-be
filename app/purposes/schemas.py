@@ -40,6 +40,7 @@ class PurposeBase(BaseModel):
     supplier_id: int | None = None
     description: Annotated[str | None, Field(default=None, max_length=2000)]
     service_type_id: int | None = None
+    is_flagged: Annotated[bool, Field(default=False)]
 
 
 class PurposeCreate(PurposeBase):
@@ -56,6 +57,7 @@ class PurposeUpdate(BaseModel):
     supplier_id: int | None = None
     service_type_id: int | None = None
     description: Annotated[str | None, Field(default=None, max_length=2000)]
+    is_flagged: bool | None = None
     file_attachment_ids: Annotated[list[int] | None, Field(default=None)]
     contents: Annotated[list[PurposeContentUpdate] | None, Field(default=None)]
 
@@ -126,6 +128,13 @@ class FilterParams(BaseModel):
             default=None,
             description="Filter by pending authority responsible for next stage (authority IDs)",
             alias="pending_authority_id",
+        ),
+    ]
+    is_flagged: Annotated[
+        bool | None,
+        Query(
+            default=None,
+            description="Filter by flagged status (true/false)",
         ),
     ]
 
