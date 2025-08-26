@@ -3,6 +3,7 @@ from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     Enum,
@@ -67,6 +68,9 @@ class Purpose(Base):
     )
     service_type_id: Mapped[int | None] = mapped_column(
         ForeignKey("service_type.id"), nullable=True, index=True
+    )
+    is_flagged: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
     )
 
     # Relationships
