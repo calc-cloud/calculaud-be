@@ -21,27 +21,11 @@ from datetime import datetime
 # Add app to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import and_, create_engine, select, update
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import and_, select, update
 
-from app.config import settings
+from app.database import SessionLocal
 from app.purposes.models import Purpose, StatusEnum
 from app.purposes.sorting import build_days_since_last_completion_subquery
-
-
-def create_db_session():
-    """Create database session with same config as main app."""
-    engine = create_engine(
-        settings.database_url,
-        connect_args=(
-            {"check_same_thread": False}
-            if settings.database_url.startswith("sqlite")
-            else {}
-        ),
-        echo=settings.debug,
-    )
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    return SessionLocal()
 
 
 def main():
@@ -49,9 +33,7 @@ def main():
     print(f"{datetime.now()} - Starting auto-flag process")
 
     try:
-        db = create_db_session()
-
-        try:
+        with SessionLocal() as db:
             days_subquery = build_days_since_last_completion_subquery()
             update_stmt = (
                 update(Purpose)
@@ -79,9 +61,6 @@ def main():
 
             flagged_count = result.rowcount
             print(f"{datetime.now()} - Successfully flagged {flagged_count} purposes")
-
-        finally:
-            db.close()
 
     except Exception as e:
         print(f"{datetime.now()} - Error during auto-flag process: {str(e)}")
