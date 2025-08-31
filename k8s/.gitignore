@@ -1,0 +1,14 @@
+# Kubernetes secrets and sensitive values
+values-*-secrets.yaml
+values-local.yaml
+*-secrets.yaml
+*.secret.yaml
+
+# Environment-specific overrides (keep these local)
+values-override.yaml
+my-values.yaml
+
+# Temporary files
+*.tmp
+*.bak
+_tmp/
