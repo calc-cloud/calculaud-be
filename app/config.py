@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     auth_token_endpoint_url: str
     auth_oidc_url: str
 
+    # Role-based access control
+    required_role: Annotated[str, Field(default="calUsers")]
+    role_claim_path: Annotated[str, Field(default="role")]
+
     # OAuth2 Client Configuration (for Swagger UI authorization)
     oauth_client_id: str | None = None
     oauth_scopes: Annotated[str, Field(default="openid")]
