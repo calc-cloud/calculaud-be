@@ -4,6 +4,43 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.config import settings
+
+
+def extract_roles_from_claims(claims: dict, claim_path: str) -> list[str]:
+    """
+    Extract roles from JWT claims using a configurable claim path.
+
+    Supports nested claim paths like "cognito:groups" and handles both
+    string and array role formats.
+
+    Args:
+        claims: JWT token claims dictionary
+        claim_path: Dot or colon-separated path to the roles claim
+
+    Returns:
+        list[str]: List of extracted roles
+    """
+    # Handle nested claim paths (support both "." and ":" separators)
+    path_parts = claim_path.replace(":", ".").split(".")
+
+    # Navigate to the nested claim
+    current_value = claims
+    for part in path_parts:
+        if isinstance(current_value, dict) and part in current_value:
+            current_value = current_value[part]
+        else:
+            return []
+
+    # Handle both string and array formats
+    if isinstance(current_value, str):
+        return [current_value]
+    elif isinstance(current_value, list):
+        # Ensure all items are strings
+        return [str(role) for role in current_value if role]
+
+    return []
+
 
 class User(BaseModel):
     """User model representing authenticated user from JWT token."""
@@ -51,11 +88,14 @@ class TokenInfo(BaseModel):
     @classmethod
     def from_token_claims(cls, token: str, claims: dict) -> "TokenInfo":
         """Create TokenInfo from JWT token and claims."""
+        # Extract roles using configurable claim path
+        roles = extract_roles_from_claims(claims, settings.role_claim_path)
+
         user = User(
             sub=claims.get("sub", ""),
             email=claims.get("email"),
             username=claims.get("preferred_username"),
-            roles=claims.get("roles", []),
+            roles=roles,
             given_name=claims.get("given_name"),
             family_name=claims.get("family_name"),
         )
