@@ -92,6 +92,10 @@ gh variable set AUTH_OIDC_URL --env staging --body "https://your-auth-provider/.
 gh variable set AUTH_AUDIENCE --env staging --body "calculaud-api"
 gh variable set OAUTH_CLIENT_ID --env staging --body "calculaud-staging-client"
 
+# Role-based access control
+gh variable set REQUIRED_ROLE --env staging --body "calUsers"
+gh variable set ROLE_CLAIM_PATH --env staging --body "cognito:groups"
+
 # Infrastructure configuration
 gh variable set INGRESS_ENABLED --env staging --body "true"
 gh variable set INGRESS_CLASS --env staging --body "nginx"
@@ -162,6 +166,10 @@ gh variable set S3_BUCKET_URL --env testing --body "https://calculaud-test-files
 gh variable set AUTH_OIDC_URL --env testing --body "https://your-test-auth-provider/.well-known/openid-configuration"
 gh variable set AUTH_AUDIENCE --env testing --body "calculaud-test-api"
 gh variable set OAUTH_CLIENT_ID --env testing --body "calculaud-test-client"
+
+# Role-based access control
+gh variable set REQUIRED_ROLE --env testing --body "calUsers"
+gh variable set ROLE_CLAIM_PATH --env testing --body "cognito:groups"
 
 # Infrastructure configuration (minimal for testing)
 gh variable set INGRESS_ENABLED --env testing --body "false"

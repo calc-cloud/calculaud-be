@@ -42,6 +42,10 @@ auth:
   oidcUrl: "${AUTH_OIDC_URL}"
   audience: "${AUTH_AUDIENCE}"
   
+  # Role-based access control configuration
+  requiredRole: "${REQUIRED_ROLE:-calUsers}"
+  roleClaimPath: "${ROLE_CLAIM_PATH:-role}"
+  
   oauth:
     clientId: "${OAUTH_CLIENT_ID}"
     scopes: "openid profile email"

@@ -36,3 +36,7 @@ data:
   
   # OAuth2 settings (non-sensitive)
   OAUTH_SCOPES: {{ .Values.auth.oauth.scopes | quote }}
+  
+  # Role-based access control settings
+  REQUIRED_ROLE: {{ .Values.auth.requiredRole | quote }}
+  ROLE_CLAIM_PATH: {{ .Values.auth.roleClaimPath | quote }}
