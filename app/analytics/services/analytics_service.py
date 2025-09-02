@@ -10,8 +10,6 @@ from app.analytics.schemas import (
     ServiceItem,
     ServicesQuantityResponse,
     ServiceTypeExpenditureItem,
-    ServiceTypeItem,
-    ServiceTypesDistributionResponse,
     TimelineExpenditureItem,
     TimelineExpenditureResponse,
 )
@@ -123,44 +121,6 @@ class AnalyticsService:
             service_items.append(service_item)
 
         return ServicesQuantityResponse(data=service_items)
-
-    def get_service_types_distribution(
-        self, filters: FilterParams
-    ) -> ServiceTypesDistributionResponse:
-        """Get distribution of purposes by service type."""
-
-        # Base query - select all ServiceType fields and count
-        query = (
-            select(
-                ServiceType.id,
-                ServiceType.name,
-                func.count(Purpose.id).label("purpose_count"),
-            )
-            .select_from(Purpose)
-            .join(ServiceType, Purpose.service_type_id == ServiceType.id)
-        )
-
-        # Apply filters
-        query = apply_filters(query, filters, self.db)
-
-        # Group by service type
-        query = query.group_by(ServiceType.id, ServiceType.name).order_by(
-            ServiceType.name
-        )
-
-        result = self.db.execute(query).all()
-
-        # Create ServiceTypeItem objects
-        service_type_items = []
-        for row in result:
-            service_type_item = ServiceTypeItem(
-                id=row.id,
-                name=row.name,
-                count=int(row.purpose_count),
-            )
-            service_type_items.append(service_type_item)
-
-        return ServiceTypesDistributionResponse(data=service_type_items)
 
     def get_expenditure_timeline(
         self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest

@@ -1,5 +1,6 @@
 from typing import Annotated, Literal
 
+from fastapi import Query
 from pydantic import BaseModel, Field
 
 from app.hierarchies.models import HierarchyTypeEnum
@@ -103,6 +104,17 @@ class ServiceTypesDistributionResponse(BaseModel):
     """Service types distribution chart response."""
 
     data: list[ServiceTypeItem]
+
+
+class LiveOperationFilterParams(BaseModel):
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
+    ]
 
 
 class ExpenditureTimelineRequest(FilterParams):

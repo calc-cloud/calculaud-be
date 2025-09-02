@@ -8,11 +8,12 @@ from app.analytics.schemas import (
     ExpenditureTimelineRequest,
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
+    LiveOperationFilterParams,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
     TimelineExpenditureResponse,
 )
-from app.analytics.service import AnalyticsService
+from app.analytics.services import AnalyticsService, LiveOperationsService
 from app.database import get_db
 from app.purposes.schemas import FilterParams
 
@@ -22,6 +23,11 @@ router = APIRouter()
 def get_analytics_service(db: Session = Depends(get_db)) -> AnalyticsService:
     """Dependency to get analytics service."""
     return AnalyticsService(db)
+
+
+def get_live_operations_service(db: Session = Depends(get_db)) -> LiveOperationsService:
+    """Dependency to get live operations service."""
+    return LiveOperationsService(db)
 
 
 @router.get("/services/quantities", response_model=ServicesQuantityResponse)
@@ -42,16 +48,18 @@ def get_services_quantities(
     "/service-types/distribution", response_model=ServiceTypesDistributionResponse
 )
 def get_service_types_distribution(
-    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-    filters: Annotated[FilterParams, Query()],
+    live_operations_service: Annotated[
+        LiveOperationsService, Depends(get_live_operations_service)
+    ],
+    filters: Annotated[LiveOperationFilterParams, Query()],
 ) -> ServiceTypesDistributionResponse:
     """
     Get distribution of purposes by service type.
 
     Returns a pie chart showing purpose counts per service type.
-    Supports all universal filters.
+    Supports service type filtering for live operations.
     """
-    return analytics_service.get_service_types_distribution(filters)
+    return live_operations_service.get_service_types_distribution(filters)
 
 
 @router.get("/expenditure/timeline", response_model=TimelineExpenditureResponse)
