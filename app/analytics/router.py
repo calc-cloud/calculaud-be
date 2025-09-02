@@ -9,6 +9,7 @@ from app.analytics.schemas import (
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
     LiveOperationFilterParams,
+    PendingAuthoritiesDistributionResponse,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
@@ -77,6 +78,26 @@ def get_statuses_distribution(
     Automatically excludes completed orders and supports service type filtering.
     """
     return live_operations_service.get_statuses_distribution(filters)
+
+
+@router.get(
+    "/pending-authorities/distribution",
+    response_model=PendingAuthoritiesDistributionResponse,
+)
+def get_pending_authorities_distribution(
+    live_operations_service: Annotated[
+        LiveOperationsService, Depends(get_live_operations_service)
+    ],
+    filters: Annotated[LiveOperationFilterParams, Query()],
+) -> PendingAuthoritiesDistributionResponse:
+    """
+    Get distribution of purposes by pending responsible authority for live operations.
+
+    Returns a pie chart showing purpose counts per responsible authority.
+    Shows which authority is responsible for the next action on each purpose.
+    Automatically excludes completed orders and supports service type filtering.
+    """
+    return live_operations_service.get_pending_authorities_distribution(filters)
 
 
 @router.get("/expenditure/timeline", response_model=TimelineExpenditureResponse)

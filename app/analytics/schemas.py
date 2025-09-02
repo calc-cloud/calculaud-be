@@ -93,6 +93,14 @@ class StatusItem(BaseModel):
     count: int
 
 
+class PendingAuthorityItem(BaseModel):
+    """Pending authority item with count information."""
+
+    authority_id: int | None
+    authority_name: str | None
+    count: int
+
+
 class HierarchyDistributionResponse(BaseModel):
     """Hierarchy distribution chart with drill-down support."""
 
@@ -117,6 +125,12 @@ class StatusesDistributionResponse(BaseModel):
     """Status distribution chart response."""
 
     data: list[StatusItem]
+
+
+class PendingAuthoritiesDistributionResponse(BaseModel):
+    """Pending authorities distribution chart response."""
+
+    data: list[PendingAuthorityItem]
 
 
 class LiveOperationFilterParams(BaseModel):

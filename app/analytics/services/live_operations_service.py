@@ -3,12 +3,16 @@ from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
     LiveOperationFilterParams,
+    PendingAuthoritiesDistributionResponse,
+    PendingAuthorityItem,
     ServiceTypeItem,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
     StatusItem,
 )
 from app.purposes.models import Purpose, StatusEnum
+from app.purposes.pending_authority_utils import get_pending_authority_id_query
+from app.responsible_authorities.models import ResponsibleAuthority
 from app.service_types.models import ServiceType
 
 
@@ -101,3 +105,47 @@ class LiveOperationsService:
             status_items.append(status_item)
 
         return StatusesDistributionResponse(data=status_items)
+
+    def get_pending_authorities_distribution(
+        self, filters: LiveOperationFilterParams
+    ) -> PendingAuthoritiesDistributionResponse:
+        """Get distribution of purposes by pending responsible authority."""
+
+        # Build query using pending authority subquery
+        pending_authority_subquery = get_pending_authority_id_query(Purpose.id)
+
+        # Base query - select authority info and count purposes
+        query = (
+            select(
+                pending_authority_subquery.label("authority_id"),
+                ResponsibleAuthority.name.label("authority_name"),
+                func.count(Purpose.id).label("purpose_count"),
+            )
+            .select_from(Purpose)
+            .outerjoin(
+                ResponsibleAuthority,
+                ResponsibleAuthority.id == pending_authority_subquery,
+            )
+        )
+
+        # Apply filters
+        query = _apply_filters(query, filters)
+
+        # Group by authority
+        query = query.group_by(
+            pending_authority_subquery, ResponsibleAuthority.name
+        ).order_by(ResponsibleAuthority.name.nulls_last())
+
+        result = self.db.execute(query).all()
+
+        # Create PendingAuthorityItem objects
+        authority_items = []
+        for row in result:
+            authority_item = PendingAuthorityItem(
+                authority_id=row.authority_id,
+                authority_name=row.authority_name or "No Pending Authority",
+                count=int(row.purpose_count),
+            )
+            authority_items.append(authority_item)
+
+        return PendingAuthoritiesDistributionResponse(data=authority_items)
