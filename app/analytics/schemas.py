@@ -86,6 +86,13 @@ class ServiceTypeItem(ServiceType):
     count: int
 
 
+class StatusItem(BaseModel):
+    """Status item with count information."""
+
+    status: str
+    count: int
+
+
 class HierarchyDistributionResponse(BaseModel):
     """Hierarchy distribution chart with drill-down support."""
 
@@ -104,6 +111,12 @@ class ServiceTypesDistributionResponse(BaseModel):
     """Service types distribution chart response."""
 
     data: list[ServiceTypeItem]
+
+
+class StatusesDistributionResponse(BaseModel):
+    """Status distribution chart response."""
+
+    data: list[StatusItem]
 
 
 class LiveOperationFilterParams(BaseModel):

@@ -5,6 +5,8 @@ from app.analytics.schemas import (
     LiveOperationFilterParams,
     ServiceTypeItem,
     ServiceTypesDistributionResponse,
+    StatusesDistributionResponse,
+    StatusItem,
 )
 from app.purposes.models import Purpose, StatusEnum
 from app.service_types.models import ServiceType
@@ -69,3 +71,33 @@ class LiveOperationsService:
             service_type_items.append(service_type_item)
 
         return ServiceTypesDistributionResponse(data=service_type_items)
+
+    def get_statuses_distribution(
+        self, filters: LiveOperationFilterParams
+    ) -> StatusesDistributionResponse:
+        """Get distribution of purposes by status (excluding completed)."""
+
+        # Base query - select status and count
+        query = select(
+            Purpose.status,
+            func.count(Purpose.id).label("purpose_count"),
+        ).select_from(Purpose)
+
+        # Apply filters
+        query = _apply_filters(query, filters)
+
+        # Group by status
+        query = query.group_by(Purpose.status).order_by(Purpose.status)
+
+        result = self.db.execute(query).all()
+
+        # Create StatusItem objects
+        status_items = []
+        for row in result:
+            status_item = StatusItem(
+                status=row.status.value,  # Convert enum to string
+                count=int(row.purpose_count),
+            )
+            status_items.append(status_item)
+
+        return StatusesDistributionResponse(data=status_items)

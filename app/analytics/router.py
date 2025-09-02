@@ -11,6 +11,7 @@ from app.analytics.schemas import (
     LiveOperationFilterParams,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
+    StatusesDistributionResponse,
     TimelineExpenditureResponse,
 )
 from app.analytics.services import AnalyticsService, LiveOperationsService
@@ -60,6 +61,22 @@ def get_service_types_distribution(
     Supports service type filtering for live operations.
     """
     return live_operations_service.get_service_types_distribution(filters)
+
+
+@router.get("/statuses/distribution", response_model=StatusesDistributionResponse)
+def get_statuses_distribution(
+    live_operations_service: Annotated[
+        LiveOperationsService, Depends(get_live_operations_service)
+    ],
+    filters: Annotated[LiveOperationFilterParams, Query()],
+) -> StatusesDistributionResponse:
+    """
+    Get distribution of purposes by status for live operations.
+
+    Returns a pie chart showing purpose counts per status.
+    Automatically excludes completed orders and supports service type filtering.
+    """
+    return live_operations_service.get_statuses_distribution(filters)
 
 
 @router.get("/expenditure/timeline", response_model=TimelineExpenditureResponse)
