@@ -5,15 +5,20 @@ from app.analytics.schemas import (
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingAuthorityItem,
+    PendingStageItem,
+    PendingStagesDistributionResponse,
     ServiceTypeItem,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
     StatusItem,
 )
+from app.purchases.models import Purchase
 from app.purposes.models import Purpose, StatusEnum
 from app.purposes.pending_authority_utils import get_pending_authority_id_query
 from app.responsible_authorities.models import ResponsibleAuthority
 from app.service_types.models import ServiceType
+from app.stage_types.models import StageType
+from app.stages.models import Stage
 
 
 def _apply_filters(query: Select, filters: LiveOperationFilterParams) -> Select:
@@ -149,3 +154,79 @@ class LiveOperationsService:
             authority_items.append(authority_item)
 
         return PendingAuthoritiesDistributionResponse(data=authority_items)
+
+    def get_pending_stages_distribution(
+        self, filters: LiveOperationFilterParams
+    ) -> PendingStagesDistributionResponse:
+        """Get purchase workload distribution across stage types at current priority level.
+
+        Returns stage type counts where each purchase contributes to counts based on
+        its pending stages at the current priority level. A purchase with multiple
+        pending stages at the same priority contributes to multiple stage type counts.
+        """
+
+        # Subquery to find the current priority for each purchase (with live operations filters)
+        current_priority_subquery = (
+            select(
+                Purchase.id.label("purchase_id"),
+                Stage.priority.label("priority_value"),
+            )
+            .select_from(Purchase)
+            .join(Purpose, Purchase.purpose_id == Purpose.id)
+            .join(Stage, Purchase.id == Stage.purchase_id)
+            .join(StageType, Stage.stage_type_id == StageType.id)
+            .where(
+                Stage.completion_date.is_(None),  # Only incomplete stages
+            )
+            .order_by(
+                Purchase.id,
+                Stage.priority.asc(),  # Lowest priority number = highest priority
+                StageType.id.asc(),  # Tie-breaker
+            )
+            .distinct(
+                Purchase.id
+            )  # Get only the first (highest priority) incomplete stage per purchase
+        )
+
+        # Apply live operations filters to subquery using the centralized function
+        current_priority_subquery = _apply_filters(current_priority_subquery, filters)
+        current_priority_subquery = current_priority_subquery.cte("current_priority")
+
+        # Main query: count stages at current priority level
+        query = (
+            select(
+                StageType.id.label("stage_type_id"),
+                StageType.name.label("stage_type_name"),
+                func.count(Stage.id).label("stage_count"),
+            )
+            .select_from(Purpose)
+            .join(Purchase, Purpose.id == Purchase.purpose_id)
+            .join(Stage, Purchase.id == Stage.purchase_id)
+            .join(StageType, Stage.stage_type_id == StageType.id)
+            .join(
+                current_priority_subquery,
+                current_priority_subquery.c.purchase_id == Purchase.id,
+            )
+            .where(
+                Stage.completion_date.is_(None),  # Only incomplete stages
+                # Stage must be at current priority level
+                Stage.priority == current_priority_subquery.c.priority_value,
+            )
+        )
+
+        # Group by stage type (filtering handled by subquery join)
+        query = query.group_by(StageType.id, StageType.name).order_by(StageType.id)
+
+        result = self.db.execute(query).all()
+
+        # Create PendingStageItem objects
+        stage_items = []
+        for row in result:
+            stage_item = PendingStageItem(
+                stage_type_id=row.stage_type_id,
+                stage_type_name=row.stage_type_name,
+                count=int(row.stage_count),
+            )
+            stage_items.append(stage_item)
+
+        return PendingStagesDistributionResponse(data=stage_items)

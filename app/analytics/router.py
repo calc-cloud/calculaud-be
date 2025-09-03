@@ -10,6 +10,7 @@ from app.analytics.schemas import (
     HierarchyDistributionResponse,
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
+    PendingStagesDistributionResponse,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
@@ -98,6 +99,27 @@ def get_pending_authorities_distribution(
     Automatically excludes completed orders and supports service type filtering.
     """
     return live_operations_service.get_pending_authorities_distribution(filters)
+
+
+@router.get(
+    "/pending-stages/distribution", response_model=PendingStagesDistributionResponse
+)
+def get_pending_stages_distribution(
+    live_operations_service: Annotated[
+        LiveOperationsService, Depends(get_live_operations_service)
+    ],
+    filters: Annotated[LiveOperationFilterParams, Query()],
+) -> PendingStagesDistributionResponse:
+    """
+    Get purchase workload distribution across stage types at current priority level.
+
+    Returns a pie chart showing stage type counts where each purchase contributes
+    to counts based on its pending stages at the current priority level.
+    A purchase with multiple pending stages at the same priority contributes to
+    multiple stage type counts, showing workload distribution across different stage types.
+    Automatically excludes completed orders and supports service type filtering.
+    """
+    return live_operations_service.get_pending_stages_distribution(filters)
 
 
 @router.get("/expenditure/timeline", response_model=TimelineExpenditureResponse)

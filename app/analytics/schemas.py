@@ -101,6 +101,14 @@ class PendingAuthorityItem(BaseModel):
     count: int
 
 
+class PendingStageItem(BaseModel):
+    """Pending stage item with count information."""
+
+    stage_type_id: int | None
+    stage_type_name: str | None
+    count: int
+
+
 class HierarchyDistributionResponse(BaseModel):
     """Hierarchy distribution chart with drill-down support."""
 
@@ -131,6 +139,12 @@ class PendingAuthoritiesDistributionResponse(BaseModel):
     """Pending authorities distribution chart response."""
 
     data: list[PendingAuthorityItem]
+
+
+class PendingStagesDistributionResponse(BaseModel):
+    """Pending stages distribution chart response."""
+
+    data: list[PendingStageItem]
 
 
 class LiveOperationFilterParams(BaseModel):
