@@ -5,8 +5,9 @@ from app.analytics.schemas import (
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingAuthorityItem,
-    PendingStageItem,
-    PendingStagesDistributionResponse,
+    PendingStagesStackedDistributionResponse,
+    PendingStageWithBreakdownItem,
+    ServiceTypeBreakdownItem,
     ServiceTypeItem,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
@@ -157,16 +158,17 @@ class LiveOperationsService:
 
     def get_pending_stages_distribution(
         self, filters: LiveOperationFilterParams
-    ) -> PendingStagesDistributionResponse:
-        """Get purchase workload distribution across stage types at current priority level.
+    ) -> PendingStagesStackedDistributionResponse:
+        """Get purchase workload distribution across stage types with service type breakdown.
 
-        Returns stage type counts where each purchase contributes to counts based on
-        its pending stages at the current priority level. A purchase with multiple
-        pending stages at the same priority contributes to multiple stage type counts.
+        Returns stage type counts with service type breakdown for stacked bar charts.
+        Each stage type includes total count and detailed breakdown by service types.
+        A purchase with multiple pending stages at the same priority contributes to
+        multiple stage type counts, with service type breakdown for each.
         """
 
         # Subquery to find the current priority for each purchase (with live operations filters)
-        current_priority_subquery = (
+        subquery = (
             select(
                 Purchase.id.label("purchase_id"),
                 Stage.priority.label("priority_value"),
@@ -189,18 +191,21 @@ class LiveOperationsService:
         )
 
         # Apply live operations filters to subquery using the centralized function
-        current_priority_subquery = _apply_filters(current_priority_subquery, filters)
-        current_priority_subquery = current_priority_subquery.cte("current_priority")
+        subquery = _apply_filters(subquery, filters)
+        current_priority_subquery = subquery.cte("current_priority")
 
-        # Main query: count stages at current priority level
+        # Main query: count stages at current priority level grouped by stage type AND service type
         query = (
             select(
                 StageType.id.label("stage_type_id"),
                 StageType.name.label("stage_type_name"),
+                ServiceType.id.label("service_type_id"),
+                ServiceType.name.label("service_type_name"),
                 func.count(Stage.id).label("stage_count"),
             )
             .select_from(Purpose)
             .join(Purchase, Purpose.id == Purchase.purpose_id)
+            .join(ServiceType, Purpose.service_type_id == ServiceType.id)
             .join(Stage, Purchase.id == Stage.purchase_id)
             .join(StageType, Stage.stage_type_id == StageType.id)
             .join(
@@ -214,19 +219,43 @@ class LiveOperationsService:
             )
         )
 
-        # Group by stage type (filtering handled by subquery join)
-        query = query.group_by(StageType.id, StageType.name).order_by(StageType.id)
+        # Group by both stage type and service type
+        query = query.group_by(
+            StageType.id, StageType.name, ServiceType.id, ServiceType.name
+        ).order_by(StageType.name, ServiceType.name)
 
         result = self.db.execute(query).all()
 
-        # Create PendingStageItem objects
-        stage_items = []
+        # Process results to group by stage type with service type breakdown
+        stage_type_data = {}
+
         for row in result:
-            stage_item = PendingStageItem(
-                stage_type_id=row.stage_type_id,
-                stage_type_name=row.stage_type_name,
+            stage_key = (row.stage_type_id, row.stage_type_name)
+
+            if stage_key not in stage_type_data:
+                stage_type_data[stage_key] = {"total_count": 0, "service_types": []}
+
+            # Add service type breakdown
+            service_breakdown = ServiceTypeBreakdownItem(
+                service_type_id=row.service_type_id,
+                service_type_name=row.service_type_name,
                 count=int(row.stage_count),
+            )
+            stage_type_data[stage_key]["service_types"].append(service_breakdown)
+            stage_type_data[stage_key]["total_count"] += int(row.stage_count)
+
+        # Create final response
+        stage_items = []
+        for (stage_type_id, stage_type_name), data in stage_type_data.items():
+            stage_item = PendingStageWithBreakdownItem(
+                stage_type_id=stage_type_id,
+                stage_type_name=stage_type_name,
+                total_count=data["total_count"],
+                service_types=data["service_types"],
             )
             stage_items.append(stage_item)
 
-        return PendingStagesDistributionResponse(data=stage_items)
+        # Sort by stage type ID for consistent ordering
+        stage_items.sort(key=lambda x: x.stage_type_id or 0)
+
+        return PendingStagesStackedDistributionResponse(data=stage_items)

@@ -10,7 +10,7 @@ from app.analytics.schemas import (
     HierarchyDistributionResponse,
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
-    PendingStagesDistributionResponse,
+    PendingStagesStackedDistributionResponse,
     ServicesQuantityResponse,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
@@ -102,21 +102,26 @@ def get_pending_authorities_distribution(
 
 
 @router.get(
-    "/pending-stages/distribution", response_model=PendingStagesDistributionResponse
+    "/pending-stages/distribution",
+    response_model=PendingStagesStackedDistributionResponse,
 )
 def get_pending_stages_distribution(
     live_operations_service: Annotated[
         LiveOperationsService, Depends(get_live_operations_service)
     ],
     filters: Annotated[LiveOperationFilterParams, Query()],
-) -> PendingStagesDistributionResponse:
+) -> PendingStagesStackedDistributionResponse:
     """
-    Get purchase workload distribution across stage types at current priority level.
+    Get purchase workload distribution across stage types with service type breakdown.
 
-    Returns a pie chart showing stage type counts where each purchase contributes
-    to counts based on its pending stages at the current priority level.
+    Returns stacked bar chart data showing stage types (x-axis) with service type
+    breakdowns (stack segments). Each stage type includes:
+    - total_count: Total number of purchases in this stage type
+    - service_types: Array of service types with their individual counts
+
     A purchase with multiple pending stages at the same priority contributes to
-    multiple stage type counts, showing workload distribution across different stage types.
+    multiple stage type counts, with service type breakdown for each.
+    Perfect for creating stacked bar charts with drill-down capability.
     Automatically excludes completed orders and supports service type filtering.
     """
     return live_operations_service.get_pending_stages_distribution(filters)

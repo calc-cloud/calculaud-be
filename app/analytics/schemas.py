@@ -109,6 +109,23 @@ class PendingStageItem(BaseModel):
     count: int
 
 
+class ServiceTypeBreakdownItem(BaseModel):
+    """Service type breakdown for stacked charts."""
+
+    service_type_id: int
+    service_type_name: str
+    count: int
+
+
+class PendingStageWithBreakdownItem(BaseModel):
+    """Pending stage with service type breakdown for stacked bar charts."""
+
+    stage_type_id: int | None
+    stage_type_name: str | None
+    total_count: int
+    service_types: list[ServiceTypeBreakdownItem]
+
+
 class HierarchyDistributionResponse(BaseModel):
     """Hierarchy distribution chart with drill-down support."""
 
@@ -145,6 +162,12 @@ class PendingStagesDistributionResponse(BaseModel):
     """Pending stages distribution chart response."""
 
     data: list[PendingStageItem]
+
+
+class PendingStagesStackedDistributionResponse(BaseModel):
+    """Pending stages distribution with service type breakdown for stacked charts."""
+
+    data: list[PendingStageWithBreakdownItem]
 
 
 class LiveOperationFilterParams(BaseModel):
