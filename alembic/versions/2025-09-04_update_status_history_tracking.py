@@ -27,24 +27,12 @@ def upgrade() -> None:
         sa.Column('purpose_id', sa.Integer(), nullable=False),
         sa.Column(
             'previous_status',
-            sa.Enum(
-                'IN_PROGRESS',
-                'COMPLETED',
-                'SIGNED',
-                'PARTIALLY_SUPPLIED',
-                name='statusenum'
-            ),
+            sa.Enum(name='statusenum', create_type=False),
             nullable=True
         ),
         sa.Column(
-            'new_status',
-            sa.Enum(
-                'IN_PROGRESS',
-                'COMPLETED',
-                'SIGNED',
-                'PARTIALLY_SUPPLIED',
-                name='statusenum'
-            ),
+            'new_status', 
+            sa.Enum(name='statusenum', create_type=False),
             nullable=False
         ),
         sa.Column(
