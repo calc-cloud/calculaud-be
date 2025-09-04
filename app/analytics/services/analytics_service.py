@@ -93,11 +93,15 @@ class AnalyticsService:
         # Create final response
         service_type_items = []
         for (service_type_id, service_type_name), data in service_type_data.items():
+            # Sort services by quantity descending
+            sorted_services = sorted(
+                data["services"], key=lambda x: x.quantity, reverse=True
+            )
             service_type_item = ServiceTypeWithBreakdownItem(
                 service_type_id=service_type_id,
                 service_type_name=service_type_name,
                 total_quantity=data["total_quantity"],
-                services=data["services"],
+                services=sorted_services,
             )
             service_type_items.append(service_type_item)
 

@@ -32,25 +32,6 @@ def get_live_operations_service(db: Session = Depends(get_db)) -> LiveOperations
     return LiveOperationsService(db)
 
 
-@router.get("/services/quantities", response_model=ServicesQuantityStackedResponse)
-def get_services_quantities(
-    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-    filters: Annotated[FilterParams, Query()],
-) -> ServicesQuantityStackedResponse:
-    """
-    Get service quantity distribution by service type with drill-down support.
-
-    Returns stacked bar chart data showing service types (x-axis) with service
-    breakdowns (stack segments). Each service type includes:
-    - total_quantity: Total quantity across all services in this service type
-    - services: Array of services with their individual quantities
-
-    Perfect for creating stacked bar charts with drill-down capability.
-    Supports all universal filters.
-    """
-    return analytics_service.get_services_quantities(filters)
-
-
 @router.get(
     "/service-types/distribution", response_model=ServiceTypesDistributionResponse
 )
@@ -172,3 +153,22 @@ def get_service_type_status_distribution(
         end_date=end_date,
         service_type_ids=service_type_ids,
     )
+
+
+@router.get("/services/quantities", response_model=ServicesQuantityStackedResponse)
+def get_services_quantities(
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    filters: Annotated[FilterParams, Query()],
+) -> ServicesQuantityStackedResponse:
+    """
+    Get service quantity distribution by service type with drill-down support.
+
+    Returns stacked bar chart data showing service types (x-axis) with service
+    breakdowns (stack segments). Each service type includes:
+    - total_quantity: Total quantity across all services in this service type
+    - services: Array of services with their individual quantities
+
+    Perfect for creating stacked bar charts with drill-down capability.
+    Supports all universal filters.
+    """
+    return analytics_service.get_services_quantities(filters)
