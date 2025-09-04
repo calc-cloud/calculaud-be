@@ -133,11 +133,11 @@ class AnalyticsService:
         # Add date filtering to subquery
         if start_date:
             latest_change_subquery = latest_change_subquery.where(
-                PurposeStatusHistory.changed_at >= start_date
+                func.date(PurposeStatusHistory.changed_at) >= start_date
             )
         if end_date:
             latest_change_subquery = latest_change_subquery.where(
-                PurposeStatusHistory.changed_at <= end_date
+                func.date(PurposeStatusHistory.changed_at) <= end_date
             )
 
         latest_change_subquery = latest_change_subquery.group_by(
