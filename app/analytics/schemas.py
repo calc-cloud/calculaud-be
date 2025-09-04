@@ -1,13 +1,10 @@
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from app.hierarchies.models import HierarchyTypeEnum
-from app.hierarchies.schemas import Hierarchy
-from app.purposes.schemas import FilterParams
+from app.purposes.models import StatusEnum
 from app.service_types.schemas import ServiceType
-from app.services.schemas import Service
 
 
 class ChartDataResponse(BaseModel):
@@ -40,37 +37,6 @@ class TimeSeriesResponse(BaseModel):
 
     labels: list[str]
     datasets: list[TimeSeriesDataset]
-
-
-class ServiceTypeExpenditureItem(BaseModel):
-    """Service type expenditure breakdown item."""
-
-    service_type_id: int
-    name: str
-    total_ils: float
-    total_usd: float
-
-
-class TimelineExpenditureItem(BaseModel):
-    """Timeline expenditure item with service type breakdown."""
-
-    time_period: str
-    total_ils: float
-    total_usd: float
-    data: list[ServiceTypeExpenditureItem]
-
-
-class TimelineExpenditureResponse(BaseModel):
-    """Timeline expenditure response with service type breakdown."""
-
-    items: list[TimelineExpenditureItem]
-    group_by: Literal["day", "week", "month", "year"]
-
-
-class HierarchyItem(Hierarchy):
-    """Hierarchy item with detailed information."""
-
-    count: int
 
 
 class ServiceBreakdownItem(BaseModel):
@@ -125,14 +91,6 @@ class PendingStageWithBreakdownItem(BaseModel):
     stage_type_name: str | None
     total_count: int
     service_types: list[ServiceTypeBreakdownItem]
-
-
-class HierarchyDistributionResponse(BaseModel):
-    """Hierarchy distribution chart with drill-down support."""
-
-    items: list[HierarchyItem]
-    level: HierarchyTypeEnum | None = None
-    parent_name: str | None = None
 
 
 class ServiceTypeWithBreakdownItem(BaseModel):
@@ -191,23 +149,9 @@ class LiveOperationFilterParams(BaseModel):
     ]
 
 
-class ExpenditureTimelineRequest(FilterParams):
-    """Request parameters for expenditure timeline with filters."""
+class ServiceTypeStatusDistributionResponse(BaseModel):
+    """Service type distribution for purposes that changed to a specific status."""
 
-    group_by: Annotated[
-        Literal["day", "week", "month", "year"],
-        Field(default="month", description="Time grouping: day, week, month, year"),
-    ]
-
-
-class HierarchyDistributionRequest(FilterParams):
-    """Request parameters for hierarchy distribution with filters."""
-
-    level: Annotated[
-        HierarchyTypeEnum | None,
-        Field(default=None, description="Hierarchy level to display"),
-    ]
-    parent_id: Annotated[
-        int | None,
-        Field(default=None, description="Parent hierarchy ID for drill-down"),
-    ]
+    data: list[ServiceTypeBreakdownItem]
+    total_count: int
+    target_status: StatusEnum

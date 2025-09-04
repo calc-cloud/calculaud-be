@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -5,19 +6,17 @@ from fastapi.params import Query
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
-    ExpenditureTimelineRequest,
-    HierarchyDistributionRequest,
-    HierarchyDistributionResponse,
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingStagesStackedDistributionResponse,
     ServicesQuantityStackedResponse,
     ServiceTypesDistributionResponse,
+    ServiceTypeStatusDistributionResponse,
     StatusesDistributionResponse,
-    TimelineExpenditureResponse,
 )
 from app.analytics.services import AnalyticsService, LiveOperationsService
 from app.database import get_db
+from app.purposes.models import StatusEnum
 from app.purposes.schemas import FilterParams
 
 router = APIRouter()
@@ -132,42 +131,44 @@ def get_pending_stages_distribution(
     return live_operations_service.get_pending_stages_distribution(filters)
 
 
-@router.get("/expenditure/timeline", response_model=TimelineExpenditureResponse)
-def get_expenditure_timeline(
+@router.get(
+    "/service-types/{status}/distribution",
+    response_model=ServiceTypeStatusDistributionResponse,
+)
+def get_service_type_status_distribution(
+    status: StatusEnum,
     analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-    request: Annotated[ExpenditureTimelineRequest, Query()],
-) -> TimelineExpenditureResponse:
+    start_date: Annotated[date | None, Query()] = None,
+    end_date: Annotated[date | None, Query()] = None,
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
+    ] = None,
+) -> ServiceTypeStatusDistributionResponse:
     """
-    Get expenditure over time with service type breakdown.
+    Get service type distribution for purposes that changed to a specific status.
 
-    Returns expenditure data grouped by time periods, with detailed breakdown
-    by service type for each period. Each item includes:
-    - time_period: The grouped time period (e.g., "2024-01")
-    - total_ils: Total expenditure in ILS for the period
-    - total_usd: Total expenditure in USD for the period
-    - data: Array of service types with their expenditure amounts
+    Returns a pie chart showing purpose counts per service type for purposes that
+    changed to the specified status within the given timeframe. For purposes that
+    changed to the target status multiple times, only counts the latest occurrence.
 
-    Supports all universal filters and time grouping (day, week, month, year).
-    """
-    return analytics_service.get_expenditure_timeline(request, request)
-
-
-@router.get("/hierarchies/distribution", response_model=HierarchyDistributionResponse)
-def get_hierarchy_distribution(
-    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-    request: Annotated[HierarchyDistributionRequest, Query()],
-) -> HierarchyDistributionResponse:
-    """
-    Get distribution of purposes by hierarchy with drill-down support.
-
-    Returns a pie chart showing purpose counts per hierarchy level.
-    Supports drill-down navigation through hierarchy levels:
-    UNIT → CENTER → ANAF → MADOR → TEAM
+    Path parameters:
+    - status: The target status to analyze (e.g., COMPLETED, SIGNED)
 
     Query parameters:
-    - level: Hierarchy level to display (optional, defaults to UNIT)
-    - parent_id: Parent hierarchy ID for drill-down (optional)
+    - start_date: Start date for filtering status changes (optional)
+    - end_date: End date for filtering status changes (optional)
+    - service_type_id: Filter by specific service type IDs (optional, can be repeated)
 
-    Supports all universal filters.
+    Perfect for creating pie charts showing "How many purposes became COMPLETED
+    in January, broken down by service type?"
     """
-    return analytics_service.get_hierarchy_distribution(request, request)
+    return analytics_service.get_service_type_status_distribution(
+        target_status=status,
+        start_date=start_date,
+        end_date=end_date,
+        service_type_ids=service_type_ids,
+    )
