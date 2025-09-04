@@ -73,11 +73,12 @@ class HierarchyItem(Hierarchy):
     count: int
 
 
-class ServiceItem(Service):
-    """Service item with quantity information."""
+class ServiceBreakdownItem(BaseModel):
+    """Service breakdown for stacked charts."""
 
-    quantity: float
-    service_type_name: str
+    service_id: int
+    service_name: str
+    quantity: int
 
 
 class ServiceTypeItem(ServiceType):
@@ -134,10 +135,19 @@ class HierarchyDistributionResponse(BaseModel):
     parent_name: str | None = None
 
 
-class ServicesQuantityResponse(BaseModel):
-    """Services quantity chart response."""
+class ServiceTypeWithBreakdownItem(BaseModel):
+    """Service type with service breakdown for stacked bar charts."""
 
-    data: list[ServiceItem]
+    service_type_id: int
+    service_type_name: str
+    total_quantity: int
+    services: list[ServiceBreakdownItem]
+
+
+class ServicesQuantityStackedResponse(BaseModel):
+    """Services quantity stacked chart response."""
+
+    data: list[ServiceTypeWithBreakdownItem]
 
 
 class ServiceTypesDistributionResponse(BaseModel):

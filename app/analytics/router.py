@@ -11,7 +11,7 @@ from app.analytics.schemas import (
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingStagesStackedDistributionResponse,
-    ServicesQuantityResponse,
+    ServicesQuantityStackedResponse,
     ServiceTypesDistributionResponse,
     StatusesDistributionResponse,
     TimelineExpenditureResponse,
@@ -33,15 +33,20 @@ def get_live_operations_service(db: Session = Depends(get_db)) -> LiveOperations
     return LiveOperationsService(db)
 
 
-@router.get("/services/quantities", response_model=ServicesQuantityResponse)
+@router.get("/services/quantities", response_model=ServicesQuantityStackedResponse)
 def get_services_quantities(
     analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
     filters: Annotated[FilterParams, Query()],
-) -> ServicesQuantityResponse:
+) -> ServicesQuantityStackedResponse:
     """
-    Get total quantities for each service.
+    Get service quantity distribution by service type with drill-down support.
 
-    Returns a bar chart with services on x-axis and quantities on y-axis.
+    Returns stacked bar chart data showing service types (x-axis) with service
+    breakdowns (stack segments). Each service type includes:
+    - total_quantity: Total quantity across all services in this service type
+    - services: Array of services with their individual quantities
+
+    Perfect for creating stacked bar charts with drill-down capability.
     Supports all universal filters.
     """
     return analytics_service.get_services_quantities(filters)

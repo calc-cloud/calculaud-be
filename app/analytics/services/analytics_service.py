@@ -7,9 +7,10 @@ from app.analytics.schemas import (
     HierarchyDistributionRequest,
     HierarchyDistributionResponse,
     HierarchyItem,
-    ServiceItem,
-    ServicesQuantityResponse,
+    ServiceBreakdownItem,
+    ServicesQuantityStackedResponse,
     ServiceTypeExpenditureItem,
+    ServiceTypeWithBreakdownItem,
     TimelineExpenditureItem,
     TimelineExpenditureResponse,
 )
@@ -77,19 +78,25 @@ class AnalyticsService:
 
     def get_services_quantities(
         self, filters: FilterParams
-    ) -> ServicesQuantityResponse:
-        """Get total quantities for each service."""
+    ) -> ServicesQuantityStackedResponse:
+        """Get total quantities for each service type with service breakdown.
 
-        # Build query conditions manually for better control
+        Returns stacked bar chart data showing service types (x-axis) with service
+        breakdowns (stack segments). Each service type includes:
+        - total_quantity: Total quantity across all services in this service type
+        - services: Array of services with their individual quantities
 
-        # Base query with joins - select all Service fields, ServiceType name, and quantity
+        Perfect for creating stacked bar charts with drill-down capability.
+        """
+
+        # Base query with joins - select service type, service, and quantity
         query = (
             select(
-                Service.id,
-                Service.name,
-                Service.service_type_id,
+                ServiceType.id.label("service_type_id"),
                 ServiceType.name.label("service_type_name"),
-                func.sum(PurposeContent.quantity).label("total_quantity"),
+                Service.id.label("service_id"),
+                Service.name.label("service_name"),
+                func.sum(PurposeContent.quantity).label("service_quantity"),
             )
             .select_from(Purpose)
             .join(PurposeContent, Purpose.id == PurposeContent.purpose_id)
@@ -101,26 +108,51 @@ class AnalyticsService:
             query, filters, self.db, purpose_content_table_joined=True
         )
 
-        # Group by service
+        # Group by both service type and service
         query = query.group_by(
-            Service.id, Service.name, Service.service_type_id, ServiceType.name
-        ).order_by(Service.name)
+            ServiceType.id, ServiceType.name, Service.id, Service.name
+        ).order_by(ServiceType.name, Service.name)
 
         result = self.db.execute(query).all()
 
-        # Create ServiceItem objects
-        service_items = []
-        for row in result:
-            service_item = ServiceItem(
-                id=row.id,
-                name=row.name,
-                service_type_id=row.service_type_id,
-                service_type_name=row.service_type_name,
-                quantity=float(row.total_quantity),
-            )
-            service_items.append(service_item)
+        # Process results to group by service type with service breakdown
+        service_type_data = {}
 
-        return ServicesQuantityResponse(data=service_items)
+        for row in result:
+            service_type_key = (row.service_type_id, row.service_type_name)
+
+            if service_type_key not in service_type_data:
+                service_type_data[service_type_key] = {
+                    "total_quantity": 0,
+                    "services": [],
+                }
+
+            # Add service breakdown
+            service_breakdown = ServiceBreakdownItem(
+                service_id=row.service_id,
+                service_name=row.service_name,
+                quantity=int(row.service_quantity),
+            )
+            service_type_data[service_type_key]["services"].append(service_breakdown)
+            service_type_data[service_type_key]["total_quantity"] += int(
+                row.service_quantity
+            )
+
+        # Create final response
+        service_type_items = []
+        for (service_type_id, service_type_name), data in service_type_data.items():
+            service_type_item = ServiceTypeWithBreakdownItem(
+                service_type_id=service_type_id,
+                service_type_name=service_type_name,
+                total_quantity=data["total_quantity"],
+                services=data["services"],
+            )
+            service_type_items.append(service_type_item)
+
+        # Sort by service type ID for consistent ordering
+        service_type_items.sort(key=lambda x: x.service_type_id)
+
+        return ServicesQuantityStackedResponse(data=service_type_items)
 
     def get_expenditure_timeline(
         self, filters: FilterParams, timeline_params: ExpenditureTimelineRequest
