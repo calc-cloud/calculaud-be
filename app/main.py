@@ -52,9 +52,6 @@ app = FastAPI(
     swagger_ui_init_oauth=swagger_ui_init_oauth,
     lifespan=lifespan,
     root_path=settings.root_path,  # Enable reverse proxy path prefix support
-    docs_url=f"{settings.root_path}/docs",
-    redoc_url=f"{settings.root_path}/redoc",
-    openapi_url=f"{settings.root_path}/openapi.json",
 )
 
 # Add CORS middleware
