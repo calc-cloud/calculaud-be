@@ -18,6 +18,9 @@ class Settings(BaseSettings):
 
     # API
     api_v1_prefix: Annotated[str, Field(default="/api/v1")]
+    root_path: Annotated[
+        str, Field(default="")
+    ]  # For reverse proxy path prefix (e.g., "/staging")
 
     # Pagination
     default_page_size: Annotated[int, Field(default=100)]
