@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.budget_sources.models import BudgetSource
     from app.costs.models import Cost
     from app.predefined_flows.models import PredefinedFlow
     from app.purposes.models import Purpose
@@ -24,6 +25,9 @@ class Purchase(Base):
     predefined_flow_id: Mapped[int | None] = mapped_column(
         ForeignKey("predefined_flow.id"), nullable=True
     )
+    budget_source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("budget_source.id"), nullable=True, index=True
+    )
     creation_date: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, server_default=func.now(), nullable=False
     )
@@ -32,6 +36,9 @@ class Purchase(Base):
     purpose: Mapped["Purpose"] = relationship("Purpose", back_populates="purchases")
     predefined_flow: Mapped["PredefinedFlow"] = relationship(
         "PredefinedFlow", back_populates="purchases"
+    )
+    budget_source: Mapped["BudgetSource | None"] = relationship(
+        "BudgetSource", back_populates="purchases"
     )
     stages: Mapped[list["Stage"]] = relationship(
         "Stage", back_populates="purchase", cascade="all, delete-orphan"

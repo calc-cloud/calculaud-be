@@ -4,16 +4,32 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app import CurrencyEnum, Stage
+from app.budget_sources.exceptions import BudgetSourceNotFound
+from app.budget_sources.models import BudgetSource
 from app.costs.models import Cost
 from app.predefined_flows import service as predefined_flow_service
 from app.purchases.consts import PredefinedFlowName
 from app.purchases.exceptions import PurchaseNotFound
 from app.purchases.models import Purchase
-from app.purchases.schemas import PurchaseCreate
+from app.purchases.schemas import PurchaseCreate, PurchaseUpdate
+
+
+def _validate_budget_source_exists(db: Session, budget_source_id: int | None) -> None:
+    """Validate that budget_source_id exists if provided."""
+    if budget_source_id is not None:
+        stmt = select(BudgetSource).where(BudgetSource.id == budget_source_id)
+        budget_source = db.execute(stmt).scalar_one_or_none()
+        if not budget_source:
+            raise BudgetSourceNotFound(
+                f"Budget source with ID {budget_source_id} not found"
+            )
 
 
 def create_purchase(db: Session, purchase_data: PurchaseCreate) -> Purchase:
     """Create a new purchase."""
+    # Validate budget source if provided
+    _validate_budget_source_exists(db, purchase_data.budget_source_id)
+
     # Extract costs data before creating purchase
     costs_data = purchase_data.costs
     purchase_dict = purchase_data.model_dump(exclude={"costs"})
@@ -67,6 +83,7 @@ def get_purchase(db: Session, purchase_id: int) -> Purchase:
             joinedload(Purchase.stages).joinedload(Stage.stage_type),
             joinedload(Purchase.predefined_flow),
             joinedload(Purchase.costs),
+            joinedload(Purchase.budget_source),
         )
         .where(Purchase.id == purchase_id)
     )
@@ -76,6 +93,29 @@ def get_purchase(db: Session, purchase_id: int) -> Purchase:
         raise PurchaseNotFound(purchase_id)
 
     return purchase
+
+
+def patch_purchase(
+    db: Session, purchase_id: int, purchase_update: PurchaseUpdate
+) -> Purchase:
+    """Patch an existing purchase."""
+    stmt = select(Purchase).where(Purchase.id == purchase_id)
+    db_purchase = db.execute(stmt).scalar_one_or_none()
+    if not db_purchase:
+        raise PurchaseNotFound(f"Purchase with ID {purchase_id} not found")
+
+    update_data = purchase_update.model_dump(exclude_unset=True)
+
+    # Validate budget source if being updated
+    if "budget_source_id" in update_data:
+        _validate_budget_source_exists(db, update_data["budget_source_id"])
+
+    for field, value in update_data.items():
+        setattr(db_purchase, field, value)
+
+    db.commit()
+    db.refresh(db_purchase)
+    return db_purchase
 
 
 def delete_purchase(db: Session, purchase_id: int) -> None:

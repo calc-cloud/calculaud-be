@@ -33,6 +33,7 @@ def get_base_purpose_select():
         .joinedload(Purchase.stages)
         .joinedload(Stage.stage_type),
         joinedload(Purpose.purchases).joinedload(Purchase.costs),
+        joinedload(Purpose.purchases).joinedload(Purchase.budget_source),
     )
 
 

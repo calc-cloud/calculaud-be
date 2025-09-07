@@ -1,4 +1,5 @@
 # Import all models to ensure they are registered with SQLAlchemy
+from .budget_sources.models import BudgetSource  # noqa: F401
 from .costs.models import Cost, CurrencyEnum  # noqa: F401
 from .files.models import FileAttachment  # noqa: F401
 from .hierarchies.models import Hierarchy, HierarchyTypeEnum  # noqa: F401
