@@ -21,7 +21,7 @@ def create_purchase(
     try:
         return service.create_purchase(db, purchase_data)
     except BudgetSourceNotFound as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.get("/{purchase_id}", response_model=PurchaseResponse)
@@ -48,7 +48,7 @@ def patch_purchase(
     except PurchaseNotFound as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
     except BudgetSourceNotFound as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)

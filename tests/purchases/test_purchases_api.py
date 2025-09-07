@@ -198,7 +198,7 @@ class TestPurchaseAPI:
         response = test_client.patch(
             f"{purchase_endpoint}/{sample_purchase.id}", json=update_data
         )
-        assert response.status_code == 404
+        assert response.status_code == 400
         assert (
             f"Budget source with ID {invalid_budget_source_id} not found"
             in response.json()["detail"]
