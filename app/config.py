@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     auth_oidc_url: str  # OIDC discovery URL (.well-known/openid-configuration)
     auth_audience: str | None = None
 
+    # Role-based access control
+    required_role: Annotated[str, Field(default="calUsers")]
+    role_claim_path: Annotated[str, Field(default="role")]
+
     # OAuth2 Client Configuration (for Swagger UI authorization)
     oauth_client_id: str | None = None
     oauth_scopes: Annotated[str, Field(default="openid")]

@@ -602,7 +602,7 @@ def seed_purposes_with_purchases_and_costs(
     hierarchy_ids: list[int],
     service_type_ids: list[int],
     services_by_type_id: dict[int, list[int]],
-    num_purposes: int = 100,
+    num_purposes: int = 40,
 ) -> None:
     """Create purposes with purchases and costs."""
 
@@ -775,7 +775,7 @@ def seed_stage_data():
         session.close()
 
 
-def seed_mock_data(num_purposes: int = 100):
+def seed_mock_data(num_purposes: int = 40):
     """Create all mock data including suppliers, hierarchies, service types, and purposes."""
     session = get_session()
 
@@ -871,7 +871,7 @@ def main():
     parser.add_argument(
         "--num-purposes",
         type=int,
-        default=100,
+        default=40,
         help="Number of purposes to create for mock data (default: 100)",
     )
 

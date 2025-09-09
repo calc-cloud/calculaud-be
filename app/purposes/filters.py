@@ -58,6 +58,10 @@ def apply_filters(
         pending_authority_subq = get_pending_authority_id_query(Purpose.id)
         conditions.append(pending_authority_subq.in_(filters.pending_authorities))
 
+    # Flagged filter
+    if filters.is_flagged is not None:
+        conditions.append(Purpose.is_flagged == filters.is_flagged)
+
     # Apply all conditions
     if conditions:
         query = query.where(and_(*conditions))

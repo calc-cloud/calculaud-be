@@ -112,7 +112,7 @@ class TestAnalyticsAPI:
         }
 
     def test_get_services_quantities(self, test_client: TestClient, setup_test_data):
-        """Test services quantities endpoint."""
+        """Test services quantities endpoint with stacked format."""
 
         response = test_client.get("/api/v1/analytics/services/quantities")
 
@@ -120,21 +120,39 @@ class TestAnalyticsAPI:
         data = response.json()
 
         assert "data" in data
-        assert len(data["data"]) == 3
+        # Should have 2 service types: Consulting and Equipment
+        assert len(data["data"]) == 2
 
-        # Check that services are included
-        service_names = [item["name"] for item in data["data"]]
+        # Check service type structure
+        service_type_names = [item["service_type_name"] for item in data["data"]]
+        assert "Consulting" in service_type_names
+        assert "Equipment" in service_type_names
+
+        # Check structure of service type items
+        consulting_item = next(
+            item for item in data["data"] if item["service_type_name"] == "Consulting"
+        )
+        assert "service_type_id" in consulting_item
+        assert "service_type_name" in consulting_item
+        assert "total_quantity" in consulting_item
+        assert "services" in consulting_item
+
+        # Check services breakdown
+        assert len(consulting_item["services"]) == 2
+        assert consulting_item["total_quantity"] == 8  # 5 + 3
+
+        # Check individual services in breakdown
+        service_names = [
+            service["service_name"] for service in consulting_item["services"]
+        ]
         assert "IT Consulting" in service_names
         assert "Software License" in service_names
-        assert "Hardware" in service_names
 
-        # Check structure of service items
-        first_item = data["data"][0]
-        assert "id" in first_item
-        assert "name" in first_item
-        assert "service_type_id" in first_item
-        assert "service_type_name" in first_item
-        assert "quantity" in first_item
+        # Check service structure
+        first_service = consulting_item["services"][0]
+        assert "service_id" in first_service
+        assert "service_name" in first_service
+        assert "quantity" in first_service
 
     def test_get_services_quantities_with_filters(
         self, test_client: TestClient, setup_test_data
@@ -149,17 +167,24 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        # Should only include services from January (purpose1)
-        assert len(data["data"]) == 2
-        service_names = [item["name"] for item in data["data"]]
+        # Should only include service types from January (purpose1 - only Consulting type)
+        assert len(data["data"]) == 1
+        service_type_names = [item["service_type_name"] for item in data["data"]]
+        assert "Consulting" in service_type_names
+
+        # Check that it includes the correct services
+        consulting_item = data["data"][0]
+        service_names = [
+            service["service_name"] for service in consulting_item["services"]
+        ]
         assert "IT Consulting" in service_names
         assert "Software License" in service_names
-        assert "Hardware" not in service_names
+        # Hardware should not be included as it's from purpose2 (February)
 
     def test_get_service_types_distribution(
         self, test_client: TestClient, setup_test_data
     ):
-        """Test service types distribution endpoint."""
+        """Test service types distribution endpoint (live operations - excludes completed)."""
 
         response = test_client.get("/api/v1/analytics/service-types/distribution")
 
@@ -167,133 +192,19 @@ class TestAnalyticsAPI:
         data = response.json()
 
         assert "data" in data
-        assert len(data["data"]) == 2
+        # Only 1 service type expected since purpose2 (Equipment) is COMPLETED and gets filtered out
+        assert len(data["data"]) == 1
 
-        # Check service types are included
+        # Check only Consulting service type is included (purpose1 is IN_PROGRESS)
         service_type_names = [item["name"] for item in data["data"]]
         assert "Consulting" in service_type_names
-        assert "Equipment" in service_type_names
+        # Equipment is excluded because purpose2 has COMPLETED status
 
         # Check structure of service type items
         first_item = data["data"][0]
         assert "id" in first_item
         assert "name" in first_item
         assert "count" in first_item
-
-    def test_get_expenditure_timeline_ils(
-        self, test_client: TestClient, setup_test_data
-    ):
-        """Test expenditure timeline with service type breakdown."""
-
-        response = test_client.get(
-            "/api/v1/analytics/expenditure/timeline",
-            params={"currency": "ILS", "group_by": "month"},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "items" in data
-        assert "group_by" in data
-        assert data["group_by"] == "month"
-        assert len(data["items"]) > 0
-
-        # Check structure of first item
-        first_item = data["items"][0]
-        assert "time_period" in first_item
-        assert "total_ils" in first_item
-        assert "total_usd" in first_item
-        assert "data" in first_item
-
-        # Check service type breakdown
-        if first_item["data"]:
-            service_type = first_item["data"][0]
-            assert "service_type_id" in service_type
-            assert "name" in service_type
-            assert "total_ils" in service_type
-            assert "total_usd" in service_type
-
-    def test_get_expenditure_timeline_usd(
-        self, test_client: TestClient, setup_test_data
-    ):
-        """Test expenditure timeline with different group_by parameter."""
-
-        response = test_client.get(
-            "/api/v1/analytics/expenditure/timeline",
-            params={"currency": "SUPPORT_USD", "group_by": "year"},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "items" in data
-        assert "group_by" in data
-        assert data["group_by"] == "year"
-        assert len(data["items"]) > 0
-
-        # Check structure of first item
-        first_item = data["items"][0]
-        assert "time_period" in first_item
-        assert "total_ils" in first_item
-        assert "total_usd" in first_item
-        assert "data" in first_item
-
-        # Check service type breakdown
-        if first_item["data"]:
-            service_type = first_item["data"][0]
-            assert "service_type_id" in service_type
-            assert "name" in service_type
-            assert "total_ils" in service_type
-            assert "total_usd" in service_type
-
-    def test_get_hierarchy_distribution_default(
-        self, test_client: TestClient, setup_test_data
-    ):
-        """Test hierarchy distribution with default level."""
-
-        response = test_client.get("/api/v1/analytics/hierarchies/distribution")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "items" in data
-        assert "level" in data
-        assert data["level"] == "UNIT"
-        assert len(data["items"]) > 0
-
-        # Check that Test Unit is in the items
-        unit_names = [item["name"] for item in data["items"]]
-        assert "Test Unit" in unit_names
-
-        # Verify item structure
-        first_item = data["items"][0]
-        assert "id" in first_item
-        assert "name" in first_item
-        assert "path" in first_item
-        assert "type" in first_item
-        assert "count" in first_item
-
-    def test_get_hierarchy_distribution_with_level(
-        self, test_client: TestClient, setup_test_data
-    ):
-        """Test hierarchy distribution with specific level."""
-
-        unit_id = setup_test_data["unit"].id
-
-        response = test_client.get(
-            "/api/v1/analytics/hierarchies/distribution",
-            params={"level": "CENTER", "parent_id": unit_id},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert data["level"] == "CENTER"
-        assert data["parent_name"] == "Test Unit"
-
-        # Check that Test Center is in the items
-        center_names = [item["name"] for item in data["items"]]
-        assert "Test Center" in center_names
 
     def test_analytics_endpoints_with_status_filter(
         self, test_client: TestClient, setup_test_data
@@ -329,8 +240,8 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        # Should include all services since both purposes are in the center
-        assert len(data["data"]) == 3
+        # Should include all service types since both purposes are in the center
+        assert len(data["data"]) == 2  # Consulting and Equipment service types
 
     def test_analytics_endpoints_with_service_type_filter(
         self, test_client: TestClient, setup_test_data
@@ -347,12 +258,18 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        # Should only show consulting services
-        assert len(data["data"]) == 2
-        service_names = [item["name"] for item in data["data"]]
+        # Should only show consulting service type
+        assert len(data["data"]) == 1
+        consulting_item = data["data"][0]
+        assert consulting_item["service_type_name"] == "Consulting"
+
+        # Check the services within the consulting type
+        service_names = [
+            service["service_name"] for service in consulting_item["services"]
+        ]
         assert "IT Consulting" in service_names
         assert "Software License" in service_names
-        assert "Hardware" not in service_names
+        # Hardware should not be included as it's Equipment type
 
     def test_analytics_endpoints_with_supplier_filter(
         self, test_client: TestClient, setup_test_data
@@ -369,5 +286,5 @@ class TestAnalyticsAPI:
         assert response.status_code == 200
         data = response.json()
 
-        # Should include both service types since both purposes use this supplier
-        assert len(data["data"]) == 2
+        # Should include only 1 service type (Consulting) since Equipment purpose is COMPLETED and filtered out
+        assert len(data["data"]) == 1

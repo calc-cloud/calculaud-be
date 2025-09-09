@@ -1,12 +1,10 @@
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from fastapi import Query
+from pydantic import BaseModel
 
-from app.hierarchies.models import HierarchyTypeEnum
-from app.hierarchies.schemas import Hierarchy
-from app.purposes.schemas import FilterParams
+from app.purposes.models import StatusEnum
 from app.service_types.schemas import ServiceType
-from app.services.schemas import Service
 
 
 class ChartDataResponse(BaseModel):
@@ -41,42 +39,12 @@ class TimeSeriesResponse(BaseModel):
     datasets: list[TimeSeriesDataset]
 
 
-class ServiceTypeExpenditureItem(BaseModel):
-    """Service type expenditure breakdown item."""
+class ServiceBreakdownItem(BaseModel):
+    """Service breakdown for stacked charts."""
 
-    service_type_id: int
-    name: str
-    total_ils: float
-    total_usd: float
-
-
-class TimelineExpenditureItem(BaseModel):
-    """Timeline expenditure item with service type breakdown."""
-
-    time_period: str
-    total_ils: float
-    total_usd: float
-    data: list[ServiceTypeExpenditureItem]
-
-
-class TimelineExpenditureResponse(BaseModel):
-    """Timeline expenditure response with service type breakdown."""
-
-    items: list[TimelineExpenditureItem]
-    group_by: Literal["day", "week", "month", "year"]
-
-
-class HierarchyItem(Hierarchy):
-    """Hierarchy item with detailed information."""
-
-    count: int
-
-
-class ServiceItem(Service):
-    """Service item with quantity information."""
-
-    quantity: float
-    service_type_name: str
+    service_id: int
+    service_name: str
+    quantity: int
 
 
 class ServiceTypeItem(ServiceType):
@@ -85,18 +53,59 @@ class ServiceTypeItem(ServiceType):
     count: int
 
 
-class HierarchyDistributionResponse(BaseModel):
-    """Hierarchy distribution chart with drill-down support."""
+class StatusItem(BaseModel):
+    """Status item with count information."""
 
-    items: list[HierarchyItem]
-    level: HierarchyTypeEnum | None = None
-    parent_name: str | None = None
+    status: str
+    count: int
 
 
-class ServicesQuantityResponse(BaseModel):
-    """Services quantity chart response."""
+class PendingAuthorityItem(BaseModel):
+    """Pending authority item with count information."""
 
-    data: list[ServiceItem]
+    authority_id: int | None
+    authority_name: str | None
+    count: int
+
+
+class PendingStageItem(BaseModel):
+    """Pending stage item with count information."""
+
+    stage_type_id: int | None
+    stage_type_name: str | None
+    count: int
+
+
+class ServiceTypeBreakdownItem(BaseModel):
+    """Service type breakdown for stacked charts."""
+
+    service_type_id: int
+    service_type_name: str
+    count: int
+
+
+class PendingStageWithBreakdownItem(BaseModel):
+    """Pending stage with service type breakdown for stacked bar charts."""
+
+    stage_type_id: int | None
+    stage_type_name: str | None
+    total_count: int
+    service_types: list[ServiceTypeBreakdownItem]
+
+
+class ServiceTypeWithBreakdownItem(BaseModel):
+    """Service type with service breakdown for stacked bar charts."""
+
+    service_type_id: int
+    service_type_name: str
+    total_quantity: int
+    services: list[ServiceBreakdownItem]
+
+
+class ServicesQuantityStackedResponse(BaseModel):
+    """Services quantity stacked chart response."""
+
+    data: list[ServiceTypeWithBreakdownItem]
 
 
 class ServiceTypesDistributionResponse(BaseModel):
@@ -105,23 +114,44 @@ class ServiceTypesDistributionResponse(BaseModel):
     data: list[ServiceTypeItem]
 
 
-class ExpenditureTimelineRequest(FilterParams):
-    """Request parameters for expenditure timeline with filters."""
+class StatusesDistributionResponse(BaseModel):
+    """Status distribution chart response."""
 
-    group_by: Annotated[
-        Literal["day", "week", "month", "year"],
-        Field(default="month", description="Time grouping: day, week, month, year"),
+    data: list[StatusItem]
+
+
+class PendingAuthoritiesDistributionResponse(BaseModel):
+    """Pending authorities distribution chart response."""
+
+    data: list[PendingAuthorityItem]
+
+
+class PendingStagesDistributionResponse(BaseModel):
+    """Pending stages distribution chart response."""
+
+    data: list[PendingStageItem]
+
+
+class PendingStagesStackedDistributionResponse(BaseModel):
+    """Pending stages distribution with service type breakdown for stacked charts."""
+
+    data: list[PendingStageWithBreakdownItem]
+
+
+class LiveOperationFilterParams(BaseModel):
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
     ]
 
 
-class HierarchyDistributionRequest(FilterParams):
-    """Request parameters for hierarchy distribution with filters."""
+class ServiceTypeStatusDistributionResponse(BaseModel):
+    """Service type distribution for purposes that changed to a specific status."""
 
-    level: Annotated[
-        HierarchyTypeEnum | None,
-        Field(default=None, description="Hierarchy level to display"),
-    ]
-    parent_id: Annotated[
-        int | None,
-        Field(default=None, description="Parent hierarchy ID for drill-down"),
-    ]
+    data: list[ServiceTypeBreakdownItem]
+    total_count: int
+    target_status: StatusEnum

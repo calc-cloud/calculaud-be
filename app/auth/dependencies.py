@@ -5,6 +5,8 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Security
 from starlette.status import HTTP_403_FORBIDDEN
 
+from app.config import settings
+
 from .schemas import TokenInfo, User
 from .security import openid_connect
 
@@ -35,27 +37,6 @@ def get_current_user(token_info: Annotated[TokenInfo, Depends(require_auth)]) ->
         User: Current authenticated user
     """
     return token_info.user
-
-
-def require_admin(token_info: Annotated[TokenInfo, Depends(require_auth)]) -> TokenInfo:
-    """
-    Require admin role for endpoint access.
-
-    Args:
-        token_info: Validated token information
-
-    Returns:
-        TokenInfo: Validated token information
-
-    Raises:
-        HTTPException: If user lacks admin role
-    """
-    if not token_info.user.has_role("admin"):
-        raise HTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Admin role required"
-        )
-
-    return token_info
 
 
 def require_roles(*required_roles: str):
@@ -109,6 +90,4 @@ def require_all_roles(*required_roles: str):
 
 
 # Common role-based dependencies
-require_user = require_auth  # Alias for basic authentication
-require_manager = require_roles("manager", "admin")
-require_viewer = require_roles("viewer", "manager", "admin")
+require_user = require_roles(settings.required_role)

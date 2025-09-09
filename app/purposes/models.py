@@ -3,6 +3,7 @@ from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     Enum,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
+from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.database import Base
 
@@ -68,6 +70,9 @@ class Purpose(Base):
     service_type_id: Mapped[int | None] = mapped_column(
         ForeignKey("service_type.id"), nullable=True, index=True
     )
+    is_flagged: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
+    )
 
     # Relationships
     hierarchy: Mapped["Hierarchy"] = relationship(
@@ -83,6 +88,9 @@ class Purpose(Base):
     )
     purchases: Mapped[list["Purchase"]] = relationship(
         "Purchase", back_populates="purpose", cascade="all, delete-orphan"
+    )
+    status_history: Mapped[list["PurposeStatusHistory"]] = relationship(
+        "PurposeStatusHistory", back_populates="purpose", cascade="all, delete-orphan"
     )
 
     @property
@@ -155,6 +163,30 @@ class PurposeContent(Base):
     )
 
 
+class PurposeStatusHistory(Base):
+    __tablename__ = "purpose_status_history"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    purpose_id: Mapped[int] = mapped_column(
+        ForeignKey("purpose.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    previous_status: Mapped[StatusEnum | None] = mapped_column(
+        Enum(StatusEnum), nullable=True, index=True
+    )
+    new_status: Mapped[StatusEnum] = mapped_column(
+        Enum(StatusEnum), nullable=False, index=True
+    )
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, server_default=func.now(), index=True
+    )
+    changed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Relationships
+    purpose: Mapped["Purpose"] = relationship(back_populates="status_history")
+
+
 def update_purpose_last_modified(connection, purpose_id: int) -> None:
     """Update the last_modified timestamp for a Purpose."""
     connection.execute(
@@ -188,3 +220,39 @@ def _update_purpose_on_content_change(
     """Update Purpose.last_modified when PurposeContent changes."""
     if hasattr(target, "purpose_id") and target.purpose_id:
         update_purpose_last_modified(connection, target.purpose_id)
+
+
+# Event listeners for Purpose status changes
+@event.listens_for(Purpose.status, "set")
+def _track_purpose_status_change(target, value, oldvalue, _initiator):
+    """Track status changes in purpose_status_history table."""
+    # Skip if this is the initial value setting or no actual change
+    if oldvalue is None or oldvalue == value:
+        return
+
+    # Get the session from the target object
+    session = object_session(target)
+    if not session:
+        return
+
+    # If oldvalue is NO_VALUE, get the actual current value from the database
+    if oldvalue is NO_VALUE:
+        # Refresh the object to get the current status from the database
+        session.refresh(target, attribute_names=["status"])
+        actual_oldvalue = target.status
+
+        # If the new value is the same as what's in the database, skip
+        if actual_oldvalue == value:
+            return
+
+        oldvalue = actual_oldvalue
+
+    # Create status history record
+    status_history = PurposeStatusHistory(
+        purpose_id=target.id,
+        previous_status=oldvalue,
+        new_status=value,
+        changed_at=datetime.now(),
+        changed_by=None,  # TODO: Add user context when authentication is implemented
+    )
+    session.add(status_history)
