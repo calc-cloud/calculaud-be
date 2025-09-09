@@ -1,9 +1,15 @@
 #!/bin/bash
 set -e
 
+# Get script directory for relative paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Get default values from Chart.yaml
+DEFAULT_IMAGE=$("$SCRIPT_DIR/get-chart-config.sh" image 2>/dev/null || echo "calculaud/calculaud-be:latest")
+
 # Defaults
 NAMESPACE="calculaud"
-IMAGE="calculaud/calculaud-be:latest"
+IMAGE="$DEFAULT_IMAGE"
 COMMAND="upgrade"
 REVISION="head"
 

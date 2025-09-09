@@ -12,10 +12,14 @@ PACKAGE_DIR="$PROJECT_ROOT/onprem-package"
 OUTPUT_FILE="calculaud-onprem-$(date +%Y%m%d-%H%M%S).tar.gz"
 TEMP_DIR=$(mktemp -d)
 
+# Get default values from Chart.yaml
+DEFAULT_REPOSITORY=$("$SCRIPT_DIR/get-chart-config.sh" repository 2>/dev/null || echo "calculaud/calculaud-be")
+DEFAULT_VERSION=$("$SCRIPT_DIR/get-chart-config.sh" version 2>/dev/null || echo "latest")
+
 # Docker images to package (external services assumed to be already available)
-# Note: IMAGE_TAG will be set from command line argument
+# Note: IMAGE_TAG will be set from command line argument or use default
 get_docker_images() {
-    echo "calculaud/calculaud-be:$IMAGE_TAG"
+    echo "${DEFAULT_REPOSITORY}:${IMAGE_TAG:-$DEFAULT_VERSION}"
 }
 
 # Colors for output
@@ -139,7 +143,7 @@ build_docker_image() {
     
     # Build with specified tag
     VERSION=$(date +%Y%m%d-%H%M%S)
-    docker build -t "calculaud/calculaud-be:$IMAGE_TAG" \
+    docker build -t "${DEFAULT_REPOSITORY}:${IMAGE_TAG:-$DEFAULT_VERSION}" \
         --build-arg VERSION="$VERSION" .
     
     print_message $GREEN "✅ Docker image built successfully"

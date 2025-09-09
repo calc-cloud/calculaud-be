@@ -72,7 +72,8 @@ jobs:
 
     - name: Verify build readiness
       run: |
-        echo "✅ Ready to build image: calculaud/calculaud-be:${{ steps.determine-tag.outputs.image_tag }}"
+        REPOSITORY=$(k8s/scripts/get-chart-config.sh repository)
+        echo "✅ Ready to build image: $REPOSITORY:${{ steps.determine-tag.outputs.image_tag }}"
         echo "Build context available, proceeding with image creation."
 
   # Create the on-premises deployment package
@@ -94,8 +95,11 @@ jobs:
       run: |
         echo "🏗️ Building Docker image for packaging..."
         
+        # Get repository from Chart.yaml
+        REPOSITORY=$(k8s/scripts/get-chart-config.sh repository)
+        
         # Build the application image
-        docker build -t calculaud/calculaud-be:${{ needs.determine-config.outputs.image_tag }} .
+        docker build -t $REPOSITORY:${{ needs.determine-config.outputs.image_tag }} .
         
         # Optional monitoring images (if requested)
         if [[ "${{ github.event.inputs.include_monitoring }}" == "true" ]]; then
@@ -178,7 +182,8 @@ jobs:
         
         ## Contents
         
-        - ✅ Application Docker image (\`calculaud/calculaud-be:${{ needs.determine-config.outputs.image_tag }}\`)
+        REPOSITORY=$(k8s/scripts/get-chart-config.sh repository)
+        - ✅ Application Docker image (\`$REPOSITORY:${{ needs.determine-config.outputs.image_tag }}\`)
         
         ## External Dependencies (Expected to be Available)
         
@@ -246,7 +251,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Package**: \`${{ needs.create-package.outputs.package_file }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Size**: ${{ needs.create-package.outputs.package_size }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: \`calculaud/calculaud-be:${{ needs.determine-config.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          REPOSITORY=$(k8s/scripts/get-chart-config.sh repository)
+          echo "- **Image**: \`$REPOSITORY:${{ needs.determine-config.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
