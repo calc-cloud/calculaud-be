@@ -50,12 +50,11 @@ spec:
       - name: migrate
         image: $IMAGE
         command: ["/bin/sh", "-c", "cd /app && $ALEMBIC_CMD"]
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: calculaud-be-secret
-              key: DATABASE_URL
+        envFrom:
+        - configMapRef:
+            name: calculaud-be-config
+        - secretRef:
+            name: calculaud-be-secret
         resources:
           requests: { memory: "128Mi", cpu: "100m" }
           limits: { memory: "256Mi", cpu: "500m" }
