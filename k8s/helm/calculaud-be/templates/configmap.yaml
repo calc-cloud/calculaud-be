@@ -35,8 +35,17 @@ data:
   S3_STORAGE_CLASS: {{ .Values.s3.storageClass | quote }}
   {{- end }}
   
+  # Auth settings (non-sensitive)
+  AUTH_OIDC_URL: {{ .Values.auth.oidcUrl | quote }}
+  {{- if .Values.auth.audience }}
+  AUTH_AUDIENCE: {{ .Values.auth.audience | quote }}
+  {{- end }}
+  
   # OAuth2 settings (non-sensitive)
   OAUTH_SCOPES: {{ .Values.auth.oauth.scopes | quote }}
+  {{- if .Values.auth.oauth.clientId }}
+  OAUTH_CLIENT_ID: {{ .Values.auth.oauth.clientId | quote }}
+  {{- end }}
   
   # Role-based access control settings
   REQUIRED_ROLE: {{ .Values.auth.requiredRole | quote }}
