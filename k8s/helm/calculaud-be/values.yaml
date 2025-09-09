@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 # Number of replicas
-replicaCount: 3
+replicaCount: 1
 
 # Image configuration
 image:
@@ -54,10 +54,10 @@ s3:
 # JWKS URL, issuer, token endpoint, and algorithm are auto-discovered from oidcUrl
 auth:
   oidcUrl: "https://your-auth-provider.com/.well-known/openid-configuration"  # CHANGE THIS!
-  audience: "calculaud-api"                                                   # CHANGE THIS!
+  audience: "calculaud"
   
   oauth:
-    clientId: "your-client-id"  # CHANGE THIS!
+    clientId: "calculaud"
     scopes: "openid"
 
 # Service Account
@@ -157,8 +157,8 @@ resources:
 # Autoscaling configuration
 autoscaling:
   enabled: false
-  minReplicas: 2
-  maxReplicas: 10
+  minReplicas: 1
+  maxReplicas: 3
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
