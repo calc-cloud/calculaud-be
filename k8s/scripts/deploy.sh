@@ -186,9 +186,9 @@ environment_setup() {
                 print_message $YELLOW "Warning: Current context may not be an EKS cluster"
             fi
             
-            # Check for AWS Load Balancer Controller (typically in aws-load-balancer-system namespace)
-            if kubectl get deployment -n aws-load-balancer-system aws-load-balancer-controller &> /dev/null; then
-                print_message $GREEN "✓ AWS Load Balancer Controller found in aws-load-balancer-system namespace"
+            # Check for AWS Load Balancer Controller (typically in aws-load-balancer namespace)
+            if kubectl get deployment -n aws-load-balancer aws-load-balancer-controller &> /dev/null; then
+                print_message $GREEN "✓ AWS Load Balancer Controller found in aws-load-balancer namespace"
             elif kubectl get deployment -n kube-system aws-load-balancer-controller &> /dev/null; then
                 print_message $GREEN "✓ AWS Load Balancer Controller found in kube-system namespace"
             else
@@ -301,19 +301,19 @@ deploy() {
     # Set path prefix and ingress group order based on environment
     case $ENVIRONMENT in
         staging)
-            HELM_CMD="$HELM_CMD --set environment.pathPrefix=\\/staging"
+            HELM_CMD="$HELM_CMD --set environment.pathPrefix=//staging"
             HELM_CMD="$HELM_CMD --set ingress.groupOrder=100"
             print_message $YELLOW "Using path prefix: /staging (priority: 100)"
             ;;
         pr|testing)
             # Use branch name or namespace as path prefix for PR environments
             BRANCH_NAME=${NAMESPACE##*-}  # Extract last part after dash
-            HELM_CMD="$HELM_CMD --set environment.pathPrefix=\\/${BRANCH_NAME}"
+            HELM_CMD="$HELM_CMD --set environment.pathPrefix=//${BRANCH_NAME}"
             HELM_CMD="$HELM_CMD --set ingress.groupOrder=200"
             print_message $YELLOW "Using path prefix: /$BRANCH_NAME (priority: 200)"
             ;;
         *)
-            HELM_CMD="$HELM_CMD --set environment.pathPrefix=\\/${ENVIRONMENT}"
+            HELM_CMD="$HELM_CMD --set environment.pathPrefix=//${ENVIRONMENT}"
             HELM_CMD="$HELM_CMD --set ingress.groupOrder=200"
             print_message $YELLOW "Using path prefix: /$ENVIRONMENT (priority: 200)"
             ;;
