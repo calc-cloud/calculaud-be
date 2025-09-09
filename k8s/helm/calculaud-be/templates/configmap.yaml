@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "calculaud-be.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "calculaud-be.labels" . | nindent 4 }}
+    app.kubernetes.io/component: configmap
+data:
+  # Application settings
+  APP_NAME: {{ .Values.config.appName | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  VERSION: {{ .Values.config.version | default .Chart.AppVersion | quote }}
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  
+  # API settings
+  API_V1_PREFIX: {{ .Values.config.apiV1Prefix | quote }}
+  ROOT_PATH: {{ .Values.environment.pathPrefix | default "" | quote }}
+  
+  # Pagination settings
+  DEFAULT_PAGE_SIZE: {{ .Values.config.defaultPageSize | quote }}
+  MAX_PAGE_SIZE: {{ .Values.config.maxPageSize | quote }}
+  
+  # Currency settings
+  USD_TO_ILS_RATE: {{ .Values.config.usdToIlsRate | quote }}
+  
+  # File upload settings
+  MAX_FILE_SIZE_MB: {{ .Values.config.maxFileSizeMb | quote }}
+  
+  # S3 settings (non-sensitive)
+  S3_USE_SSL: {{ .Values.s3.useSsl | quote }}
+  S3_BUCKET_NAME: {{ .Values.s3.bucketName | quote }}
+  S3_KEY_PREFIX: {{ .Values.s3.keyPrefix | quote }}
+  {{- if .Values.s3.storageClass }}
+  S3_STORAGE_CLASS: {{ .Values.s3.storageClass | quote }}
+  {{- end }}
+  
+  # Auth settings (non-sensitive)
+  AUTH_OIDC_URL: {{ .Values.auth.oidcUrl | quote }}
+  {{- if .Values.auth.audience }}
+  AUTH_AUDIENCE: {{ .Values.auth.audience | quote }}
+  {{- end }}
+  
+  # OAuth2 settings (non-sensitive)
+  OAUTH_SCOPES: {{ .Values.auth.oauth.scopes | quote }}
+  {{- if .Values.auth.oauth.clientId }}
+  OAUTH_CLIENT_ID: {{ .Values.auth.oauth.clientId | quote }}
+  {{- end }}
+  
+  # Role-based access control settings
+  REQUIRED_ROLE: {{ .Values.auth.requiredRole | quote }}
+  ROLE_CLAIM_PATH: {{ .Values.auth.roleClaimPath | quote }}

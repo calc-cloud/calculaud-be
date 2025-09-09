@@ -53,7 +53,7 @@ alembic upgrade head
 
 ```bash
 # Run tests with Docker (recommended)
-docker run --rm -v $(pwd):/app -w /app calculaud-be python -m pytest
+docker run --rm -v $(pwd):/app -w /app python:3.11-slim bash -c "pip install -r requirements.txt && python -m pytest"
 
 # Local testing (if environment is set up)
 pytest -v                    # Verbose output
@@ -192,6 +192,10 @@ app/
 │   ├── dependencies.py    # Router dependencies
 │   ├── exceptions.py      # Custom exceptions
 │   └── utils.py           # Helper functions
+├── health/                # Health check module
+│   ├── __init__.py        # Module exports
+│   ├── router.py          # Health endpoints
+│   └── checks.py          # Health check logic
 ├── config.py              # Global config
 ├── database.py            # DB connection
 ├── pagination.py          # Pagination utilities
@@ -295,8 +299,9 @@ git branch -d feature/your-feature-name
 2. SQLAlchemy v2 configuration
 3. Alembic database migrations
 4. Comprehensive Pytest test suite
-5. Docker deployment configuration
-6. Proper error handling and validation
+5. Kubernetes/Helm deployment configuration
+6. Health check endpoints for container orchestration
+7. Proper error handling and validation
 
 ## Style Guidelines
 

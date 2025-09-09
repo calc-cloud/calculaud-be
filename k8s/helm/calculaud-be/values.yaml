@@ -1,0 +1,220 @@
+# Default values for calculaud-be
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Number of replicas
+replicaCount: 1
+
+# Image configuration
+image:
+  repository: calculaud/calculaud-be
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Existing secret name (if using external secret management)
+existingSecret: ""
+
+# Application configuration (non-sensitive)
+config:
+  appName: "Procurement Management System"
+  debug: false
+  version: ""  # Will use Chart.AppVersion if empty
+  environment: "production"
+  apiV1Prefix: "/api/v1"
+  defaultPageSize: 100
+  maxPageSize: 200
+  usdToIlsRate: 3.7
+  maxFileSizeMb: 1024
+
+# Database configuration (provide full URL externally)
+database:
+  # DATABASE_URL should be provided externally via secret management or CI/CD
+  # Example: "postgresql://username:password@host:5432/database"
+  url: ""  # Leave empty - provide externally
+
+# S3 Configuration
+s3:
+  # S3-compatible storage settings
+  accessKeyId: "your-access-key-id"         # CHANGE THIS!
+  secretAccessKey: "your-secret-access-key" # CHANGE THIS!
+  region: "us-east-1"
+  endpointUrl: ""  # For non-AWS S3-compatible storage
+  bucketName: "calculaud-files"
+  bucketUrl: "https://calculaud-files.s3.amazonaws.com"
+  keyPrefix: "files/"
+  useSsl: true
+  storageClass: ""  # Optional: STANDARD, REDUCED_REDUNDANCY, etc.
+
+# Authentication configuration (OIDC Discovery)
+# JWKS URL, issuer, token endpoint, and algorithm are auto-discovered from oidcUrl
+auth:
+  oidcUrl: "https://your-auth-provider.com/.well-known/openid-configuration"  # CHANGE THIS!
+  audience: "calculaud"
+  
+  oauth:
+    clientId: "calculaud"
+    scopes: "openid"
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+  # loadBalancerIP: ""
+  # loadBalancerSourceRanges: []
+  # nodePort: 30080
+
+# Platform configuration (must be set for deployment)
+platform: ""  # Set to "eks" or "openshift" based on target platform
+
+# Ingress configuration (ALB for EKS, disabled for OpenShift)
+ingress:
+  enabled: true  # EKS uses ALB ingress, OpenShift uses Routes
+  className: "alb"
+  groupName: "calculaud"  # Shared ALB group name for all environments
+  groupOrder: 100  # Default priority (will be overridden per environment)
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'  # Disabled - no HTTPS
+    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+  hosts:
+    - host: ""  # Will be set based on environment
+      paths:
+        - path: /staging  # Default path for staging
+          pathType: Prefix
+  tls: []  # TLS will be handled by ALB
+
+# Environment-specific configuration for path-based routing
+environment:
+  name: ""  # Will be set during deployment (staging, pr, etc.)
+  pathPrefix: ""  # Will be computed based on environment name
+  # Path mapping:
+  # - staging: /staging
+  # - pr environments: /{branch-name}
+
+# OpenShift Route configuration (used when platform: "openshift")
+route:
+  enabled: false  # Will be enabled based on platform
+  host: calculaud-api.example.com  # CHANGE THIS!
+  path: /
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Resource limits and requests
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Strategy for rolling updates
+strategy:
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Termination grace period
+terminationGracePeriodSeconds: 30
+
+# Health check configuration
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  startup:
+    path: /health/startup
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 30
+
+# Metrics configuration
+metrics:
+  enabled: true
+
+# Extra environment variables
+extraEnvVars: []
+# - name: CUSTOM_ENV_VAR
+#   value: "custom-value"
+
+# Extra volumes
+extraVolumes: []
+
+# Extra volume mounts
+extraVolumeMounts: []

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
 
     # API
     api_v1_prefix: Annotated[str, Field(default="/api/v1")]
+    root_path: Annotated[
+        str, Field(default="")
+    ]  # For reverse proxy path prefix (e.g., "/staging")
 
     # Pagination
     default_page_size: Annotated[int, Field(default=100)]
@@ -41,12 +44,8 @@ class Settings(BaseSettings):
     usd_to_ils_rate: Annotated[float, Field(default=3.7)]
 
     # Authentication Configuration
-    auth_jwks_url: str
-    auth_issuer: str
+    auth_oidc_url: str  # OIDC discovery URL (.well-known/openid-configuration)
     auth_audience: str | None = None
-    auth_algorithm: Annotated[str, Field(default="RS256")]
-    auth_token_endpoint_url: str
-    auth_oidc_url: str
 
     # Role-based access control
     required_role: Annotated[str, Field(default="calUsers")]

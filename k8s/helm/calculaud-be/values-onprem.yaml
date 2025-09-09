@@ -1,0 +1,210 @@
+# On-premises environment values for calculaud-be
+# Optimized for air-gapped and local environments
+# Uses ConfigMaps and Secrets for configuration management
+
+# Use ConfigMap for replica count (can be overridden)
+replicaCount: 2  # Will be overridden by configmap value if present
+
+# Local container registry or pre-loaded images
+image:
+  repository: "calculaud/calculaud-be"  # Local registry: registry.local:5000/calculaud-be
+  tag: "latest"
+  pullPolicy: Never  # Use locally available images
+
+# On-premises configuration
+config:
+  debug: false
+  environment: "production"
+  maxFileSizeMb: 512
+  defaultPageSize: 50
+
+# Database configuration (provide full URL externally)
+database:
+  # DATABASE_URL should be provided externally via secret management or environment
+  # Example: "postgresql://calculaud:password@postgres.yourdomain.local:5432/calculaud"
+  url: ""  # Leave empty - provide externally
+
+# S3-compatible storage configuration for on-premises
+s3:
+  accessKeyId: "your-s3-access-key"
+  secretAccessKey: "your-s3-secret-key"
+  region: "us-east-1"
+  endpointUrl: "https://s3.yourdomain.local"
+  bucketName: "calculaud-files"
+  bucketUrl: "https://s3.yourdomain.local/calculaud-files"
+  keyPrefix: "files/"
+  useSsl: true
+  storageClass: ""
+
+# Authentication configuration for on-premises (OIDC Discovery)
+# JWKS URL, issuer, token endpoint, and algorithm are auto-discovered from oidcUrl
+auth:
+  oidcUrl: "https://auth.yourdomain.local/.well-known/openid-configuration"
+  audience: "calculaud-api"
+  
+  oauth:
+    clientId: "calculaud-onprem-client"
+    scopes: "openid profile email"
+
+# Use NodePort or LoadBalancer for on-premises access
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080  # Accessible on all nodes at port 30080
+  annotations: {}
+  
+  # Alternative: LoadBalancer with MetalLB
+  # type: LoadBalancer
+  # loadBalancerIP: "192.168.1.100"  # Static IP from MetalLB pool
+
+# Platform configuration - OpenShift for on-premises
+platform: "openshift"
+
+# OpenShift Route configuration (replaces ingress)
+route:
+  enabled: true
+  host: calculaud.local.domain
+  path: /
+  annotations:
+    # OpenShift-specific route annotations
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Disable ingress for OpenShift (using Routes instead)
+ingress:
+  enabled: false
+
+# Conservative resource requirements for on-premises
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "1Gi"
+    cpu: "1000m"
+
+# Disable autoscaling for on-premises (manual scaling)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection for on-premises (optional)
+nodeSelector: {}
+  # kubernetes.io/arch: amd64
+  # node-role.kubernetes.io/worker: "true"
+
+# No special tolerations needed for on-premises
+tolerations: []
+
+# Simple anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - calculaud-be
+        topologyKey: kubernetes.io/hostname
+
+# Conservative rolling update strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Relaxed health checks for on-premises environments
+healthcheck:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 45
+    periodSeconds: 15
+    timeoutSeconds: 10
+    successThreshold: 1
+    failureThreshold: 5
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  startup:
+    path: /health/startup
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    timeoutSeconds: 10
+    successThreshold: 1
+    failureThreshold: 20
+
+# Enable metrics for monitoring
+metrics:
+  enabled: true
+
+# On-premises environment variables
+extraEnvVars:
+  - name: LOG_LEVEL
+    value: "INFO"
+  - name: ENVIRONMENT
+    value: "onprem"
+  - name: WORKERS
+    value: "2"  # Conservative for on-prem resources
+  - name: PROMETHEUS_MULTIPROC_DIR
+    value: "/tmp/prometheus"
+  # Add proxy settings if needed
+  # - name: HTTP_PROXY
+  #   value: "http://proxy.local.domain:8080"
+  # - name: HTTPS_PROXY
+  #   value: "http://proxy.local.domain:8080"
+  # - name: NO_PROXY
+  #   value: "localhost,127.0.0.1,.local.domain"
+
+# Pod annotations for on-premises monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+# Extra volumes for on-premises requirements
+extraVolumes:
+  - name: prometheus-metrics
+    emptyDir: {}
+  - name: local-data
+    hostPath:
+      path: /opt/calculaud/data
+      type: DirectoryOrCreate
+
+extraVolumeMounts:
+  - name: prometheus-metrics
+    mountPath: /tmp/prometheus
+  - name: local-data
+    mountPath: /app/local-data
+
+# Relaxed security context for on-premises compatibility
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# No existing secret - create inline
+existingSecret: ""

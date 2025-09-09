@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,6 +8,8 @@ from .auth.dependencies import require_auth
 from .auth.router import router as auth_router
 from .config import settings
 from .files.router import router as files_router
+from .health import mark_startup_complete
+from .health.router import router as health_router
 from .hierarchies.router import router as hierarchies_router
 from .predefined_flows.router import router as predefined_flows_router
 from .purchases.router import router as purchases_router
@@ -16,6 +20,21 @@ from .services.router import router as services_router
 from .stage_types.router import router as stage_types_router
 from .stages.router import router as stages_router
 from .suppliers.router import router as suppliers_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager for startup and shutdown events.
+    """
+    # Startup
+    mark_startup_complete()
+
+    yield
+
+    # Shutdown - let uvicorn handle graceful shutdown
+    print("Application shutdown complete")
+
 
 # Swagger UI OAuth configuration
 swagger_ui_init_oauth = {
@@ -31,6 +50,8 @@ app = FastAPI(
     version=settings.version,
     debug=settings.debug,
     swagger_ui_init_oauth=swagger_ui_init_oauth,
+    lifespan=lifespan,
+    root_path=settings.root_path,  # Enable reverse proxy path prefix support
 )
 
 # Add CORS middleware
@@ -50,6 +71,13 @@ app.include_router(
     auth_router,
     prefix=f"{settings.api_v1_prefix}/auth",
     tags=["auth"],
+)
+
+# Include health router - no authentication required for health checks
+app.include_router(
+    health_router,
+    prefix="/health",
+    tags=["health"],
 )
 
 # Include routers - all protected by authentication
@@ -141,14 +169,3 @@ app.include_router(
 @app.get("/")
 def root():
     return {"message": settings.app_name, "version": settings.version}
-
-
-@app.get("/health")
-def health_check():
-    """Health check endpoint for deployment platforms like Railway."""
-    return {
-        "status": "healthy",
-        "app": settings.app_name,
-        "version": settings.version,
-        "environment": settings.environment,
-    }
