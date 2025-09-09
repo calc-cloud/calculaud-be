@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.common.hierarchy_utils import build_hierarchy_filter
 from app.hierarchies.models import Hierarchy
+from app.purchases.models import Purchase
 from app.purposes.models import Purpose, PurposeContent
 from app.purposes.pending_authority_utils import get_pending_authority_id_query
 from app.purposes.schemas import FilterParams
@@ -14,7 +15,8 @@ def apply_filters(
     db: Session = None,
     *,
     hierarchy_table_joined: bool = False,
-    purpose_content_table_joined: bool = False
+    purpose_content_table_joined: bool = False,
+    purchase_table_joined: bool = False
 ) -> Select:
     """Apply universal filters to any query that includes Purpose."""
 
@@ -61,6 +63,12 @@ def apply_filters(
     # Flagged filter
     if filters.is_flagged is not None:
         conditions.append(Purpose.is_flagged == filters.is_flagged)
+
+    # Budget source filter - requires join with Purchase
+    if filters.budget_source_ids:
+        if not purchase_table_joined:
+            query = query.join(Purchase, Purpose.id == Purchase.purpose_id)
+        conditions.append(Purchase.budget_source_id.in_(filters.budget_source_ids))
 
     # Apply all conditions
     if conditions:
