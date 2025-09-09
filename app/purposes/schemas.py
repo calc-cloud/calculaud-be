@@ -137,6 +137,14 @@ class FilterParams(BaseModel):
             description="Filter by flagged status (true/false)",
         ),
     ]
+    budget_source_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by budget source IDs from purchases",
+            alias="budget_source_id",
+        ),
+    ]
 
 
 class GetPurposesRequest(FilterParams, PaginationParams):
