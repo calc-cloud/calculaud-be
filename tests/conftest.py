@@ -21,6 +21,7 @@ from tests.auth_mock import (  # noqa: E402
 )
 
 pytest_plugins = [
+    "tests.budget_sources.fixtures",
     "tests.hierarchies.fixtures",
     "tests.files.fixtures",
     "tests.predefined_flows.fixtures",
