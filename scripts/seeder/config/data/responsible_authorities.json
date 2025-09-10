@@ -10,25 +10,5 @@
   {
     "name": "Security Office",
     "description": "Information security office responsible for security reviews and compliance"
-  },
-  {
-    "name": "Procurement Committee",
-    "description": "Procurement committee for vendor selection and contract approvals"
-  },
-  {
-    "name": "Legal Affairs",
-    "description": "Legal department for contract reviews and compliance validation"
-  },
-  {
-    "name": "Project Management Office",
-    "description": "PMO responsible for project approvals and resource allocation"
-  },
-  {
-    "name": "Quality Assurance",
-    "description": "QA team for quality validations and testing approvals"
-  },
-  {
-    "name": "Executive Committee",
-    "description": "Executive committee for high-level strategic approvals"
   }
 ]
