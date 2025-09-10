@@ -1,0 +1,195 @@
+{
+  "stage_types": [
+    {
+      "id": 6,
+      "name": "emf_id",
+      "display_name": "EMF ID",
+      "description": "EMF identification number",
+      "value_required": true
+    },
+    {
+      "id": 7,
+      "name": "information_security", 
+      "display_name": "במ",
+      "description": "Information security stage",
+      "value_required": false
+    },
+    {
+      "id": 8,
+      "name": "letter_of_necessity",
+      "display_name": "מכתב נחיצות",
+      "description": "Letter of necessity of the purchase", 
+      "value_required": false
+    },
+    {
+      "id": 9,
+      "name": "bom",
+      "display_name": "BOM",
+      "description": "BOM of the purchase",
+      "value_required": false
+    },
+    {
+      "id": 10,
+      "name": "bikushit_id",
+      "display_name": "מספר ביקושית",
+      "description": "Bikushit ID stage",
+      "value_required": true
+    },
+    {
+      "id": 11,
+      "name": "demand_id",
+      "display_name": "מספר דרישה", 
+      "description": "Demand ID Stage",
+      "value_required": true
+    },
+    {
+      "id": 12,
+      "name": "mnhr",
+      "display_name": "מנהר",
+      "description": "Mnhr stage",
+      "value_required": false
+    },
+    {
+      "id": 13,
+      "name": "Committees",
+      "display_name": "ועדות",
+      "description": "Committees stage",
+      "value_required": false
+    },
+    {
+      "id": 14,
+      "name": "blm",
+      "display_name": "בלמ",
+      "description": "Blm stage",
+      "value_required": false
+    },
+    {
+      "id": 15,
+      "name": "exemption_committee",
+      "display_name": "ועדת פטור",
+      "description": "Exemption committee stage",
+      "value_required": false
+    },
+    {
+      "id": 16,
+      "name": "mission",
+      "display_name": "משלחת",
+      "description": "Mission stage", 
+      "value_required": false
+    },
+    {
+      "id": 17,
+      "name": "financing_deployment",
+      "display_name": "פריסת מימון",
+      "description": "Financing deployment stage",
+      "value_required": false
+    },
+    {
+      "id": 18,
+      "name": "order_id",
+      "display_name": "מספר הזמנה",
+      "description": "Order ID stage",
+      "value_required": true
+    }
+  ],
+  "predefined_flows": {
+    "ILS_FLOW": {
+      "id": 1,
+      "stages": [
+        {"stage_type_id": 6, "priority": 1},
+        {"stage_type_id": 7, "priority": 2},
+        {"stage_type_id": 8, "priority": 2},
+        {"stage_type_id": 9, "priority": 2},
+        {"stage_type_id": 10, "priority": 3},
+        {"stage_type_id": 7, "priority": 4},
+        {"stage_type_id": 11, "priority": 5},
+        {"stage_type_id": 12, "priority": 6},
+        {"stage_type_id": 13, "priority": 7},
+        {"stage_type_id": 14, "priority": 8},
+        {"stage_type_id": 18, "priority": 9}
+      ]
+    },
+    "SUPPORT_USD_FLOW": {
+      "id": 2,
+      "stages": [
+        {"stage_type_id": 6, "priority": 1},
+        {"stage_type_id": 7, "priority": 2},
+        {"stage_type_id": 8, "priority": 2},
+        {"stage_type_id": 9, "priority": 2},
+        {"stage_type_id": 10, "priority": 3},
+        {"stage_type_id": 7, "priority": 4},
+        {"stage_type_id": 11, "priority": 5},
+        {"stage_type_id": 16, "priority": 6},
+        {"stage_type_id": 14, "priority": 7},
+        {"stage_type_id": 18, "priority": 8}
+      ]
+    },
+    "AVAILABLE_USD_FLOW": {
+      "id": 3,
+      "stages": [
+        {"stage_type_id": 6, "priority": 1},
+        {"stage_type_id": 7, "priority": 2},
+        {"stage_type_id": 8, "priority": 2},
+        {"stage_type_id": 9, "priority": 2},
+        {"stage_type_id": 10, "priority": 3},
+        {"stage_type_id": 7, "priority": 4},
+        {"stage_type_id": 11, "priority": 5},
+        {"stage_type_id": 15, "priority": 6},
+        {"stage_type_id": 16, "priority": 7},
+        {"stage_type_id": 14, "priority": 8},
+        {"stage_type_id": 18, "priority": 9}
+      ]
+    },
+    "MIXED_USD_FLOW": {
+      "id": 4,
+      "stages": [
+        {"stage_type_id": 6, "priority": 1},
+        {"stage_type_id": 7, "priority": 2},
+        {"stage_type_id": 8, "priority": 2},
+        {"stage_type_id": 9, "priority": 2},
+        {"stage_type_id": 10, "priority": 3},
+        {"stage_type_id": 7, "priority": 4},
+        {"stage_type_id": 11, "priority": 5},
+        {"stage_type_id": 15, "priority": 6},
+        {"stage_type_id": 16, "priority": 7},
+        {"stage_type_id": 14, "priority": 8},
+        {"stage_type_id": 18, "priority": 9}
+      ]
+    },
+    "SUPPORT_USD_ABOVE_400K_FLOW": {
+      "id": 5,
+      "stages": [
+        {"stage_type_id": 6, "priority": 1},
+        {"stage_type_id": 7, "priority": 2},
+        {"stage_type_id": 8, "priority": 2},
+        {"stage_type_id": 9, "priority": 2},
+        {"stage_type_id": 10, "priority": 3},
+        {"stage_type_id": 7, "priority": 4},
+        {"stage_type_id": 11, "priority": 5},
+        {"stage_type_id": 12, "priority": 6},
+        {"stage_type_id": 17, "priority": 7},
+        {"stage_type_id": 16, "priority": 8},
+        {"stage_type_id": 14, "priority": 9},
+        {"stage_type_id": 18, "priority": 10}
+      ]
+    },
+    "MIXED_USD_ABOVE_400K_FLOW": {
+      "id": 6,
+      "stages": [
+        {"stage_type_id": 6, "priority": 1},
+        {"stage_type_id": 7, "priority": 2},
+        {"stage_type_id": 8, "priority": 2},
+        {"stage_type_id": 9, "priority": 2},
+        {"stage_type_id": 10, "priority": 3},
+        {"stage_type_id": 7, "priority": 4},
+        {"stage_type_id": 11, "priority": 5},
+        {"stage_type_id": 15, "priority": 6},
+        {"stage_type_id": 12, "priority": 7},
+        {"stage_type_id": 17, "priority": 8},
+        {"stage_type_id": 16, "priority": 9},
+        {"stage_type_id": 14, "priority": 10},
+        {"stage_type_id": 18, "priority": 11}
+      ]
+    }
+  }
+}

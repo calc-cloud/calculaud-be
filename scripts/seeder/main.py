@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""
+Main entry point for the refactored database seeding system.
+
+This modular seeding system provides:
+- Performance optimizations with bulk operations
+- Proper session management
+- New database entities support
+- DRY principles with externalized configuration
+- Selective seeding capabilities
+"""
+
+import argparse
+import sys
+import time
+from pathlib import Path
+
+# Add the project root to Python path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from scripts.seeder.seeders.base_data_seeder import BaseDataSeeder  # noqa: E402
+from scripts.seeder.seeders.catalog_seeder import CatalogSeeder  # noqa: E402
+from scripts.seeder.seeders.hierarchy_seeder import HierarchySeeder  # noqa: E402
+from scripts.seeder.seeders.lookup_seeder import LookupSeeder  # noqa: E402
+from scripts.seeder.seeders.mock_data_seeder import MockDataSeeder  # noqa: E402
+
+
+class SeedingOrchestrator:
+    """Orchestrates the execution of different seeding operations."""
+
+    def __init__(self, verbose: bool = True):
+        """Initialize the orchestrator."""
+        self.verbose = verbose
+        self.results = {}
+
+    def log(self, message: str, prefix: str = "🔍") -> None:
+        """Log a message if verbose mode is enabled."""
+        if self.verbose:
+            print(f"{prefix} {message}")
+
+    def run_lookup_seeding(self) -> None:
+        """Run lookup table seeding (ResponsibleAuthority, BudgetSource)."""
+        self.log("🔍 Running lookup table seeding...")
+        seeder = LookupSeeder(verbose=self.verbose)
+        result = seeder.run()
+        self.results["lookup"] = result
+
+    def run_base_data_seeding(self) -> None:
+        """Run base data seeding (StageTypes, PredefinedFlows)."""
+        self.log("📋 Running base data seeding...")
+        seeder = BaseDataSeeder(verbose=self.verbose)
+        result = seeder.run()
+        self.results["base_data"] = result
+
+    def run_hierarchy_seeding(self) -> None:
+        """Run hierarchy seeding."""
+        self.log("🏢 Running hierarchy seeding...")
+        seeder = HierarchySeeder(verbose=self.verbose)
+        result = seeder.run()
+        self.results["hierarchy"] = result
+
+    def run_catalog_seeding(self) -> None:
+        """Run catalog seeding (ServiceTypes, Services, Suppliers)."""
+        self.log("📦 Running catalog seeding...")
+        seeder = CatalogSeeder(verbose=self.verbose)
+        result = seeder.run()
+        self.results["catalog"] = result
+
+    def run_mock_data_seeding(self, num_purposes: int = 40) -> None:
+        """Run mock data seeding (Purposes, Purchases, Costs, Stages)."""
+        self.log(f"🎭 Running mock data seeding ({num_purposes} purposes)...")
+        seeder = MockDataSeeder(num_purposes=num_purposes, verbose=self.verbose)
+        result = seeder.run()
+        self.results["mock_data"] = result
+
+    def run_full_seeding(self, num_purposes: int = 40) -> None:
+        """Run complete seeding pipeline."""
+        self.log("🚀 Starting full database seeding pipeline...")
+        start_time = time.time()
+
+        # Run seeding in dependency order
+        self.run_lookup_seeding()
+        self.run_base_data_seeding()
+        self.run_hierarchy_seeding()
+        self.run_catalog_seeding()
+        self.run_mock_data_seeding(num_purposes)
+
+        elapsed_time = time.time() - start_time
+        self.log(f"✅ Full seeding completed in {elapsed_time:.2f} seconds!")
+
+    def print_summary(self) -> None:
+        """Print a summary of all seeding operations."""
+        if not self.results:
+            return
+
+        self.log("📊 Seeding Summary:")
+
+        for operation, results in self.results.items():
+            self.log(f"   {operation.title()}:")
+
+            if isinstance(results, dict):
+                for key, value in results.items():
+                    if isinstance(value, (int, str)):
+                        self.log(f"      • {key}: {value}")
+                    elif isinstance(value, list):
+                        self.log(f"      • {key}: {len(value)} items")
+            else:
+                self.log(f"      • Results: {results}")
+
+
+def create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure the command line argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Modular database seeding system for Calculaud backend",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m scripts.seeder.main                    # Full seeding (all data)
+  python -m scripts.seeder.main --base-data-only   # Only base data
+  python -m scripts.seeder.main --mock-data-only   # Only mock data
+  python -m scripts.seeder.main --num-purposes 100 # Full seeding with 100 purposes
+  python -m scripts.seeder.main --lookup-only      # Only lookup tables
+        """,
+    )
+
+    # Seeding mode options (mutually exclusive)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--base-data-only",
+        action="store_true",
+        help="Seed only base data (stage types, predefined flows)",
+    )
+    mode_group.add_argument(
+        "--lookup-only",
+        action="store_true",
+        help="Seed only lookup tables (responsible authorities, budget sources)",
+    )
+    mode_group.add_argument(
+        "--hierarchy-only", action="store_true", help="Seed only hierarchical data"
+    )
+    mode_group.add_argument(
+        "--catalog-only",
+        action="store_true",
+        help="Seed only catalog data (service types, services, suppliers)",
+    )
+    mode_group.add_argument(
+        "--mock-data-only",
+        action="store_true",
+        help="Seed only mock data (purposes, purchases, costs, stages)",
+    )
+
+    # Configuration options
+    parser.add_argument(
+        "--num-purposes",
+        type=int,
+        default=40,
+        help="Number of purposes to create for mock data (default: 40)",
+    )
+    parser.add_argument(
+        "--quiet", "-q", action="store_true", help="Suppress verbose output"
+    )
+    parser.add_argument(
+        "--no-summary", action="store_true", help="Skip printing the summary at the end"
+    )
+
+    return parser
+
+
+def main() -> None:
+    """Main entry point."""
+    parser = create_argument_parser()
+    args = parser.parse_args()
+
+    # Initialize orchestrator
+    orchestrator = SeedingOrchestrator(verbose=not args.quiet)
+
+    try:
+        # Run selected seeding operation
+        if args.lookup_only:
+            orchestrator.run_lookup_seeding()
+        elif args.base_data_only:
+            orchestrator.run_base_data_seeding()
+        elif args.hierarchy_only:
+            orchestrator.run_hierarchy_seeding()
+        elif args.catalog_only:
+            orchestrator.run_catalog_seeding()
+        elif args.mock_data_only:
+            orchestrator.run_mock_data_seeding(args.num_purposes)
+        else:
+            # Default: run full seeding
+            orchestrator.run_full_seeding(args.num_purposes)
+
+        # Print summary unless suppressed
+        if not args.no_summary:
+            orchestrator.print_summary()
+
+    except Exception as e:
+        orchestrator.log(f"❌ Seeding failed: {e}", "🚨")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
