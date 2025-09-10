@@ -174,9 +174,9 @@ class AnalyticsService:
         if service_type_ids:
             query = query.where(ServiceType.id.in_(service_type_ids))
 
-        # Group by service type and order by name for consistent results
+        # Group by service type and sort by count descending
         query = query.group_by(ServiceType.id, ServiceType.name).order_by(
-            ServiceType.name
+            func.count(Purpose.id).desc()
         )
 
         result = self.db.execute(query).all()

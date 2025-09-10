@@ -63,9 +63,9 @@ class LiveOperationsService:
         # Apply filters
         query = _apply_filters(query, filters)
 
-        # Group by service type
+        # Group by service type and sort by count descending
         query = query.group_by(ServiceType.id, ServiceType.name).order_by(
-            ServiceType.name
+            func.count(Purpose.id).desc()
         )
 
         result = self.db.execute(query).all()
@@ -96,8 +96,8 @@ class LiveOperationsService:
         # Apply filters
         query = _apply_filters(query, filters)
 
-        # Group by status
-        query = query.group_by(Purpose.status).order_by(Purpose.status)
+        # Group by status and sort by count descending
+        query = query.group_by(Purpose.status).order_by(func.count(Purpose.id).desc())
 
         result = self.db.execute(query).all()
 
@@ -138,9 +138,7 @@ class LiveOperationsService:
         query = _apply_filters(query, filters)
 
         # Group by authority
-        query = query.group_by(
-            pending_authority_subquery, ResponsibleAuthority.name
-        ).order_by(ResponsibleAuthority.name.nulls_last())
+        query = query.group_by(pending_authority_subquery, ResponsibleAuthority.name)
 
         result = self.db.execute(query).all()
 
@@ -153,6 +151,11 @@ class LiveOperationsService:
                 count=int(row.purpose_count),
             )
             authority_items.append(authority_item)
+
+        # Sort by count descending (highest counts first), with "No Pending Authority" last
+        authority_items.sort(
+            key=lambda x: (x.authority_name == "No Pending Authority", -x.count)
+        )
 
         return PendingAuthoritiesDistributionResponse(data=authority_items)
 

@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from app.analytics.schemas import (
     BudgetSourceCostDistributionResponse,
     BudgetSourceCostItem,
+    CurrencyAmounts,
     ServiceTypeCostDistributionResponse,
-    ServiceTypeCostItem, CurrencyAmounts,
+    ServiceTypeCostItem,
 )
 from app.analytics.utils import calculate_multi_currency_totals
 from app.budget_sources.models import BudgetSource
@@ -90,9 +91,9 @@ class FinancialAnalyticsService:
             )
             service_type_items.append(service_type_item)
 
-        # Sort by service type name for consistent ordering, with Unknown last
+        # Sort by total ILS amount descending, with Unknown last
         service_type_items.sort(
-            key=lambda x: (x.service_type_name == "Unknown", x.service_type_name)
+            key=lambda x: (x.service_type_name == "Unknown", -x.amounts.total_ils)
         )
 
         return ServiceTypeCostDistributionResponse(data=service_type_items)
@@ -166,9 +167,9 @@ class FinancialAnalyticsService:
             )
             budget_source_items.append(budget_source_item)
 
-        # Sort by budget source name for consistent ordering, with Unknown last
+        # Sort by total ILS amount descending, with Unknown last
         budget_source_items.sort(
-            key=lambda x: (x.budget_source_name == "Unknown", x.budget_source_name)
+            key=lambda x: (x.budget_source_name == "Unknown", -x.amounts.total_ils)
         )
 
         return BudgetSourceCostDistributionResponse(data=budget_source_items)
