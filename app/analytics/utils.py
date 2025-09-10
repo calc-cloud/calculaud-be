@@ -42,7 +42,9 @@ def calculate_multi_currency_totals(
     available_usd = currency_amounts.available_usd
 
     # Calculate totals
-    total_usd = support_usd + available_usd
+    # Convert ILS amount to USD for total USD calculation
+    ils_in_usd = convert_currency(ils, CurrencyEnum.ILS, CurrencyEnum.SUPPORT_USD)
+    total_usd = support_usd + available_usd + ils_in_usd
 
     # Convert USD amounts to ILS for total ILS calculation
     support_usd_in_ils = convert_currency(
