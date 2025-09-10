@@ -1,5 +1,6 @@
 """Analytics utility functions."""
 
+from app.analytics.schemas import CurrencyAmounts, MultiCurrencyAmount
 from app.config import settings
 from app.costs.models import CurrencyEnum
 
@@ -22,3 +23,40 @@ def convert_currency(
             return amount / settings.usd_to_ils_rate
 
     return amount
+
+
+def calculate_multi_currency_totals(
+    currency_amounts: CurrencyAmounts,
+) -> MultiCurrencyAmount:
+    """Calculate totals across multiple currencies with proper conversion.
+
+    Args:
+        currency_amounts: CurrencyAmounts schema with individual currency amounts
+
+    Returns:
+        MultiCurrencyAmount: Object with all currency totals calculated
+    """
+
+    ils = currency_amounts.ils
+    support_usd = currency_amounts.support_usd
+    available_usd = currency_amounts.available_usd
+
+    # Calculate totals
+    total_usd = support_usd + available_usd
+
+    # Convert USD amounts to ILS for total ILS calculation
+    support_usd_in_ils = convert_currency(
+        support_usd, CurrencyEnum.SUPPORT_USD, CurrencyEnum.ILS
+    )
+    available_usd_in_ils = convert_currency(
+        available_usd, CurrencyEnum.AVAILABLE_USD, CurrencyEnum.ILS
+    )
+    total_ils = ils + support_usd_in_ils + available_usd_in_ils
+
+    return MultiCurrencyAmount(
+        ils=ils,
+        support_usd=support_usd,
+        available_usd=available_usd,
+        total_usd=total_usd,
+        total_ils=total_ils,
+    )

@@ -6,15 +6,18 @@ from fastapi.params import Query
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
+    BudgetSourceCostDistributionResponse,
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingStagesStackedDistributionResponse,
     ServicesQuantityStackedResponse,
+    ServiceTypeCostDistributionResponse,
     ServiceTypesDistributionResponse,
     ServiceTypeStatusDistributionResponse,
     StatusesDistributionResponse,
 )
 from app.analytics.services import AnalyticsService, LiveOperationsService
+from app.analytics.services.financial_analytics_service import FinancialAnalyticsService
 from app.database import get_db
 from app.purposes.models import StatusEnum
 from app.purposes.schemas import FilterParams
@@ -30,6 +33,13 @@ def get_analytics_service(db: Session = Depends(get_db)) -> AnalyticsService:
 def get_live_operations_service(db: Session = Depends(get_db)) -> LiveOperationsService:
     """Dependency to get live operations service."""
     return LiveOperationsService(db)
+
+
+def get_financial_analytics_service(
+    db: Session = Depends(get_db),
+) -> FinancialAnalyticsService:
+    """Dependency to get financial analytics service."""
+    return FinancialAnalyticsService(db)
 
 
 @router.get(
@@ -172,3 +182,31 @@ def get_services_quantities(
     Supports all universal filters.
     """
     return analytics_service.get_services_quantities(filters)
+
+
+@router.get(
+    "/costs/distribution/by-service-type",
+    response_model=ServiceTypeCostDistributionResponse,
+)
+def get_cost_distribution_by_service_type(
+    financial_analytics_service: Annotated[
+        FinancialAnalyticsService, Depends(get_financial_analytics_service)
+    ],
+    filters: Annotated[FilterParams, Query()],
+) -> ServiceTypeCostDistributionResponse:
+    """Get cost distribution by service type with multi-currency support."""
+    return financial_analytics_service.get_cost_distribution_by_service_type(filters)
+
+
+@router.get(
+    "/costs/distribution/by-budget-source",
+    response_model=BudgetSourceCostDistributionResponse,
+)
+def get_cost_distribution_by_budget_source(
+    financial_analytics_service: Annotated[
+        FinancialAnalyticsService, Depends(get_financial_analytics_service)
+    ],
+    filters: Annotated[FilterParams, Query()],
+) -> BudgetSourceCostDistributionResponse:
+    """Get cost distribution by budget source with multi-currency support."""
+    return financial_analytics_service.get_cost_distribution_by_budget_source(filters)

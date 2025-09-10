@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Generic, TypeVar
 
 from fastapi import Query
 from pydantic import BaseModel
@@ -6,37 +6,32 @@ from pydantic import BaseModel
 from app.purposes.models import StatusEnum
 from app.service_types.schemas import ServiceType
 
-
-class ChartDataResponse(BaseModel):
-    """Standard chart data response format."""
-
-    labels: list[str]
-    data: list[float]
+# Generic type for distribution response data
+T = TypeVar("T")
 
 
-class TimeSeriesDataset(BaseModel):
-    """Dataset for time series charts."""
+class DistributionResponse(BaseModel, Generic[T]):
+    """Generic distribution chart response."""
 
-    label: str
-    data: list[float]
-    currency: str
+    data: list[T]
 
 
-class MultiCurrencyDataPoint(BaseModel):
-    """Data point with values in all currencies."""
+class CurrencyAmounts(BaseModel):
+    """Input currency amounts for multi-currency calculations."""
+
+    ils: float = 0.0
+    support_usd: float = 0.0
+    available_usd: float = 0.0
+
+
+class MultiCurrencyAmount(BaseModel):
+    """Amount values in multiple currencies."""
 
     ils: float
     support_usd: float
     available_usd: float
     total_usd: float
     total_ils: float
-
-
-class TimeSeriesResponse(BaseModel):
-    """Time series chart response format."""
-
-    labels: list[str]
-    datasets: list[TimeSeriesDataset]
 
 
 class ServiceBreakdownItem(BaseModel):
@@ -108,36 +103,6 @@ class ServicesQuantityStackedResponse(BaseModel):
     data: list[ServiceTypeWithBreakdownItem]
 
 
-class ServiceTypesDistributionResponse(BaseModel):
-    """Service types distribution chart response."""
-
-    data: list[ServiceTypeItem]
-
-
-class StatusesDistributionResponse(BaseModel):
-    """Status distribution chart response."""
-
-    data: list[StatusItem]
-
-
-class PendingAuthoritiesDistributionResponse(BaseModel):
-    """Pending authorities distribution chart response."""
-
-    data: list[PendingAuthorityItem]
-
-
-class PendingStagesDistributionResponse(BaseModel):
-    """Pending stages distribution chart response."""
-
-    data: list[PendingStageItem]
-
-
-class PendingStagesStackedDistributionResponse(BaseModel):
-    """Pending stages distribution with service type breakdown for stacked charts."""
-
-    data: list[PendingStageWithBreakdownItem]
-
-
 class LiveOperationFilterParams(BaseModel):
     service_type_ids: Annotated[
         list[int] | None,
@@ -155,3 +120,31 @@ class ServiceTypeStatusDistributionResponse(BaseModel):
     data: list[ServiceTypeBreakdownItem]
     total_count: int
     target_status: StatusEnum
+
+
+class ServiceTypeCostItem(BaseModel):
+    """Service type with cost amounts in multiple currencies."""
+
+    service_type_id: int | None
+    service_type_name: str
+    amounts: MultiCurrencyAmount
+
+
+class BudgetSourceCostItem(BaseModel):
+    """Budget source with cost amounts in multiple currencies."""
+
+    budget_source_id: int | None
+    budget_source_name: str
+    amounts: MultiCurrencyAmount
+
+
+# Type aliases for specific distribution responses using generic base
+ServiceTypesDistributionResponse = DistributionResponse[ServiceTypeItem]
+StatusesDistributionResponse = DistributionResponse[StatusItem]
+PendingAuthoritiesDistributionResponse = DistributionResponse[PendingAuthorityItem]
+PendingStagesDistributionResponse = DistributionResponse[PendingStageItem]
+PendingStagesStackedDistributionResponse = DistributionResponse[
+    PendingStageWithBreakdownItem
+]
+ServiceTypeCostDistributionResponse = DistributionResponse[ServiceTypeCostItem]
+BudgetSourceCostDistributionResponse = DistributionResponse[BudgetSourceCostItem]

@@ -80,6 +80,7 @@ pytest tests/suppliers/test_suppliers_api.py::TestSuppliersApi::test_create_reso
 - Never commit without running tests
 - Never use generic exceptions - always create custom exceptions
 - Never inherit from existing test classes that already test the same functionality - this causes duplicate test execution
+- Never import modules inside functions (unless explicitly instructed or required to avoid circular imports)
 
 ## Code Standards
 
