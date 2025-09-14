@@ -174,6 +174,9 @@ class MockDataSeeder(BaseSeeder):
             # Create stages based on costs
             self._create_stages_for_purchase(session, purchase, all_costs)
 
+        # Flush stages to database before bulk inserting other entities
+        session.flush()
+
         # Bulk insert remaining entities
         content_count = bulk_inserter.insert_models(all_purpose_contents)
         cost_count = bulk_inserter.insert_models(all_costs)
