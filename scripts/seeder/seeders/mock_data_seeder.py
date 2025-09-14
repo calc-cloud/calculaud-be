@@ -271,7 +271,7 @@ class MockDataSeeder(BaseSeeder):
 
     def _complete_stages_for_purchase(self, session: Session, purchase_id: int) -> int:
         """Complete stages in priority order for a specific purchase."""
-        # Get stages ordered by priority
+        # Get stages grouped by priority
         stmt = (
             select(Stage)
             .where(Stage.purchase_id == purchase_id)
@@ -282,35 +282,56 @@ class MockDataSeeder(BaseSeeder):
         if not stages:
             return 0
 
-        # Weighted random selection of how many stages to complete
-        num_stages = len(stages) + 1
-        weights = [20, 15, 12, 10, 8, 6, 4, 3, 2, 1]
-        if num_stages > len(weights):
-            weights.extend([1] * (num_stages - len(weights)))
+        # Group stages by priority level
+        stages_by_priority = {}
+        for stage in stages:
+            if stage.priority not in stages_by_priority:
+                stages_by_priority[stage.priority] = []
+            stages_by_priority[stage.priority].append(stage)
 
-        stages_to_complete = get_weighted_choice(
-            list(range(num_stages)), weights[:num_stages]
+        priority_levels = sorted(stages_by_priority.keys())
+        total_priority_levels = len(priority_levels)
+
+        # Better randomization: more varied completion patterns for IN_PROGRESS
+        # 30% chance of 0 stages, then decreasing probability
+        completion_weights = [3, 2, 2, 2, 2, 1, 1, 1, 1, 1]
+        max_priorities_to_complete = min(
+            len(completion_weights), total_priority_levels + 1
         )
 
-        if stages_to_complete == 0:
+        priorities_to_complete = get_weighted_choice(
+            list(range(max_priorities_to_complete)),
+            completion_weights[:max_priorities_to_complete],
+        )
+
+        if priorities_to_complete == 0:
             return 0
 
-        # Complete stages in priority order with progressive dates
+        # Complete stages priority by priority
         base_date = create_random_datetime(
             SeedingConfig.STAGE_COMPLETION_YEARS_AGO, 0.5
         )
 
         completed = 0
-        for i, stage in enumerate(stages[:stages_to_complete]):
-            # Check if stage type requires value
-            stage_type = session.get(StageType, stage.stage_type_id)
-            if stage_type and stage_type.value_required:
-                stage.value = create_random_stage_value_9_digits()
+        for i, priority_level in enumerate(priority_levels[:priorities_to_complete]):
+            priority_stages = stages_by_priority[priority_level]
 
-            # Progressive completion dates (later stages completed after earlier ones)
-            days_offset = i * random.randint(3, 14)  # 3-14 days between stages
-            stage.completion_date = (base_date + timedelta(days=days_offset)).date()
-            completed += 1
+            # For stages at the same priority, complete all or none (they're parallel)
+            for stage in priority_stages:
+                # Check if stage type requires value
+                stage_type = session.get(StageType, stage.stage_type_id)
+                if stage_type and stage_type.value_required:
+                    stage.value = create_random_stage_value_9_digits()
+
+                # Progressive completion dates between priority levels
+                days_offset = i * random.randint(
+                    5, 15
+                )  # 5-15 days between priority levels
+                hours_offset = random.randint(0, 23)
+                stage.completion_date = (
+                    base_date + timedelta(days=days_offset, hours=hours_offset)
+                ).date()
+                completed += 1
 
         return completed
 
