@@ -4,12 +4,16 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
+    PurposeProcessingTimeByServiceType,
+    PurposeProcessingTimeDistributionResponse,
+    PurposeProcessingTimeRequest,
     ServiceBreakdownItem,
     ServicesQuantityStackedResponse,
     ServiceTypeBreakdownItem,
     ServiceTypeStatusDistributionResponse,
     ServiceTypeWithBreakdownItem,
 )
+from app.purchases.models import Purchase
 from app.purposes.filters import apply_filters
 from app.purposes.models import (
     Purpose,
@@ -20,6 +24,8 @@ from app.purposes.models import (
 from app.purposes.schemas import FilterParams
 from app.service_types.models import ServiceType
 from app.services.models import Service
+from app.stage_types.models import StageType
+from app.stages.models import Stage
 
 
 class AnalyticsService:
@@ -198,4 +204,113 @@ class AnalyticsService:
             data=service_type_items,
             total_count=total_count,
             target_status=target_status,
+        )
+
+    def get_purpose_processing_time_distribution(
+        self, params: PurposeProcessingTimeRequest
+    ) -> PurposeProcessingTimeDistributionResponse:
+        """
+        Get purpose processing time distribution by service type.
+
+        Calculates processing time from first EMF ID stage creation to purpose completion.
+        Filters by completion date range and groups results by service type.
+        """
+
+        # Subquery to get the earliest EMF ID stage creation date per purpose
+        emf_start_subquery = (
+            select(
+                Stage.purchase_id,
+                func.min(Stage.completion_date).label("emf_start_date"),
+            )
+            .select_from(Stage)
+            .join(StageType, Stage.stage_type_id == StageType.id)
+            .where(and_(StageType.name == "emf_id", Stage.completion_date.isnot(None)))
+            .group_by(Stage.purchase_id)
+        ).subquery()
+
+        # Subquery to get the latest completion status change per purpose
+        completion_subquery = (
+            select(
+                PurposeStatusHistory.purpose_id,
+                func.max(PurposeStatusHistory.changed_at).label("completion_date"),
+            )
+            .select_from(PurposeStatusHistory)
+            .where(PurposeStatusHistory.new_status == StatusEnum.COMPLETED)
+            .group_by(PurposeStatusHistory.purpose_id)
+        ).subquery()
+
+        # Main query to calculate processing times
+        # Use CAST to ensure proper date arithmetic
+        query = (
+            select(
+                ServiceType.id.label("service_type_id"),
+                ServiceType.name.label("service_type_name"),
+                func.count().label("count"),
+                func.avg(
+                    (
+                        func.julianday(func.date(completion_subquery.c.completion_date))
+                        - func.julianday(emf_start_subquery.c.emf_start_date)
+                    )
+                ).label("avg_processing_days"),
+                func.min(
+                    (
+                        func.julianday(func.date(completion_subquery.c.completion_date))
+                        - func.julianday(emf_start_subquery.c.emf_start_date)
+                    )
+                ).label("min_processing_days"),
+                func.max(
+                    (
+                        func.julianday(func.date(completion_subquery.c.completion_date))
+                        - func.julianday(emf_start_subquery.c.emf_start_date)
+                    )
+                ).label("max_processing_days"),
+            )
+            .select_from(Purpose)
+            .join(completion_subquery, Purpose.id == completion_subquery.c.purpose_id)
+            .join(Purchase, Purpose.id == Purchase.purpose_id)
+            .join(emf_start_subquery, Purchase.id == emf_start_subquery.c.purchase_id)
+            .join(ServiceType, Purpose.service_type_id == ServiceType.id)
+        )
+
+        # Apply date filtering on completion date
+        if params.start_date:
+            query = query.where(
+                func.date(completion_subquery.c.completion_date) >= params.start_date
+            )
+        if params.end_date:
+            query = query.where(
+                func.date(completion_subquery.c.completion_date) <= params.end_date
+            )
+
+        # Group by service type and sort by average processing time descending
+        query = query.group_by(ServiceType.id, ServiceType.name).order_by(
+            func.avg(
+                (
+                    func.julianday(func.date(completion_subquery.c.completion_date))
+                    - func.julianday(emf_start_subquery.c.emf_start_date)
+                )
+            ).desc()
+        )
+
+        result = self.db.execute(query).all()
+
+        # Build response
+        service_type_items = []
+        total_purposes = 0
+
+        for row in result:
+            service_type_item = PurposeProcessingTimeByServiceType(
+                service_type_id=row.service_type_id,
+                service_type_name=row.service_type_name,
+                count=row.count,
+                average_processing_days=round(float(row.avg_processing_days or 0), 2),
+                min_processing_days=int(row.min_processing_days or 0),
+                max_processing_days=int(row.max_processing_days or 0),
+            )
+            service_type_items.append(service_type_item)
+            total_purposes += row.count
+
+        return PurposeProcessingTimeDistributionResponse(
+            service_types=service_type_items,
+            total_purposes=total_purposes,
         )

@@ -10,6 +10,8 @@ from app.analytics.schemas import (
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingStagesStackedDistributionResponse,
+    PurposeProcessingTimeDistributionResponse,
+    PurposeProcessingTimeFilterParams,
     ServicesQuantityStackedResponse,
     ServiceTypeCostDistributionResponse,
     ServiceTypesDistributionResponse,
@@ -210,3 +212,21 @@ def get_cost_distribution_by_budget_source(
 ) -> BudgetSourceCostDistributionResponse:
     """Get cost distribution by budget source with multi-currency support."""
     return financial_analytics_service.get_cost_distribution_by_budget_source(filters)
+
+
+@router.get(
+    "/purposes/processing-times",
+    response_model=PurposeProcessingTimeDistributionResponse,
+)
+def get_purpose_processing_time_distribution(
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    params: Annotated[PurposeProcessingTimeFilterParams, Query()],
+) -> PurposeProcessingTimeDistributionResponse:
+    """
+    Get purpose processing time distribution by service type.
+
+    Calculates processing time from first EMF ID stage completion to purpose completion.
+    Results grouped by service type with count, average, min, and max processing days.
+    Supports date filtering by completion date.
+    """
+    return analytics_service.get_purpose_processing_time_distribution(params)

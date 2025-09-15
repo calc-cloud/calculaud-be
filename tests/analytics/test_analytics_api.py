@@ -1,16 +1,62 @@
-from datetime import datetime
+from calendar import monthrange
+from datetime import date, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.costs.models import Cost, CurrencyEnum
 from app.hierarchies.models import Hierarchy, HierarchyTypeEnum
 from app.purchases.models import Purchase
-from app.purposes.models import Purpose, PurposeContent, StatusEnum
+from app.purposes.models import (
+    Purpose,
+    PurposeContent,
+    PurposeStatusHistory,
+    StatusEnum,
+)
 from app.service_types.models import ServiceType
 from app.services.models import Service
+from app.stage_types.models import StageType
+from app.stages.models import Stage
 from app.suppliers.models import Supplier
+
+
+def _assert_processing_time_response(
+    data: dict,
+    expected_total_purposes: int = None,
+    expected_service_types: list[str] = None,
+):
+    """Helper method to validate processing time response structure and content."""
+    # Check basic response structure
+    assert "service_types" in data
+    assert "total_purposes" in data
+
+    # Check total purposes if specified
+    if expected_total_purposes is not None:
+        assert data["total_purposes"] == expected_total_purposes
+
+    # Check service types if specified
+    if expected_service_types is not None:
+        actual_service_types = [
+            item["service_type_name"] for item in data["service_types"]
+        ]
+        assert set(actual_service_types) == set(expected_service_types)
+
+    # Validate service type structure for each item
+    for service_type_item in data["service_types"]:
+        assert "service_type_id" in service_type_item
+        assert "service_type_name" in service_type_item
+        assert "count" in service_type_item
+        assert "average_processing_days" in service_type_item
+        assert "min_processing_days" in service_type_item
+        assert "max_processing_days" in service_type_item
+
+        # Validate that processing days are reasonable
+        assert service_type_item["average_processing_days"] >= 0
+        assert service_type_item["min_processing_days"] >= 0
+        assert service_type_item["max_processing_days"] >= 0
+        assert service_type_item["count"] > 0
 
 
 class TestAnalyticsAPI:
@@ -95,6 +141,43 @@ class TestAnalyticsAPI:
         )
         cost3 = Cost(purchase_id=purchase2.id, currency=CurrencyEnum.ILS, amount=1500.0)
         db_session.add_all([cost1, cost2, cost3])
+        db_session.flush()
+
+        # Create EMF stage type for processing time tests
+        emf_stage_type = StageType(
+            name="emf_id",
+            display_name="EMF ID",
+            description="EMF ID Stage for processing time tracking",
+        )
+        db_session.add(emf_stage_type)
+        db_session.flush()
+
+        # Create EMF stages for both purchases with known dates
+        emf_stage1 = Stage(
+            stage_type_id=emf_stage_type.id,
+            purchase_id=purchase1.id,
+            priority=1,
+            value="EMF001",
+            completion_date=date(2024, 1, 10),  # 5 days before purpose creation
+        )
+        emf_stage2 = Stage(
+            stage_type_id=emf_stage_type.id,
+            purchase_id=purchase2.id,
+            priority=1,
+            value="EMF002",
+            completion_date=date(2024, 2, 10),  # 5 days before purpose creation
+        )
+        db_session.add_all([emf_stage1, emf_stage2])
+        db_session.flush()
+
+        # Create status history for purpose2 completion (purpose2 is already COMPLETED)
+        status_history = PurposeStatusHistory(
+            purpose_id=purpose2.id,
+            previous_status=StatusEnum.IN_PROGRESS,
+            new_status=StatusEnum.COMPLETED,
+            changed_at=datetime(2024, 2, 25, 14, 30, 0),  # 10 days after creation
+        )
+        db_session.add(status_history)
 
         db_session.commit()
 
@@ -109,6 +192,11 @@ class TestAnalyticsAPI:
             "supplier": supplier,
             "purpose1": purpose1,
             "purpose2": purpose2,
+            "purchase1": purchase1,
+            "purchase2": purchase2,
+            "emf_stage_type": emf_stage_type,
+            "emf_stage1": emf_stage1,
+            "emf_stage2": emf_stage2,
         }
 
     def test_get_services_quantities(self, test_client: TestClient, setup_test_data):
@@ -288,3 +376,95 @@ class TestAnalyticsAPI:
 
         # Should include only 1 service type (Consulting) since Equipment purpose is COMPLETED and filtered out
         assert len(data["data"]) == 1
+
+    def test_purpose_processing_time_distribution(
+        self, test_client: TestClient, setup_test_data, db_session: Session
+    ):
+        """Test purpose processing time distribution endpoint."""
+
+        # Query actual completion date created by event listeners for purpose2
+        actual_completion = db_session.execute(
+            select(PurposeStatusHistory.changed_at)
+            .where(PurposeStatusHistory.purpose_id == setup_test_data["purpose2"].id)
+            .where(PurposeStatusHistory.new_status == StatusEnum.COMPLETED)
+            .order_by(PurposeStatusHistory.changed_at.desc())
+            .limit(1)
+        ).scalar_one()
+
+        # Calculate expected days: actual completion date - EMF completion date
+        emf_completion_date = setup_test_data["emf_stage2"].completion_date
+        expected_days = (actual_completion.date() - emf_completion_date).days
+
+        response = test_client.get("/api/v1/analytics/purposes/processing-times")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Validate using helper method - should have 1 Equipment purpose with processing time
+        _assert_processing_time_response(
+            data, expected_total_purposes=1, expected_service_types=["Equipment"]
+        )
+
+        # Verify specific processing time calculation matches actual event listener behavior
+        equipment_data = data["service_types"][0]
+        assert equipment_data["service_type_name"] == "Equipment"
+        assert equipment_data["count"] == 1
+        assert equipment_data["average_processing_days"] == float(expected_days)
+        assert equipment_data["min_processing_days"] == expected_days
+        assert equipment_data["max_processing_days"] == expected_days
+
+    def test_purpose_processing_time_distribution_with_date_filter(
+        self, test_client: TestClient, setup_test_data, db_session: Session
+    ):
+        """Test purpose processing time distribution with date filtering."""
+
+        # Query actual completion date to set proper date filter
+        actual_completion = db_session.execute(
+            select(PurposeStatusHistory.changed_at)
+            .where(PurposeStatusHistory.purpose_id == setup_test_data["purpose2"].id)
+            .where(PurposeStatusHistory.new_status == StatusEnum.COMPLETED)
+            .order_by(PurposeStatusHistory.changed_at.desc())
+            .limit(1)
+        ).scalar_one()
+
+        start_date = f"{actual_completion.year}-{actual_completion.month:02d}-01"
+        last_day = monthrange(actual_completion.year, actual_completion.month)[1]
+        end_date = (
+            f"{actual_completion.year}-{actual_completion.month:02d}-{last_day:02d}"
+        )
+
+        response = test_client.get(
+            "/api/v1/analytics/purposes/processing-times",
+            params={"start_date": start_date, "end_date": end_date},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should include purpose2 which completed in the filtered month
+        _assert_processing_time_response(
+            data,
+            expected_total_purposes=1,
+            expected_service_types=["Equipment"],
+        )
+
+    def test_purpose_processing_time_distribution_empty_result(
+        self, test_client: TestClient, setup_test_data
+    ):
+        """Test purpose processing time distribution when no data matches criteria."""
+
+        # Filter by future dates where no completions occurred
+        response = test_client.get(
+            "/api/v1/analytics/purposes/processing-times",
+            params={"start_date": "2025-01-01", "end_date": "2025-01-31"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should return empty result - no purposes completed in 2025
+        _assert_processing_time_response(
+            data,
+            expected_total_purposes=0,
+        )
+        assert data["service_types"] == []

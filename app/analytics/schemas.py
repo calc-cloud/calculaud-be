@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated, Generic, TypeVar
 
 from fastapi import Query
@@ -103,6 +104,43 @@ class ServicesQuantityStackedResponse(BaseModel):
     data: list[ServiceTypeWithBreakdownItem]
 
 
+class PurposeProcessingTimeRequest(BaseModel):
+    """Request parameters for purpose processing time analytics."""
+
+    start_date: Annotated[
+        date | None,
+        Query(
+            default=None,
+            description="Start date for filtering purpose completion times (inclusive)",
+        ),
+    ]
+    end_date: Annotated[
+        date | None,
+        Query(
+            default=None,
+            description="End date for filtering purpose completion times (inclusive)",
+        ),
+    ]
+
+
+class PurposeProcessingTimeByServiceType(BaseModel):
+    """Purpose processing time analytics for a specific service type."""
+
+    service_type_id: int | None
+    service_type_name: str
+    count: int
+    average_processing_days: float
+    min_processing_days: int
+    max_processing_days: int
+
+
+class PurposeProcessingTimeDistributionResponse(BaseModel):
+    """Dashboard response for purpose processing time distribution by service type."""
+
+    service_types: list[PurposeProcessingTimeByServiceType]
+    total_purposes: int
+
+
 class LiveOperationFilterParams(BaseModel):
     service_type_ids: Annotated[
         list[int] | None,
@@ -148,3 +186,4 @@ PendingStagesStackedDistributionResponse = DistributionResponse[
 ]
 ServiceTypeCostDistributionResponse = DistributionResponse[ServiceTypeCostItem]
 BudgetSourceCostDistributionResponse = DistributionResponse[BudgetSourceCostItem]
+PurposeProcessingTimeFilterParams = PurposeProcessingTimeRequest
