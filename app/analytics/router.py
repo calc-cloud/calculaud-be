@@ -6,12 +6,12 @@ from fastapi.params import Query
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
+    AnalyticsFilterParams,
     BudgetSourceCostDistributionResponse,
     LiveOperationFilterParams,
     PendingAuthoritiesDistributionResponse,
     PendingStagesStackedDistributionResponse,
     PurposeProcessingTimeDistributionResponse,
-    PurposeProcessingTimeFilterParams,
     ServicesQuantityStackedResponse,
     ServiceTypeCostDistributionResponse,
     ServiceTypesDistributionResponse,
@@ -22,7 +22,6 @@ from app.analytics.services import AnalyticsService, LiveOperationsService
 from app.analytics.services.financial_analytics_service import FinancialAnalyticsService
 from app.database import get_db
 from app.purposes.models import StatusEnum
-from app.purposes.schemas import FilterParams
 
 router = APIRouter()
 
@@ -170,7 +169,7 @@ def get_service_type_status_distribution(
 @router.get("/services/quantities", response_model=ServicesQuantityStackedResponse)
 def get_services_quantities(
     analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-    filters: Annotated[FilterParams, Query()],
+    filters: Annotated[AnalyticsFilterParams, Query()],
 ) -> ServicesQuantityStackedResponse:
     """
     Get service quantity distribution by service type with drill-down support.
@@ -194,7 +193,7 @@ def get_cost_distribution_by_service_type(
     financial_analytics_service: Annotated[
         FinancialAnalyticsService, Depends(get_financial_analytics_service)
     ],
-    filters: Annotated[FilterParams, Query()],
+    filters: Annotated[AnalyticsFilterParams, Query()],
 ) -> ServiceTypeCostDistributionResponse:
     """Get cost distribution by service type with multi-currency support."""
     return financial_analytics_service.get_cost_distribution_by_service_type(filters)
@@ -208,7 +207,7 @@ def get_cost_distribution_by_budget_source(
     financial_analytics_service: Annotated[
         FinancialAnalyticsService, Depends(get_financial_analytics_service)
     ],
-    filters: Annotated[FilterParams, Query()],
+    filters: Annotated[AnalyticsFilterParams, Query()],
 ) -> BudgetSourceCostDistributionResponse:
     """Get cost distribution by budget source with multi-currency support."""
     return financial_analytics_service.get_cost_distribution_by_budget_source(filters)
@@ -220,7 +219,7 @@ def get_cost_distribution_by_budget_source(
 )
 def get_purpose_processing_time_distribution(
     analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-    params: Annotated[PurposeProcessingTimeFilterParams, Query()],
+    params: Annotated[AnalyticsFilterParams, Query()],
 ) -> PurposeProcessingTimeDistributionResponse:
     """
     Get purpose processing time distribution by service type.

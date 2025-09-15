@@ -1,8 +1,15 @@
 """Analytics utility functions."""
 
-from app.analytics.schemas import CurrencyAmounts, MultiCurrencyAmount
+from sqlalchemy import Select, func
+
+from app.analytics.schemas import (
+    AnalyticsFilterParams,
+    CurrencyAmounts,
+    MultiCurrencyAmount,
+)
 from app.config import settings
 from app.costs.models import CurrencyEnum
+from app.purposes.models import Purpose
 
 
 def convert_currency(
@@ -62,3 +69,33 @@ def calculate_multi_currency_totals(
         total_usd=total_usd,
         total_ils=total_ils,
     )
+
+
+def apply_analytics_filters(
+    query: Select, filters: AnalyticsFilterParams, date_column=None
+) -> Select:
+    """Apply simple analytics filters to a query.
+
+    Args:
+        query: The SQLAlchemy Select query to filter
+        filters: The analytics filter parameters
+        date_column: Optional date column for filtering. Defaults to Purpose.creation_time
+
+    Returns:
+        The filtered query
+    """
+    # Use default date column if none provided
+    if date_column is None:
+        date_column = Purpose.creation_time
+
+    # Date range filter
+    if filters.start_date:
+        query = query.where(func.date(date_column) >= filters.start_date)
+    if filters.end_date:
+        query = query.where(func.date(date_column) <= filters.end_date)
+
+    # Service type filter
+    if filters.service_type_ids:
+        query = query.where(Purpose.service_type_id.in_(filters.service_type_ids))
+
+    return query

@@ -216,7 +216,11 @@ class TestPurchaseAPI:
         assert "not found" in response.json()["detail"].lower()
 
     def test_patch_purchase_preserves_other_fields(
-        self, test_client: TestClient, sample_purchase_with_costs, sample_budget_source
+        self,
+        test_client: TestClient,
+        sample_purchase_with_costs,
+        sample_budget_source,
+        predefined_flows_for_purchases,
     ):
         """Test that PATCH preserves costs, stages, and other fields."""
         purchase_endpoint = f"{settings.api_v1_prefix}/purchases"

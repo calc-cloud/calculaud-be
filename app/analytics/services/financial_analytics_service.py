@@ -2,19 +2,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
+    AnalyticsFilterParams,
     BudgetSourceCostDistributionResponse,
     BudgetSourceCostItem,
     CurrencyAmounts,
     ServiceTypeCostDistributionResponse,
     ServiceTypeCostItem,
 )
-from app.analytics.utils import calculate_multi_currency_totals
+from app.analytics.utils import apply_analytics_filters, calculate_multi_currency_totals
 from app.budget_sources.models import BudgetSource
 from app.costs.models import Cost, CurrencyEnum
 from app.purchases.models import Purchase
-from app.purposes.filters import apply_filters
 from app.purposes.models import Purpose
-from app.purposes.schemas import FilterParams
 from app.service_types.models import ServiceType
 
 
@@ -25,7 +24,7 @@ class FinancialAnalyticsService:
         self.db = db
 
     def get_cost_distribution_by_service_type(
-        self, filters: FilterParams
+        self, filters: AnalyticsFilterParams
     ) -> ServiceTypeCostDistributionResponse:
         """Get cost distribution by service type with multi-currency support.
 
@@ -46,8 +45,8 @@ class FinancialAnalyticsService:
             .outerjoin(ServiceType, Purpose.service_type_id == ServiceType.id)
         )
 
-        # Apply universal filters
-        query = apply_filters(query, filters, self.db)
+        # Apply analytics filters
+        query = apply_analytics_filters(query, filters)
 
         # Group by service type and currency
         query = query.group_by(
@@ -99,7 +98,7 @@ class FinancialAnalyticsService:
         return ServiceTypeCostDistributionResponse(data=service_type_items)
 
     def get_cost_distribution_by_budget_source(
-        self, filters: FilterParams
+        self, filters: AnalyticsFilterParams
     ) -> BudgetSourceCostDistributionResponse:
         """Get cost distribution by budget source with multi-currency support.
 
@@ -120,8 +119,8 @@ class FinancialAnalyticsService:
             .join(Purpose, Purchase.purpose_id == Purpose.id)
         )
 
-        # Apply universal filters
-        query = apply_filters(query, filters, self.db)
+        # Apply analytics filters
+        query = apply_analytics_filters(query, filters)
 
         # Group by budget source and currency
         query = query.group_by(

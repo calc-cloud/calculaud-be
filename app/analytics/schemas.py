@@ -104,25 +104,6 @@ class ServicesQuantityStackedResponse(BaseModel):
     data: list[ServiceTypeWithBreakdownItem]
 
 
-class PurposeProcessingTimeRequest(BaseModel):
-    """Request parameters for purpose processing time analytics."""
-
-    start_date: Annotated[
-        date | None,
-        Query(
-            default=None,
-            description="Start date for filtering purpose completion times (inclusive)",
-        ),
-    ]
-    end_date: Annotated[
-        date | None,
-        Query(
-            default=None,
-            description="End date for filtering purpose completion times (inclusive)",
-        ),
-    ]
-
-
 class PurposeProcessingTimeByServiceType(BaseModel):
     """Purpose processing time analytics for a specific service type."""
 
@@ -139,6 +120,27 @@ class PurposeProcessingTimeDistributionResponse(BaseModel):
 
     service_types: list[PurposeProcessingTimeByServiceType]
     total_purposes: int
+
+
+class AnalyticsFilterParams(BaseModel):
+    """Simple filter parameters for analytics endpoints."""
+
+    start_date: Annotated[
+        date | None,
+        Query(default=None, description="Start date for filtering"),
+    ]
+    end_date: Annotated[
+        date | None,
+        Query(default=None, description="End date for filtering"),
+    ]
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
+    ]
 
 
 class LiveOperationFilterParams(BaseModel):
@@ -186,4 +188,3 @@ PendingStagesStackedDistributionResponse = DistributionResponse[
 ]
 ServiceTypeCostDistributionResponse = DistributionResponse[ServiceTypeCostItem]
 BudgetSourceCostDistributionResponse = DistributionResponse[BudgetSourceCostItem]
-PurposeProcessingTimeFilterParams = PurposeProcessingTimeRequest

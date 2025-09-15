@@ -4,24 +4,23 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.analytics.schemas import (
+    AnalyticsFilterParams,
     PurposeProcessingTimeByServiceType,
     PurposeProcessingTimeDistributionResponse,
-    PurposeProcessingTimeRequest,
     ServiceBreakdownItem,
     ServicesQuantityStackedResponse,
     ServiceTypeBreakdownItem,
     ServiceTypeStatusDistributionResponse,
     ServiceTypeWithBreakdownItem,
 )
+from app.analytics.utils import apply_analytics_filters
 from app.purchases.models import Purchase
-from app.purposes.filters import apply_filters
 from app.purposes.models import (
     Purpose,
     PurposeContent,
     PurposeStatusHistory,
     StatusEnum,
 )
-from app.purposes.schemas import FilterParams
 from app.service_types.models import ServiceType
 from app.services.models import Service
 from app.stage_types.models import StageType
@@ -35,7 +34,7 @@ class AnalyticsService:
         self.db = db
 
     def get_services_quantities(
-        self, filters: FilterParams
+        self, filters: AnalyticsFilterParams
     ) -> ServicesQuantityStackedResponse:
         """Get total quantities for each service type with service breakdown.
 
@@ -62,9 +61,8 @@ class AnalyticsService:
             .join(ServiceType, Service.service_type_id == ServiceType.id)
         )
 
-        query = apply_filters(
-            query, filters, self.db, purpose_content_table_joined=True
-        )
+        # Apply analytics filters
+        query = apply_analytics_filters(query, filters)
 
         # Group by both service type and service
         query = query.group_by(
@@ -207,7 +205,7 @@ class AnalyticsService:
         )
 
     def get_purpose_processing_time_distribution(
-        self, params: PurposeProcessingTimeRequest
+        self, params: AnalyticsFilterParams
     ) -> PurposeProcessingTimeDistributionResponse:
         """
         Get purpose processing time distribution by service type.
@@ -240,29 +238,22 @@ class AnalyticsService:
         ).subquery()
 
         # Main query to calculate processing times
-        # Use CAST to ensure proper date arithmetic
         query = (
             select(
                 ServiceType.id.label("service_type_id"),
                 ServiceType.name.label("service_type_name"),
                 func.count().label("count"),
                 func.avg(
-                    (
-                        func.julianday(func.date(completion_subquery.c.completion_date))
-                        - func.julianday(emf_start_subquery.c.emf_start_date)
-                    )
+                    func.julianday(func.date(completion_subquery.c.completion_date))
+                    - func.julianday(emf_start_subquery.c.emf_start_date)
                 ).label("avg_processing_days"),
                 func.min(
-                    (
-                        func.julianday(func.date(completion_subquery.c.completion_date))
-                        - func.julianday(emf_start_subquery.c.emf_start_date)
-                    )
+                    func.julianday(func.date(completion_subquery.c.completion_date))
+                    - func.julianday(emf_start_subquery.c.emf_start_date)
                 ).label("min_processing_days"),
                 func.max(
-                    (
-                        func.julianday(func.date(completion_subquery.c.completion_date))
-                        - func.julianday(emf_start_subquery.c.emf_start_date)
-                    )
+                    func.julianday(func.date(completion_subquery.c.completion_date))
+                    - func.julianday(emf_start_subquery.c.emf_start_date)
                 ).label("max_processing_days"),
             )
             .select_from(Purpose)
@@ -272,23 +263,16 @@ class AnalyticsService:
             .join(ServiceType, Purpose.service_type_id == ServiceType.id)
         )
 
-        # Apply date filtering on completion date
-        if params.start_date:
-            query = query.where(
-                func.date(completion_subquery.c.completion_date) >= params.start_date
-            )
-        if params.end_date:
-            query = query.where(
-                func.date(completion_subquery.c.completion_date) <= params.end_date
-            )
+        # Apply analytics filters using completion date
+        query = apply_analytics_filters(
+            query, params, date_column=completion_subquery.c.completion_date
+        )
 
         # Group by service type and sort by average processing time descending
         query = query.group_by(ServiceType.id, ServiceType.name).order_by(
             func.avg(
-                (
-                    func.julianday(func.date(completion_subquery.c.completion_date))
-                    - func.julianday(emf_start_subquery.c.emf_start_date)
-                )
+                func.julianday(func.date(completion_subquery.c.completion_date))
+                - func.julianday(emf_start_subquery.c.emf_start_date)
             ).desc()
         )
 
