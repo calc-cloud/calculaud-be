@@ -106,7 +106,7 @@ class TestAnalyticsAPI:
         )
         purpose2 = Purpose(
             description="Purpose 2",
-            status=StatusEnum.COMPLETED,
+            status=StatusEnum.IN_PROGRESS,  # Start as IN_PROGRESS to avoid trigger creating completion record
             hierarchy_id=center.id,
             service_type_id=service_type2.id,
             supplier_id=supplier.id,
@@ -170,7 +170,7 @@ class TestAnalyticsAPI:
         db_session.add_all([emf_stage1, emf_stage2])
         db_session.flush()
 
-        # Create status history for purpose2 completion (purpose2 is already COMPLETED)
+        # Create status history for purpose2 completion with specific test date
         status_history = PurposeStatusHistory(
             purpose_id=purpose2.id,
             previous_status=StatusEnum.IN_PROGRESS,
@@ -178,6 +178,15 @@ class TestAnalyticsAPI:
             changed_at=datetime(2024, 2, 25, 14, 30, 0),  # 10 days after creation
         )
         db_session.add(status_history)
+        db_session.flush()  # Ensure status history is created first
+
+        # Update purpose2 status directly in the database to avoid triggering event listeners
+        from sqlalchemy import text
+
+        db_session.execute(
+            text("UPDATE purpose SET status = :status WHERE id = :purpose_id"),
+            {"status": StatusEnum.COMPLETED.value, "purpose_id": purpose2.id},
+        )
 
         db_session.commit()
 
@@ -382,18 +391,10 @@ class TestAnalyticsAPI:
     ):
         """Test purpose processing time distribution endpoint."""
 
-        # Query actual completion date created by event listeners for purpose2
-        actual_completion = db_session.execute(
-            select(PurposeStatusHistory.changed_at)
-            .where(PurposeStatusHistory.purpose_id == setup_test_data["purpose2"].id)
-            .where(PurposeStatusHistory.new_status == StatusEnum.COMPLETED)
-            .order_by(PurposeStatusHistory.changed_at.desc())
-            .limit(1)
-        ).scalar_one()
-
-        # Calculate expected days: actual completion date - EMF completion date
+        # Calculate expected processing time: completion date (2024-02-25) - EMF start date (2024-02-10)
+        test_completion_date = datetime(2024, 2, 25, 14, 30, 0)
         emf_completion_date = setup_test_data["emf_stage2"].completion_date
-        expected_days = (actual_completion.date() - emf_completion_date).days
+        expected_days = (test_completion_date.date() - emf_completion_date).days
 
         response = test_client.get("/api/v1/analytics/purposes/processing-times")
 
@@ -409,6 +410,11 @@ class TestAnalyticsAPI:
         equipment_data = data["service_types"][0]
         assert equipment_data["service_type_name"] == "Equipment"
         assert equipment_data["count"] == 1
+
+        # The expected days should be 15: (2024-02-25) - (2024-02-10) = 15 days
+        assert (
+            expected_days == 15
+        ), f"Test setup error: expected 15 days but got {expected_days}"
         assert equipment_data["average_processing_days"] == float(expected_days)
         assert equipment_data["min_processing_days"] == expected_days
         assert equipment_data["max_processing_days"] == expected_days

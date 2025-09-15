@@ -33,6 +33,23 @@ class AnalyticsService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _get_date_diff_expression(self, end_date_col, start_date_col):
+        """Get database-specific expression for calculating date difference in days."""
+        # Detect database dialect
+        dialect_name = self.db.bind.dialect.name
+
+        if dialect_name == "postgresql":
+            # PostgreSQL: Use DATE() cast and simple subtraction
+            return func.date(end_date_col) - start_date_col
+        elif dialect_name == "sqlite":
+            # SQLite: Use JULIANDAY() for date arithmetic
+            return func.julianday(func.date(end_date_col)) - func.julianday(
+                start_date_col
+            )
+        else:
+            # Fallback for other databases - try simple subtraction
+            return func.date(end_date_col) - start_date_col
+
     def get_services_quantities(
         self, filters: AnalyticsFilterParams
     ) -> ServicesQuantityStackedResponse:
@@ -237,24 +254,20 @@ class AnalyticsService:
             .group_by(PurposeStatusHistory.purpose_id)
         ).subquery()
 
+        # Get database-specific date difference expression
+        date_diff_expr = self._get_date_diff_expression(
+            completion_subquery.c.completion_date, emf_start_subquery.c.emf_start_date
+        )
+
         # Main query to calculate processing times
         query = (
             select(
                 ServiceType.id.label("service_type_id"),
                 ServiceType.name.label("service_type_name"),
                 func.count().label("count"),
-                func.avg(
-                    func.julianday(func.date(completion_subquery.c.completion_date))
-                    - func.julianday(emf_start_subquery.c.emf_start_date)
-                ).label("avg_processing_days"),
-                func.min(
-                    func.julianday(func.date(completion_subquery.c.completion_date))
-                    - func.julianday(emf_start_subquery.c.emf_start_date)
-                ).label("min_processing_days"),
-                func.max(
-                    func.julianday(func.date(completion_subquery.c.completion_date))
-                    - func.julianday(emf_start_subquery.c.emf_start_date)
-                ).label("max_processing_days"),
+                func.avg(date_diff_expr).label("avg_processing_days"),
+                func.min(date_diff_expr).label("min_processing_days"),
+                func.max(date_diff_expr).label("max_processing_days"),
             )
             .select_from(Purpose)
             .join(completion_subquery, Purpose.id == completion_subquery.c.purpose_id)
@@ -270,10 +283,7 @@ class AnalyticsService:
 
         # Group by service type and sort by average processing time descending
         query = query.group_by(ServiceType.id, ServiceType.name).order_by(
-            func.avg(
-                func.julianday(func.date(completion_subquery.c.completion_date))
-                - func.julianday(emf_start_subquery.c.emf_start_date)
-            ).desc()
+            func.avg(date_diff_expr).desc()
         )
 
         result = self.db.execute(query).all()
