@@ -1,0 +1,51 @@
+{
+  "Cloud Infrastructure": [
+    "AWS EC2 Instances",
+    "Azure Virtual Machines", 
+    "Google Cloud Compute",
+    "Load Balancers",
+    "Auto Scaling Groups"
+  ],
+  "Database Services": [
+    "PostgreSQL Hosting",
+    "MySQL Management",
+    "Redis Cache",
+    "MongoDB Atlas",
+    "Database Migration"
+  ],
+  "Application Development": [
+    "API Development",
+    "Microservices Architecture",
+    "Container Orchestration", 
+    "Serverless Functions",
+    "CI/CD Pipeline Setup"
+  ],
+  "DevOps & Automation": [
+    "Infrastructure as Code",
+    "Kubernetes Management",
+    "Docker Container Registry",
+    "Monitoring & Alerting",
+    "Backup & Recovery"
+  ],
+  "Security & Monitoring": [
+    "SSL Certificates",
+    "Security Auditing",
+    "Penetration Testing",
+    "Log Analysis", 
+    "Compliance Monitoring"
+  ],
+  "Storage Solutions": [
+    "AWS S3 Storage",
+    "Azure Blob Storage",
+    "CDN Services",
+    "Data Archiving",
+    "File System Management"
+  ],
+  "Network Services": [
+    "VPN Setup",
+    "DNS Management", 
+    "Firewall Configuration",
+    "Network Monitoring",
+    "Bandwidth Optimization"
+  ]
+}

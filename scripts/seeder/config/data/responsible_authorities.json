@@ -1,0 +1,14 @@
+[
+  {
+    "name": "IT Department",
+    "description": "Information Technology department responsible for technical approvals and system validations"
+  },
+  {
+    "name": "Finance Team", 
+    "description": "Financial department handling budget approvals and cost validations"
+  },
+  {
+    "name": "Security Office",
+    "description": "Information security office responsible for security reviews and compliance"
+  }
+]

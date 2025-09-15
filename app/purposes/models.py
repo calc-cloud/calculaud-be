@@ -13,10 +13,17 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     func,
+    insert,
+    select,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
-from sqlalchemy.orm.attributes import NO_VALUE
+from sqlalchemy.orm import (
+    LoaderCallableStatus,
+    Mapped,
+    mapped_column,
+    object_session,
+    relationship,
+)
 
 from app.database import Base
 
@@ -226,28 +233,26 @@ def _update_purpose_on_content_change(
 @event.listens_for(Purpose.status, "set")
 def _track_purpose_status_change(target, value, oldvalue, _initiator):
     """Track status changes in purpose_status_history table."""
-    # Skip if this is the initial value setting or no actual change
-    if oldvalue is None or oldvalue == value:
+    # Skip if no actual change
+    if oldvalue == value:
         return
 
-    # Get the session from the target object
     session = object_session(target)
     if not session:
         return
 
-    # If oldvalue is NO_VALUE, get the actual current value from the database
-    if oldvalue is NO_VALUE:
-        # Refresh the object to get the current status from the database
-        session.refresh(target, attribute_names=["status"])
-        actual_oldvalue = target.status
-
-        # If the new value is the same as what's in the database, skip
-        if actual_oldvalue == value:
+    # Handle LoaderCallableStatus.NO_VALUE cases
+    if oldvalue == LoaderCallableStatus.NO_VALUE:
+        if target.id is None:
+            # New object - skip here, handled by after_insert
             return
-
-        oldvalue = actual_oldvalue
-
-    # Create status history record
+        else:
+            # Existing object being reloaded - get current status from DB
+            stmt = select(Purpose.status).where(Purpose.id == target.id)
+            actual_oldvalue = session.execute(stmt).scalar_one_or_none()
+            if actual_oldvalue == value:
+                return
+            oldvalue = actual_oldvalue
     status_history = PurposeStatusHistory(
         purpose_id=target.id,
         previous_status=oldvalue,
@@ -256,3 +261,18 @@ def _track_purpose_status_change(target, value, oldvalue, _initiator):
         changed_by=None,  # TODO: Add user context when authentication is implemented
     )
     session.add(status_history)
+
+
+# Event listener for initial status tracking on new objects
+@event.listens_for(Purpose, "after_insert")
+def _track_initial_status(_mapper, connection, target: Purpose):
+    """Track initial status assignment for newly created purposes."""
+    # Use connection.execute to insert directly since we're in after_insert
+    stmt = insert(PurposeStatusHistory).values(
+        purpose_id=target.id,
+        previous_status=None,
+        new_status=target.status,
+        changed_at=datetime.now(),
+        changed_by=None,
+    )
+    connection.execute(stmt)
