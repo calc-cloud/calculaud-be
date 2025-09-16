@@ -17,6 +17,7 @@ from sqlalchemy import (
     select,
     text,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     LoaderCallableStatus,
     Mapped,
@@ -130,6 +131,43 @@ class Purpose(Base):
             return None
 
         return get_pending_authority_object(session, self.id)
+
+    @hybrid_property
+    def current_status_changed_at(self) -> datetime | None:
+        """
+        Return the timestamp when the current status was last changed.
+        """
+        session = object_session(self)
+        if not session:
+            return None
+
+        # Get the most recent status change that resulted in the current status
+        stmt = (
+            select(PurposeStatusHistory.changed_at)
+            .where(PurposeStatusHistory.purpose_id == self.id)
+            .where(PurposeStatusHistory.new_status == self.status)
+            .order_by(PurposeStatusHistory.changed_at.desc())
+            .limit(1)
+        )
+        result = session.execute(stmt).scalar_one_or_none()
+        return result
+
+    @current_status_changed_at.expression
+    @classmethod
+    def current_status_changed_at(cls):
+        """
+        SQL expression for querying current_status_changed_at at the database level.
+
+        This allows filtering and sorting by current_status_changed_at in queries.
+        """
+        return (
+            select(PurposeStatusHistory.changed_at)
+            .where(PurposeStatusHistory.purpose_id == cls.id)
+            .where(PurposeStatusHistory.new_status == cls.status)
+            .order_by(PurposeStatusHistory.changed_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
 
 
 class PurposeContent(Base):
