@@ -34,21 +34,12 @@ class AnalyticsService:
         self.db = db
 
     def _get_date_diff_expression(self, end_date_col, start_date_col):
-        """Get database-specific expression for calculating date difference in days."""
-        # Detect database dialect
-        dialect_name = self.db.bind.dialect.name
-
-        if dialect_name == "postgresql":
-            # PostgreSQL: Use DATE() cast and simple subtraction
-            return func.date(end_date_col) - start_date_col
-        elif dialect_name == "sqlite":
-            # SQLite: Use JULIANDAY() for date arithmetic
+        """Calculate date difference in days."""
+        if self.db.bind.dialect.name == "sqlite":
             return func.julianday(func.date(end_date_col)) - func.julianday(
                 start_date_col
             )
-        else:
-            # Fallback for other databases - try simple subtraction
-            return func.date(end_date_col) - start_date_col
+        return func.date(end_date_col) - start_date_col
 
     def get_services_quantities(
         self, filters: AnalyticsFilterParams
