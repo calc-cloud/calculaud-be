@@ -66,6 +66,7 @@ class Purpose(PurposeBase):
     id: int
     creation_time: datetime
     last_modified: datetime
+    current_status_changed_at: datetime | None = None
 
     supplier: str | None = None
     service_type: str | None = None

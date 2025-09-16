@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.purposes.models import Purpose, PurposeStatusHistory, StatusEnum
@@ -23,9 +24,12 @@ class TestPurposeStatusHistory:
 
         # Check that history records were created
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == sample_purpose.id)
-            .order_by(PurposeStatusHistory.changed_at)
+            db_session.execute(
+                select(PurposeStatusHistory)
+                .where(PurposeStatusHistory.purpose_id == sample_purpose.id)
+                .order_by(PurposeStatusHistory.changed_at)
+            )
+            .scalars()
             .all()
         )
 
@@ -59,9 +63,12 @@ class TestPurposeStatusHistory:
 
         # Check that both history records were created
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == sample_purpose.id)
-            .order_by(PurposeStatusHistory.changed_at)
+            db_session.execute(
+                select(PurposeStatusHistory)
+                .where(PurposeStatusHistory.purpose_id == sample_purpose.id)
+                .order_by(PurposeStatusHistory.changed_at)
+            )
+            .scalars()
             .all()
         )
 
@@ -92,8 +99,12 @@ class TestPurposeStatusHistory:
 
         # Check that only initial creation history record exists (no additional record for same status)
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == sample_purpose.id)
+            db_session.execute(
+                select(PurposeStatusHistory).where(
+                    PurposeStatusHistory.purpose_id == sample_purpose.id
+                )
+            )
+            .scalars()
             .all()
         )
 
@@ -122,8 +133,12 @@ class TestPurposeStatusHistory:
 
         # Check that history record was created for initial status
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == purpose.id)
+            db_session.execute(
+                select(PurposeStatusHistory).where(
+                    PurposeStatusHistory.purpose_id == purpose.id
+                )
+            )
+            .scalars()
             .all()
         )
 
@@ -156,9 +171,12 @@ class TestPurposeStatusHistory:
 
         # Check history records
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == sample_purpose.id)
-            .order_by(PurposeStatusHistory.changed_at)
+            db_session.execute(
+                select(PurposeStatusHistory)
+                .where(PurposeStatusHistory.purpose_id == sample_purpose.id)
+                .order_by(PurposeStatusHistory.changed_at)
+            )
+            .scalars()
             .all()
         )
 
@@ -187,8 +205,12 @@ class TestPurposeStatusHistory:
 
         # Verify history exists (initial creation + status change)
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == purpose_id)
+            db_session.execute(
+                select(PurposeStatusHistory).where(
+                    PurposeStatusHistory.purpose_id == purpose_id
+                )
+            )
+            .scalars()
             .all()
         )
         assert len(history_records) == 2
@@ -199,8 +221,12 @@ class TestPurposeStatusHistory:
 
         # Verify history was cascaded
         history_records = (
-            db_session.query(PurposeStatusHistory)
-            .filter(PurposeStatusHistory.purpose_id == purpose_id)
+            db_session.execute(
+                select(PurposeStatusHistory).where(
+                    PurposeStatusHistory.purpose_id == purpose_id
+                )
+            )
+            .scalars()
             .all()
         )
         assert len(history_records) == 0

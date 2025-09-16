@@ -40,6 +40,8 @@ class TestPurposesApi(BaseAPITestClass):
         # Verify response structure
         assert "id" in data
         assert "creation_time" in data
+        assert "last_modified" in data
+        assert "current_status_changed_at" in data
         assert "hierarchy" in data
         assert "purchases" in data
         assert isinstance(data["purchases"], list)
@@ -60,6 +62,11 @@ class TestPurposesApi(BaseAPITestClass):
         assert "hierarchy" in data
         assert "purchases" in data
         assert isinstance(data["purchases"], list)
+
+        # Verify timestamp fields are present
+        assert "creation_time" in data
+        assert "last_modified" in data
+        assert "current_status_changed_at" in data
 
         # Verify response structure matches created purpose
         assert data["id"] == created_purpose["id"]
