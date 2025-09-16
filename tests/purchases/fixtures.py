@@ -133,7 +133,9 @@ def sample_purchase(db_session: Session, sample_purchase_create_data: PurchaseCr
 
 @pytest.fixture
 def sample_purchase_with_costs(
-    db_session: Session, sample_purchase_create_data_with_costs: PurchaseCreate
+    db_session: Session,
+    sample_purchase_create_data_with_costs: PurchaseCreate,
+    predefined_flows_for_purchases,
 ):
     """Create a sample purchase with costs in the database."""
     return purchase_service.create_purchase(

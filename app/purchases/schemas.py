@@ -15,10 +15,14 @@ class PurchaseBase(BaseModel):
     """Base schema for purchase."""
 
     purpose_id: int = Field(
-        ..., example=1, description="ID of the purpose this purchase belongs to"
+        ...,
+        description="ID of the purpose this purchase belongs to",
+        json_schema_extra={"example": 1},
     )
     budget_source_id: int | None = Field(
-        None, example=2, description="Optional ID of the budget source"
+        None,
+        description="Optional ID of the budget source",
+        json_schema_extra={"example": 2},
     )
 
 
@@ -27,11 +31,13 @@ class PurchaseCreate(PurchaseBase):
 
     costs: list[CostBase] = Field(
         default_factory=list,
-        example=[
-            {"currency": "SUPPORT_USD", "amount": 50000.0},
-            {"currency": "ILS", "amount": 25000.0},
-        ],
         description="Optional list of costs for this purchase",
+        json_schema_extra={
+            "example": [
+                {"currency": "SUPPORT_USD", "amount": 50000.0},
+                {"currency": "ILS", "amount": 25000.0},
+            ]
+        },
     )
 
 
@@ -39,7 +45,9 @@ class PurchaseUpdate(BaseModel):
     """Schema for updating a purchase (partial update)."""
 
     budget_source_id: int | None = Field(
-        default=None, example=3, description="Optional ID of the budget source"
+        default=None,
+        description="Optional ID of the budget source",
+        json_schema_extra={"example": 3},
     )
 
 
