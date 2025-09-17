@@ -16,9 +16,14 @@ from app.analytics.schemas import (
     ServiceTypeCostDistributionResponse,
     ServiceTypesDistributionResponse,
     ServiceTypeStatusDistributionResponse,
+    StageProcessingTimeDistributionResponse,
     StatusesDistributionResponse,
 )
-from app.analytics.services import AnalyticsService, LiveOperationsService
+from app.analytics.services import (
+    AnalyticsService,
+    LiveOperationsService,
+    ProcessingTimeAnalyticsService,
+)
 from app.analytics.services.financial_analytics_service import FinancialAnalyticsService
 from app.database import get_db
 from app.purposes.models import StatusEnum
@@ -41,6 +46,13 @@ def get_financial_analytics_service(
 ) -> FinancialAnalyticsService:
     """Dependency to get financial analytics service."""
     return FinancialAnalyticsService(db)
+
+
+def get_processing_time_analytics_service(
+    db: Session = Depends(get_db),
+) -> ProcessingTimeAnalyticsService:
+    """Dependency to get processing time analytics service."""
+    return ProcessingTimeAnalyticsService(db)
 
 
 @router.get(
@@ -218,7 +230,9 @@ def get_cost_distribution_by_budget_source(
     response_model=PurposeProcessingTimeDistributionResponse,
 )
 def get_purpose_processing_time_distribution(
-    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    processing_time_service: Annotated[
+        ProcessingTimeAnalyticsService, Depends(get_processing_time_analytics_service)
+    ],
     params: Annotated[AnalyticsFilterParams, Query()],
 ) -> PurposeProcessingTimeDistributionResponse:
     """
@@ -228,4 +242,23 @@ def get_purpose_processing_time_distribution(
     Results grouped by service type with count, average, min, and max processing days.
     Supports date filtering by completion date.
     """
-    return analytics_service.get_purpose_processing_time_distribution(params)
+    return processing_time_service.get_purpose_processing_time_distribution(params)
+
+
+@router.get(
+    "/stages/processing-times",
+    response_model=StageProcessingTimeDistributionResponse,
+)
+def get_stage_processing_times_by_stage_type(
+    processing_time_service: Annotated[
+        ProcessingTimeAnalyticsService, Depends(get_processing_time_analytics_service)
+    ],
+    params: Annotated[AnalyticsFilterParams, Query()],
+) -> StageProcessingTimeDistributionResponse:
+    """
+    Get stage processing times grouped by stage type with service type breakdown.
+
+    Calculates time from previous stage completion to current stage completion.
+    Only includes completed stages with priority > 1. Supports service type and date filtering.
+    """
+    return processing_time_service.get_stage_processing_times_by_stage_type(params)

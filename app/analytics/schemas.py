@@ -122,6 +122,36 @@ class PurposeProcessingTimeDistributionResponse(BaseModel):
     total_purposes: int
 
 
+class StageProcessingTimeByServiceType(BaseModel):
+    """Stage processing time analytics for a specific service type within a stage type."""
+
+    service_type_id: int
+    service_type_name: str
+    count: int
+    avg_processing_days: float
+    min_processing_days: int
+    max_processing_days: int
+
+
+class StageProcessingTimeByStageType(BaseModel):
+    """Stage processing time analytics for a specific stage type with service type breakdown."""
+
+    stage_type_id: int
+    stage_type_name: str
+    stage_type_display_name: str
+    service_types: list[StageProcessingTimeByServiceType]
+    overall_count: int
+    overall_avg_processing_days: float
+    overall_min_processing_days: int
+    overall_max_processing_days: int
+
+
+class StageProcessingTimeDistributionResponse(BaseModel):
+    """Response for stage processing time distribution by stage type and service type."""
+
+    data: list[StageProcessingTimeByStageType]
+
+
 class AnalyticsFilterParams(BaseModel):
     """Simple filter parameters for analytics endpoints."""
 
