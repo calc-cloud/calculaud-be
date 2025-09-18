@@ -252,7 +252,9 @@ class ProcessingTimeAnalyticsService:
 
         # Apply same filters to overall query
         overall_query = apply_analytics_filters(
-            overall_query, filters, date_column=Purpose.creation_time
+            overall_query,
+            filters.model_copy(update={"service_type_ids": None}),
+            date_column=Purpose.creation_time,
         )
 
         overall_results = self.db.execute(overall_query).fetchall()

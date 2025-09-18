@@ -428,8 +428,10 @@ class TestStageProcessingTimesAPI:
         # Should have one stage type with only one service type
         assert len(data["data"]) == 1
         stage_data = data["data"][0]
-        assert stage_data["overall_count"] == 1
-        assert len(stage_data["service_types"]) == 1
+        assert (
+            stage_data["overall_count"] == 2
+        )  # Overall count includes all service types
+        assert len(stage_data["service_types"]) == 1  # But service types filtered
         assert (
             stage_data["service_types"][0]["service_type_name"]
             == "Cloud Infrastructure"
