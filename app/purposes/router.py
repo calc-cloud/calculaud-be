@@ -6,6 +6,7 @@ from fastapi import status as statuses
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.files.exceptions import FileNotFoundError, FileUploadError
 from app.files.schemas import FileAttachmentResponse
@@ -76,8 +77,16 @@ def get_purpose(purpose_id: int, db: Session = Depends(get_db)):
     return purpose
 
 
-@router.post("/", response_model=Purpose, status_code=statuses.HTTP_201_CREATED)
-def create_purpose(purpose: PurposeCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=Purpose,
+    status_code=statuses.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def create_purpose(
+    purpose: PurposeCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new purpose."""
     try:
         return service.create_purpose(db, purpose)
@@ -89,9 +98,13 @@ def create_purpose(purpose: PurposeCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=statuses.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.patch("/{purpose_id}", response_model=Purpose)
+@router.patch(
+    "/{purpose_id}", response_model=Purpose, dependencies=[Depends(require_admin)]
+)
 def patch_purpose(
-    purpose_id: int, purpose_update: PurposeUpdate, db: Session = Depends(get_db)
+    purpose_id: int,
+    purpose_update: PurposeUpdate,
+    db: Session = Depends(get_db),
 ):
     """Patch an existing purpose."""
     try:
@@ -109,8 +122,15 @@ def patch_purpose(
         raise HTTPException(status_code=statuses.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.delete("/{purpose_id}", status_code=statuses.HTTP_204_NO_CONTENT)
-def delete_purpose(purpose_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{purpose_id}",
+    status_code=statuses.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_purpose(
+    purpose_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a purpose."""
     if not service.delete_purpose(db, purpose_id):
         raise HTTPException(
@@ -122,6 +142,7 @@ def delete_purpose(purpose_id: int, db: Session = Depends(get_db)):
     "/{purpose_id}/files",
     response_model=FileAttachmentResponse,
     status_code=statuses.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 def upload_file(
     purpose_id: int,
@@ -151,7 +172,9 @@ def upload_file(
 
 
 @router.delete(
-    "/{purpose_id}/files/{file_id}", status_code=statuses.HTTP_204_NO_CONTENT
+    "/{purpose_id}/files/{file_id}",
+    status_code=statuses.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
 )
 def delete_file(
     purpose_id: int,

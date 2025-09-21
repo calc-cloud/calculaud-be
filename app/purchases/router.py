@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.budget_sources.exceptions import BudgetSourceNotFound
 from app.database import get_db
 from app.purchases import service
@@ -12,7 +13,12 @@ from app.purchases.schemas import PurchaseCreate, PurchaseResponse, PurchaseUpda
 router = APIRouter()
 
 
-@router.post("/", response_model=PurchaseResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=PurchaseResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
 def create_purchase(
     purchase_data: PurchaseCreate,
     db: Session = Depends(get_db),
@@ -36,7 +42,11 @@ def get_purchase(
         raise HTTPException(status_code=404, detail=e.message)
 
 
-@router.patch("/{purchase_id}", response_model=PurchaseResponse)
+@router.patch(
+    "/{purchase_id}",
+    response_model=PurchaseResponse,
+    dependencies=[Depends(require_admin)],
+)
 def patch_purchase(
     purchase_id: int,
     purchase_update: PurchaseUpdate,
@@ -51,7 +61,11 @@ def patch_purchase(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{purchase_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_purchase(
     purchase_id: int,
     db: Session = Depends(get_db),

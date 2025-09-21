@@ -57,7 +57,8 @@ class OpenIdConnect(SecurityBase):
         # Create OpenAPI model
         self.model = OpenIdConnectModel(
             openIdConnectUrl=openid_connect_url or settings.auth_oidc_url,
-            description="OpenID Connect authentication",
+            description=f"OpenID Connect authentication with role-based access control. "
+            f"Supports {settings.user_role} (read-only) and {settings.admin_role} (full CRUD) roles.",
         )
         self.scheme_name = "OpenIdConnect"
 

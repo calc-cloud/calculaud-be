@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as statuses
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.hierarchies import service
 from app.hierarchies.exceptions import (
@@ -106,8 +107,16 @@ def get_hierarchy_children(
         )
 
 
-@router.post("/", response_model=Hierarchy, status_code=statuses.HTTP_201_CREATED)
-def create_hierarchy(hierarchy_data: HierarchyCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=Hierarchy,
+    status_code=statuses.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def create_hierarchy(
+    hierarchy_data: HierarchyCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new hierarchy."""
     try:
         return service.create_hierarchy(db, hierarchy_data)
@@ -121,9 +130,13 @@ def create_hierarchy(hierarchy_data: HierarchyCreate, db: Session = Depends(get_
         )
 
 
-@router.patch("/{hierarchy_id}", response_model=Hierarchy)
+@router.patch(
+    "/{hierarchy_id}", response_model=Hierarchy, dependencies=[Depends(require_admin)]
+)
 def update_hierarchy(
-    hierarchy_id: int, hierarchy_data: HierarchyUpdate, db: Session = Depends(get_db)
+    hierarchy_id: int,
+    hierarchy_data: HierarchyUpdate,
+    db: Session = Depends(get_db),
 ):
     """Update an existing hierarchy."""
     try:
@@ -145,8 +158,15 @@ def update_hierarchy(
         )
 
 
-@router.delete("/{hierarchy_id}", status_code=statuses.HTTP_204_NO_CONTENT)
-def delete_hierarchy(hierarchy_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{hierarchy_id}",
+    status_code=statuses.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_hierarchy(
+    hierarchy_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a hierarchy."""
     try:
         service.delete_hierarchy(db, hierarchy_id)

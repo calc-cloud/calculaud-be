@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.predefined_flows import service
@@ -82,9 +83,15 @@ def get_predefined_flow(
 
 
 @router.post(
-    "/", response_model=PredefinedFlowResponse, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=PredefinedFlowResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
-def create_predefined_flow(flow: PredefinedFlowCreate, db: Session = Depends(get_db)):
+def create_predefined_flow(
+    flow: PredefinedFlowCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new predefined flow."""
     try:
         return service.create_predefined_flow(db, flow)
@@ -94,7 +101,11 @@ def create_predefined_flow(flow: PredefinedFlowCreate, db: Session = Depends(get
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.patch("/{flow_id}", response_model=PredefinedFlowResponse)
+@router.patch(
+    "/{flow_id}",
+    response_model=PredefinedFlowResponse,
+    dependencies=[Depends(require_admin)],
+)
 def patch_predefined_flow(
     flow_id: int,
     flow_update: PredefinedFlowUpdate,
@@ -111,8 +122,15 @@ def patch_predefined_flow(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.delete("/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_predefined_flow(flow_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{flow_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_predefined_flow(
+    flow_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a predefined flow."""
     try:
         service.delete_predefined_flow(db, flow_id)

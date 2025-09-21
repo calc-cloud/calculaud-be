@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi import status as statuses
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.files import service
 from app.files.exceptions import FileNotFoundError, FileUploadError
@@ -14,6 +15,7 @@ router = APIRouter()
     "/upload",
     response_model=FileAttachmentResponse,
     status_code=statuses.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 def upload_file(
     file: UploadFile = File(...),
@@ -54,7 +56,11 @@ def get_file_download_url(
         )
 
 
-@router.delete("/{file_id}", status_code=statuses.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{file_id}",
+    status_code=statuses.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_file(
     file_id: int,
     db: Session = Depends(get_db),

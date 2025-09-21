@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.stage_types import service
@@ -36,8 +37,16 @@ def get_stage_type(stage_type_id: int, db: Session = Depends(get_db)):
     return stage_type
 
 
-@router.post("/", response_model=StageTypeResponse, status_code=status.HTTP_201_CREATED)
-def create_stage_type(stage_type: StageTypeCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=StageTypeResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def create_stage_type(
+    stage_type: StageTypeCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new stage type."""
     try:
         return service.create_stage_type(db, stage_type)
@@ -45,7 +54,11 @@ def create_stage_type(stage_type: StageTypeCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.patch("/{stage_type_id}", response_model=StageTypeResponse)
+@router.patch(
+    "/{stage_type_id}",
+    response_model=StageTypeResponse,
+    dependencies=[Depends(require_admin)],
+)
 def patch_stage_type(
     stage_type_id: int,
     stage_type_update: StageTypeUpdate,
@@ -60,8 +73,15 @@ def patch_stage_type(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.delete("/{stage_type_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_stage_type(stage_type_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{stage_type_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_stage_type(
+    stage_type_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a stage type."""
     try:
         service.delete_stage_type(db, stage_type_id)

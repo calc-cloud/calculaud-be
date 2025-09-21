@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.responsible_authorities import service
@@ -48,9 +49,11 @@ def get_responsible_authority(authority_id: int, db: Session = Depends(get_db)):
     "/",
     response_model=ResponsibleAuthorityResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 def create_responsible_authority(
-    authority: ResponsibleAuthorityCreate, db: Session = Depends(get_db)
+    authority: ResponsibleAuthorityCreate,
+    db: Session = Depends(get_db),
 ):
     """Create a new responsible authority."""
     try:
@@ -59,7 +62,11 @@ def create_responsible_authority(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.patch("/{authority_id}", response_model=ResponsibleAuthorityResponse)
+@router.patch(
+    "/{authority_id}",
+    response_model=ResponsibleAuthorityResponse,
+    dependencies=[Depends(require_admin)],
+)
 def patch_responsible_authority(
     authority_id: int,
     authority_update: ResponsibleAuthorityUpdate,
@@ -74,8 +81,15 @@ def patch_responsible_authority(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.delete("/{authority_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_responsible_authority(authority_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{authority_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_responsible_authority(
+    authority_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a responsible authority."""
     try:
         service.delete_responsible_authority(db, authority_id)
