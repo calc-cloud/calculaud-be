@@ -2,13 +2,61 @@
 
 from datetime import date, datetime
 from functools import cached_property
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
+from typing_extensions import TypeAlias
 
 from app.budget_sources.schemas import BudgetSource
 from app.costs.schemas import Cost, CostBase
 from app.responsible_authorities.schemas import ResponsibleAuthorityResponse
 from app.stages.schemas import StageResponse
+
+
+class StageEdit(BaseModel):
+    """Schema for stage edit in purchase update."""
+
+    id: Annotated[
+        int | None,
+        Field(
+            default=None,
+            description="ID of existing stage to preserve data from",
+            json_schema_extra={"example": 123},
+        ),
+    ]
+    stage_type_id: Annotated[
+        int | None,
+        Field(
+            default=None,
+            description="ID of stage type for new stage creation",
+            json_schema_extra={"example": 5},
+        ),
+    ]
+
+    @model_validator(mode="after")
+    def validate_stage_identification(self):
+        """Ensure exactly one of id or stage_type_id is provided."""
+        id_provided = self.id is not None
+        stage_type_id_provided = self.stage_type_id is not None
+
+        if id_provided and stage_type_id_provided:
+            raise ValueError("Cannot provide both id and stage_type_id")
+
+        if not id_provided and not stage_type_id_provided:
+            raise ValueError("Must provide either id or stage_type_id")
+
+        return self
+
+
+# Type alias for nested stage structure
+StageEditItem: TypeAlias = StageEdit | list[StageEdit]
 
 
 class PurchaseBase(BaseModel):
@@ -49,6 +97,23 @@ class PurchaseUpdate(BaseModel):
         description="Optional ID of the budget source",
         json_schema_extra={"example": 3},
     )
+    stages: Annotated[
+        list[StageEditItem] | None,
+        Field(
+            default=None,
+            description="Optional list of stage edits to modify purchase flow",
+            json_schema_extra={
+                "example": [
+                    {"id": 1},  # Keep existing stage at priority 1
+                    [
+                        {"id": 2},
+                        {"stage_type_id": 5},
+                    ],  # Priority 2: existing + new stage
+                    {"stage_type_id": 8},  # New stage at priority 3
+                ]
+            },
+        ),
+    ]
 
 
 class PurchaseResponse(PurchaseBase):
