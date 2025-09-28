@@ -66,6 +66,7 @@ class Purpose(PurposeBase):
     id: int
     creation_time: datetime
     last_modified: datetime
+    current_status_changed_at: datetime | None = None
 
     supplier: str | None = None
     service_type: str | None = None
@@ -135,6 +136,14 @@ class FilterParams(BaseModel):
         Query(
             default=None,
             description="Filter by flagged status (true/false)",
+        ),
+    ]
+    budget_source_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by budget source IDs from purchases",
+            alias="budget_source_id",
         ),
     ]
 

@@ -1,31 +1,32 @@
-from typing import Annotated, Literal
+from datetime import date
+from typing import Annotated, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from fastapi import Query
+from pydantic import BaseModel
 
-from app.hierarchies.models import HierarchyTypeEnum
-from app.hierarchies.schemas import Hierarchy
-from app.purposes.schemas import FilterParams
+from app.purposes.models import StatusEnum
 from app.service_types.schemas import ServiceType
-from app.services.schemas import Service
+
+# Generic type for distribution response data
+T = TypeVar("T")
 
 
-class ChartDataResponse(BaseModel):
-    """Standard chart data response format."""
+class DistributionResponse(BaseModel, Generic[T]):
+    """Generic distribution chart response."""
 
-    labels: list[str]
-    data: list[float]
-
-
-class TimeSeriesDataset(BaseModel):
-    """Dataset for time series charts."""
-
-    label: str
-    data: list[float]
-    currency: str
+    data: list[T]
 
 
-class MultiCurrencyDataPoint(BaseModel):
-    """Data point with values in all currencies."""
+class CurrencyAmounts(BaseModel):
+    """Input currency amounts for multi-currency calculations."""
+
+    ils: float = 0.0
+    support_usd: float = 0.0
+    available_usd: float = 0.0
+
+
+class MultiCurrencyAmount(BaseModel):
+    """Amount values in multiple currencies."""
 
     ils: float
     support_usd: float
@@ -34,49 +35,12 @@ class MultiCurrencyDataPoint(BaseModel):
     total_ils: float
 
 
-class TimeSeriesResponse(BaseModel):
-    """Time series chart response format."""
+class ServiceBreakdownItem(BaseModel):
+    """Service breakdown for stacked charts."""
 
-    labels: list[str]
-    datasets: list[TimeSeriesDataset]
-
-
-class ServiceTypeExpenditureItem(BaseModel):
-    """Service type expenditure breakdown item."""
-
-    service_type_id: int
-    name: str
-    total_ils: float
-    total_usd: float
-
-
-class TimelineExpenditureItem(BaseModel):
-    """Timeline expenditure item with service type breakdown."""
-
-    time_period: str
-    total_ils: float
-    total_usd: float
-    data: list[ServiceTypeExpenditureItem]
-
-
-class TimelineExpenditureResponse(BaseModel):
-    """Timeline expenditure response with service type breakdown."""
-
-    items: list[TimelineExpenditureItem]
-    group_by: Literal["day", "week", "month", "year"]
-
-
-class HierarchyItem(Hierarchy):
-    """Hierarchy item with detailed information."""
-
-    count: int
-
-
-class ServiceItem(Service):
-    """Service item with quantity information."""
-
-    quantity: float
-    service_type_name: str
+    service_id: int
+    service_name: str
+    quantity: int
 
 
 class ServiceTypeItem(ServiceType):
@@ -85,43 +49,172 @@ class ServiceTypeItem(ServiceType):
     count: int
 
 
-class HierarchyDistributionResponse(BaseModel):
-    """Hierarchy distribution chart with drill-down support."""
+class StatusItem(BaseModel):
+    """Status item with count information."""
 
-    items: list[HierarchyItem]
-    level: HierarchyTypeEnum | None = None
-    parent_name: str | None = None
-
-
-class ServicesQuantityResponse(BaseModel):
-    """Services quantity chart response."""
-
-    data: list[ServiceItem]
+    status: str
+    count: int
 
 
-class ServiceTypesDistributionResponse(BaseModel):
-    """Service types distribution chart response."""
+class PendingAuthorityItem(BaseModel):
+    """Pending authority item with count information."""
 
-    data: list[ServiceTypeItem]
+    authority_id: int | None
+    authority_name: str | None
+    count: int
 
 
-class ExpenditureTimelineRequest(FilterParams):
-    """Request parameters for expenditure timeline with filters."""
+class PendingStageItem(BaseModel):
+    """Pending stage item with count information."""
 
-    group_by: Annotated[
-        Literal["day", "week", "month", "year"],
-        Field(default="month", description="Time grouping: day, week, month, year"),
+    stage_type_id: int | None
+    stage_type_name: str | None
+    count: int
+
+
+class ServiceTypeBreakdownItem(BaseModel):
+    """Service type breakdown for stacked charts."""
+
+    service_type_id: int
+    service_type_name: str
+    count: int
+
+
+class PendingStageWithBreakdownItem(BaseModel):
+    """Pending stage with service type breakdown for stacked bar charts."""
+
+    stage_type_id: int | None
+    stage_type_name: str | None
+    total_count: int
+    service_types: list[ServiceTypeBreakdownItem]
+
+
+class ServiceTypeWithBreakdownItem(BaseModel):
+    """Service type with service breakdown for stacked bar charts."""
+
+    service_type_id: int
+    service_type_name: str
+    total_quantity: int
+    services: list[ServiceBreakdownItem]
+
+
+class ServicesQuantityStackedResponse(BaseModel):
+    """Services quantity stacked chart response."""
+
+    data: list[ServiceTypeWithBreakdownItem]
+
+
+class PurposeProcessingTimeByServiceType(BaseModel):
+    """Purpose processing time analytics for a specific service type."""
+
+    service_type_id: int | None
+    service_type_name: str
+    count: int
+    average_processing_days: float
+    min_processing_days: int
+    max_processing_days: int
+
+
+class PurposeProcessingTimeDistributionResponse(BaseModel):
+    """Dashboard response for purpose processing time distribution by service type."""
+
+    service_types: list[PurposeProcessingTimeByServiceType]
+    total_purposes: int
+
+
+class StageProcessingTimeByServiceType(BaseModel):
+    """Stage processing time analytics for a specific service type within a stage type."""
+
+    service_type_id: int
+    service_type_name: str
+    count: int
+    avg_processing_days: float
+    min_processing_days: int
+    max_processing_days: int
+
+
+class StageProcessingTimeByStageType(BaseModel):
+    """Stage processing time analytics for a specific stage type with service type breakdown."""
+
+    stage_type_id: int
+    stage_type_name: str
+    stage_type_display_name: str
+    service_types: list[StageProcessingTimeByServiceType]
+    overall_count: int
+    overall_avg_processing_days: float
+    overall_min_processing_days: int
+    overall_max_processing_days: int
+
+
+class StageProcessingTimeDistributionResponse(BaseModel):
+    """Response for stage processing time distribution by stage type and service type."""
+
+    data: list[StageProcessingTimeByStageType]
+
+
+class AnalyticsFilterParams(BaseModel):
+    """Simple filter parameters for analytics endpoints."""
+
+    start_date: Annotated[
+        date | None,
+        Query(default=None, description="Start date for filtering"),
+    ]
+    end_date: Annotated[
+        date | None,
+        Query(default=None, description="End date for filtering"),
+    ]
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
     ]
 
 
-class HierarchyDistributionRequest(FilterParams):
-    """Request parameters for hierarchy distribution with filters."""
+class LiveOperationFilterParams(BaseModel):
+    service_type_ids: Annotated[
+        list[int] | None,
+        Query(
+            default=None,
+            description="Filter by service type IDs",
+            alias="service_type_id",
+        ),
+    ]
 
-    level: Annotated[
-        HierarchyTypeEnum | None,
-        Field(default=None, description="Hierarchy level to display"),
-    ]
-    parent_id: Annotated[
-        int | None,
-        Field(default=None, description="Parent hierarchy ID for drill-down"),
-    ]
+
+class ServiceTypeStatusDistributionResponse(BaseModel):
+    """Service type distribution for purposes that changed to a specific status."""
+
+    data: list[ServiceTypeBreakdownItem]
+    total_count: int
+    target_status: StatusEnum
+
+
+class ServiceTypeCostItem(BaseModel):
+    """Service type with cost amounts in multiple currencies."""
+
+    service_type_id: int | None
+    service_type_name: str
+    amounts: MultiCurrencyAmount
+
+
+class BudgetSourceCostItem(BaseModel):
+    """Budget source with cost amounts in multiple currencies."""
+
+    budget_source_id: int | None
+    budget_source_name: str
+    amounts: MultiCurrencyAmount
+
+
+# Type aliases for specific distribution responses using generic base
+ServiceTypesDistributionResponse = DistributionResponse[ServiceTypeItem]
+StatusesDistributionResponse = DistributionResponse[StatusItem]
+PendingAuthoritiesDistributionResponse = DistributionResponse[PendingAuthorityItem]
+PendingStagesDistributionResponse = DistributionResponse[PendingStageItem]
+PendingStagesStackedDistributionResponse = DistributionResponse[
+    PendingStageWithBreakdownItem
+]
+ServiceTypeCostDistributionResponse = DistributionResponse[ServiceTypeCostItem]
+BudgetSourceCostDistributionResponse = DistributionResponse[BudgetSourceCostItem]

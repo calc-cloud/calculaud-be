@@ -14,12 +14,8 @@ Usage:
     python scripts/auto_flag_stuck_purposes.py
 """
 
-import os
 import sys
 from datetime import datetime
-
-# Add app to Python path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import and_, select, update
 
@@ -50,7 +46,7 @@ def main():
                             )
                         ),
                         Purpose.status != StatusEnum.COMPLETED,
-                        Purpose.is_flagged == False,  # Only unflagged ones
+                        ~Purpose.is_flagged,  # Only unflagged ones
                     )
                 )
                 .values(is_flagged=True)

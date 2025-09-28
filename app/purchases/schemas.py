@@ -3,8 +3,9 @@
 from datetime import date, datetime
 from functools import cached_property
 
-from pydantic import BaseModel, ConfigDict, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from app.budget_sources.schemas import BudgetSource
 from app.costs.schemas import Cost, CostBase
 from app.responsible_authorities.schemas import ResponsibleAuthorityResponse
 from app.stages.schemas import StageResponse
@@ -13,13 +14,41 @@ from app.stages.schemas import StageResponse
 class PurchaseBase(BaseModel):
     """Base schema for purchase."""
 
-    purpose_id: int
+    purpose_id: int = Field(
+        ...,
+        description="ID of the purpose this purchase belongs to",
+        json_schema_extra={"example": 1},
+    )
+    budget_source_id: int | None = Field(
+        None,
+        description="Optional ID of the budget source",
+        json_schema_extra={"example": 2},
+    )
 
 
 class PurchaseCreate(PurchaseBase):
     """Schema for creating a purchase."""
 
-    costs: list[CostBase] = []
+    costs: list[CostBase] = Field(
+        default_factory=list,
+        description="Optional list of costs for this purchase",
+        json_schema_extra={
+            "example": [
+                {"currency": "SUPPORT_USD", "amount": 50000.0},
+                {"currency": "ILS", "amount": 25000.0},
+            ]
+        },
+    )
+
+
+class PurchaseUpdate(BaseModel):
+    """Schema for updating a purchase (partial update)."""
+
+    budget_source_id: int | None = Field(
+        default=None,
+        description="Optional ID of the budget source",
+        json_schema_extra={"example": 3},
+    )
 
 
 class PurchaseResponse(PurchaseBase):
@@ -28,6 +57,7 @@ class PurchaseResponse(PurchaseBase):
     id: int
     creation_date: datetime
     costs: list[Cost] = []
+    budget_source: BudgetSource | None = None
     pending_authority: ResponsibleAuthorityResponse | None = None
     flow_stages: list[StageResponse | list[StageResponse]] = []
 

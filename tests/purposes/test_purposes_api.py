@@ -1,6 +1,7 @@
 """Test Purpose CRUD operations using base test mixins."""
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.purposes.models import StatusEnum
@@ -39,6 +40,8 @@ class TestPurposesApi(BaseAPITestClass):
         # Verify response structure
         assert "id" in data
         assert "creation_time" in data
+        assert "last_modified" in data
+        assert "current_status_changed_at" in data
         assert "hierarchy" in data
         assert "purchases" in data
         assert isinstance(data["purchases"], list)
@@ -59,6 +62,11 @@ class TestPurposesApi(BaseAPITestClass):
         assert "hierarchy" in data
         assert "purchases" in data
         assert isinstance(data["purchases"], list)
+
+        # Verify timestamp fields are present
+        assert "creation_time" in data
+        assert "last_modified" in data
+        assert "current_status_changed_at" in data
 
         # Verify response structure matches created purpose
         assert data["id"] == created_purpose["id"]
@@ -336,3 +344,90 @@ class TestPurposesApi(BaseAPITestClass):
         # Verify all items match filter
         for item in response_data["items"]:
             assert item["status"] == StatusEnum.IN_PROGRESS.value
+
+    def test_filter_by_budget_source_ids(
+        self, test_client: TestClient, db_session: Session, sample_hierarchy
+    ):
+        """Test filtering purposes by budget source IDs through their purchases."""
+        helper = APITestHelper(test_client, self.resource_endpoint)
+
+        # Create budget sources
+        budget_source_1_response = test_client.post(
+            f"{settings.api_v1_prefix}/budget-sources", json={"name": "Budget Source 1"}
+        )
+        assert budget_source_1_response.status_code == 201
+        budget_source_1 = budget_source_1_response.json()
+
+        budget_source_2_response = test_client.post(
+            f"{settings.api_v1_prefix}/budget-sources", json={"name": "Budget Source 2"}
+        )
+        assert budget_source_2_response.status_code == 201
+        budget_source_2 = budget_source_2_response.json()
+
+        # Create purposes
+        purpose_1_response = helper.create_resource(
+            {
+                "hierarchy_id": sample_hierarchy.id,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "Purpose with Budget Source 1",
+            }
+        )
+
+        purpose_2_response = helper.create_resource(
+            {
+                "hierarchy_id": sample_hierarchy.id,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "Purpose with Budget Source 2",
+            }
+        )
+
+        purpose_3_response = helper.create_resource(
+            {
+                "hierarchy_id": sample_hierarchy.id,
+                "status": StatusEnum.IN_PROGRESS.value,
+                "description": "Purpose without Budget Source",
+            }
+        )
+
+        # Create purchases with different budget sources
+        purchase_1_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases",
+            json={
+                "purpose_id": purpose_1_response["id"],
+                "budget_source_id": budget_source_1["id"],
+            },
+        )
+        assert purchase_1_response.status_code == 201
+
+        purchase_2_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases",
+            json={
+                "purpose_id": purpose_2_response["id"],
+                "budget_source_id": budget_source_2["id"],
+            },
+        )
+        assert purchase_2_response.status_code == 201
+
+        purchase_3_response = test_client.post(
+            f"{settings.api_v1_prefix}/purchases",
+            json={"purpose_id": purpose_3_response["id"]},
+        )
+        assert purchase_3_response.status_code == 201
+
+        # Test filtering by single budget source ID
+        response_data = helper.list_resources(budget_source_id=budget_source_1["id"])
+        assert len(response_data["items"]) == 1
+        assert response_data["items"][0]["id"] == purpose_1_response["id"]
+
+        # Test filtering by multiple budget source IDs
+        response_data = helper.list_resources(
+            budget_source_id=[budget_source_1["id"], budget_source_2["id"]]
+        )
+        assert len(response_data["items"]) == 2
+        returned_ids = {item["id"] for item in response_data["items"]}
+        expected_ids = {purpose_1_response["id"], purpose_2_response["id"]}
+        assert returned_ids == expected_ids
+
+        # Test filtering by non-existent budget source ID
+        response_data = helper.list_resources(budget_source_id=999999)
+        assert len(response_data["items"]) == 0

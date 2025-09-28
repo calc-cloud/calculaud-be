@@ -13,9 +13,18 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     func,
+    insert,
+    select,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import (
+    LoaderCallableStatus,
+    Mapped,
+    mapped_column,
+    object_session,
+    relationship,
+)
 
 from app.database import Base
 
@@ -88,6 +97,9 @@ class Purpose(Base):
     purchases: Mapped[list["Purchase"]] = relationship(
         "Purchase", back_populates="purpose", cascade="all, delete-orphan"
     )
+    status_history: Mapped[list["PurposeStatusHistory"]] = relationship(
+        "PurposeStatusHistory", back_populates="purpose", cascade="all, delete-orphan"
+    )
 
     @property
     def supplier(self) -> str | None:
@@ -119,6 +131,43 @@ class Purpose(Base):
             return None
 
         return get_pending_authority_object(session, self.id)
+
+    @hybrid_property
+    def current_status_changed_at(self) -> datetime | None:
+        """
+        Return the timestamp when the current status was last changed.
+        """
+        session = object_session(self)
+        if not session:
+            return None
+
+        # Get the most recent status change that resulted in the current status
+        stmt = (
+            select(PurposeStatusHistory.changed_at)
+            .where(PurposeStatusHistory.purpose_id == self.id)
+            .where(PurposeStatusHistory.new_status == self.status)
+            .order_by(PurposeStatusHistory.changed_at.desc())
+            .limit(1)
+        )
+        result = session.execute(stmt).scalar_one_or_none()
+        return result
+
+    @current_status_changed_at.expression
+    @classmethod
+    def current_status_changed_at(cls):
+        """
+        SQL expression for querying current_status_changed_at at the database level.
+
+        This allows filtering and sorting by current_status_changed_at in queries.
+        """
+        return (
+            select(PurposeStatusHistory.changed_at)
+            .where(PurposeStatusHistory.purpose_id == cls.id)
+            .where(PurposeStatusHistory.new_status == cls.status)
+            .order_by(PurposeStatusHistory.changed_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
 
 
 class PurposeContent(Base):
@@ -159,6 +208,30 @@ class PurposeContent(Base):
     )
 
 
+class PurposeStatusHistory(Base):
+    __tablename__ = "purpose_status_history"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    purpose_id: Mapped[int] = mapped_column(
+        ForeignKey("purpose.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    previous_status: Mapped[StatusEnum | None] = mapped_column(
+        Enum(StatusEnum), nullable=True, index=True
+    )
+    new_status: Mapped[StatusEnum] = mapped_column(
+        Enum(StatusEnum), nullable=False, index=True
+    )
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, server_default=func.now(), index=True
+    )
+    changed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Relationships
+    purpose: Mapped["Purpose"] = relationship(back_populates="status_history")
+
+
 def update_purpose_last_modified(connection, purpose_id: int) -> None:
     """Update the last_modified timestamp for a Purpose."""
     connection.execute(
@@ -192,3 +265,52 @@ def _update_purpose_on_content_change(
     """Update Purpose.last_modified when PurposeContent changes."""
     if hasattr(target, "purpose_id") and target.purpose_id:
         update_purpose_last_modified(connection, target.purpose_id)
+
+
+# Event listeners for Purpose status changes
+@event.listens_for(Purpose.status, "set")
+def _track_purpose_status_change(target, value, oldvalue, _initiator):
+    """Track status changes in purpose_status_history table."""
+    # Skip if no actual change
+    if oldvalue == value:
+        return
+
+    session = object_session(target)
+    if not session:
+        return
+
+    # Handle LoaderCallableStatus.NO_VALUE cases
+    if oldvalue == LoaderCallableStatus.NO_VALUE:
+        if target.id is None:
+            # New object - skip here, handled by after_insert
+            return
+        else:
+            # Existing object being reloaded - get current status from DB
+            stmt = select(Purpose.status).where(Purpose.id == target.id)
+            actual_oldvalue = session.execute(stmt).scalar_one_or_none()
+            if actual_oldvalue == value:
+                return
+            oldvalue = actual_oldvalue
+    status_history = PurposeStatusHistory(
+        purpose_id=target.id,
+        previous_status=oldvalue,
+        new_status=value,
+        changed_at=datetime.now(),
+        changed_by=None,  # TODO: Add user context when authentication is implemented
+    )
+    session.add(status_history)
+
+
+# Event listener for initial status tracking on new objects
+@event.listens_for(Purpose, "after_insert")
+def _track_initial_status(_mapper, connection, target: Purpose):
+    """Track initial status assignment for newly created purposes."""
+    # Use connection.execute to insert directly since we're in after_insert
+    stmt = insert(PurposeStatusHistory).values(
+        purpose_id=target.id,
+        previous_status=None,
+        new_status=target.status,
+        changed_at=datetime.now(),
+        changed_by=None,
+    )
+    connection.execute(stmt)

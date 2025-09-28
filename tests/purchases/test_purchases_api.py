@@ -148,3 +148,130 @@ class TestPurchaseAPI:
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
+
+    # PATCH Tests following supplier patterns
+    def test_patch_purchase_budget_source_success(
+        self, test_client: TestClient, sample_purchase, sample_budget_source
+    ):
+        """Test successful budget source update (like supplier file_icon test)."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+
+        # Update purchase with budget source
+        update_data = {"budget_source_id": sample_budget_source.id}
+        response = test_client.patch(
+            f"{purchase_endpoint}/{sample_purchase.id}", json=update_data
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["budget_source_id"] == sample_budget_source.id
+        assert data["budget_source"] is not None
+        assert data["budget_source"]["id"] == sample_budget_source.id
+        assert data["budget_source"]["name"] == sample_budget_source.name
+
+    def test_patch_purchase_remove_budget_source(
+        self, test_client: TestClient, sample_purchase_with_budget_source
+    ):
+        """Test removing budget source (like supplier remove file_icon test)."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+
+        # Remove budget source by setting to null
+        update_data = {"budget_source_id": None}
+        response = test_client.patch(
+            f"{purchase_endpoint}/{sample_purchase_with_budget_source.id}",
+            json=update_data,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["budget_source_id"] is None
+        assert data["budget_source"] is None
+
+    def test_patch_purchase_invalid_budget_source(
+        self, test_client: TestClient, sample_purchase, sample_budget_source
+    ):
+        """Test patching with non-existent budget source (like supplier invalid_file_icon test)."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+        invalid_budget_source_id = sample_budget_source.id + 99999
+        update_data = {"budget_source_id": invalid_budget_source_id}
+
+        response = test_client.patch(
+            f"{purchase_endpoint}/{sample_purchase.id}", json=update_data
+        )
+        assert response.status_code == 400
+        assert (
+            f"Budget source with ID {invalid_budget_source_id} not found"
+            in response.json()["detail"]
+        )
+
+    def test_patch_purchase_not_found(
+        self, test_client: TestClient, sample_budget_source
+    ):
+        """Test patching non-existent purchase."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+        update_data = {"budget_source_id": sample_budget_source.id}
+        response = test_client.patch(f"{purchase_endpoint}/999999", json=update_data)
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    def test_patch_purchase_preserves_other_fields(
+        self,
+        test_client: TestClient,
+        sample_purchase_with_costs,
+        sample_budget_source,
+        predefined_flows_for_purchases,
+    ):
+        """Test that PATCH preserves costs, stages, and other fields."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+
+        # Get original purchase data
+        original_response = test_client.get(
+            f"{purchase_endpoint}/{sample_purchase_with_costs.id}"
+        )
+        original_data = original_response.json()
+
+        # Update only budget source
+        update_data = {"budget_source_id": sample_budget_source.id}
+        response = test_client.patch(
+            f"{purchase_endpoint}/{sample_purchase_with_costs.id}", json=update_data
+        )
+
+        assert response.status_code == 200
+        updated_data = response.json()
+
+        # Verify budget source updated
+        assert updated_data["budget_source_id"] == sample_budget_source.id
+
+        # Verify other fields preserved
+        assert updated_data["purpose_id"] == original_data["purpose_id"]
+        assert updated_data["costs"] == original_data["costs"]
+        assert updated_data["flow_stages"] == original_data["flow_stages"]
+        assert len(updated_data["costs"]) == len(original_data["costs"])
+
+    def test_patch_purchase_with_null_budget_source(
+        self, test_client: TestClient, sample_purchase
+    ):
+        """Test patching with explicit null budget source."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+        update_data = {"budget_source_id": None}
+        response = test_client.patch(
+            f"{purchase_endpoint}/{sample_purchase.id}", json=update_data
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["budget_source_id"] is None
+        assert data["budget_source"] is None
+
+    def test_patch_purchase_empty_update(
+        self, test_client: TestClient, sample_purchase
+    ):
+        """Test PATCH with empty body (no-op update)."""
+        purchase_endpoint = f"{settings.api_v1_prefix}/purchases"
+        response = test_client.patch(
+            f"{purchase_endpoint}/{sample_purchase.id}", json={}
+        )
+
+        assert response.status_code == 200
+        # Should return unchanged purchase

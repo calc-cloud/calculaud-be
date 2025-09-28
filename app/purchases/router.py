@@ -3,10 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.budget_sources.exceptions import BudgetSourceNotFound
 from app.database import get_db
 from app.purchases import service
 from app.purchases.exceptions import PurchaseNotFound
-from app.purchases.schemas import PurchaseCreate, PurchaseResponse
+from app.purchases.schemas import PurchaseCreate, PurchaseResponse, PurchaseUpdate
 
 router = APIRouter()
 
@@ -17,7 +18,10 @@ def create_purchase(
     db: Session = Depends(get_db),
 ):
     """Create a new purchase."""
-    return service.create_purchase(db, purchase_data)
+    try:
+        return service.create_purchase(db, purchase_data)
+    except BudgetSourceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.get("/{purchase_id}", response_model=PurchaseResponse)
@@ -30,6 +34,21 @@ def get_purchase(
         return service.get_purchase(db, purchase_id)
     except PurchaseNotFound as e:
         raise HTTPException(status_code=404, detail=e.message)
+
+
+@router.patch("/{purchase_id}", response_model=PurchaseResponse)
+def patch_purchase(
+    purchase_id: int,
+    purchase_update: PurchaseUpdate,
+    db: Session = Depends(get_db),
+):
+    """Patch an existing purchase."""
+    try:
+        return service.patch_purchase(db, purchase_id, purchase_update)
+    except PurchaseNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
+    except BudgetSourceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
 @router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)

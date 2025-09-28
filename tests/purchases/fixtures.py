@@ -18,10 +18,29 @@ def sample_purchase_data():
 
 
 @pytest.fixture
+def sample_purchase_data_with_budget_source(sample_budget_source):
+    """Sample purchase creation data with budget source."""
+    return {"purpose_id": 1, "budget_source_id": sample_budget_source.id}
+
+
+@pytest.fixture
 def sample_purchase_data_with_costs():
     """Sample purchase creation data with costs."""
     return {
         "purpose_id": 1,
+        "costs": [
+            {"currency": CurrencyEnum.SUPPORT_USD.value, "amount": 50000.0},
+            {"currency": CurrencyEnum.ILS.value, "amount": 10000.0},
+        ],
+    }
+
+
+@pytest.fixture
+def sample_purchase_data_with_costs_and_budget_source(sample_budget_source):
+    """Sample purchase creation data with costs and budget source."""
+    return {
+        "purpose_id": 1,
+        "budget_source_id": sample_budget_source.id,
         "costs": [
             {"currency": CurrencyEnum.SUPPORT_USD.value, "amount": 50000.0},
             {"currency": CurrencyEnum.ILS.value, "amount": 10000.0},
@@ -63,9 +82,47 @@ def sample_purchase_create_data(sample_purchase_data):
 
 
 @pytest.fixture
+def sample_purchase_create_data_with_budget_source(
+    sample_purchase_data_with_budget_source,
+):
+    """Sample purchase creation data with budget source as PurchaseCreate schema."""
+    return PurchaseCreate(**sample_purchase_data_with_budget_source)
+
+
+@pytest.fixture
 def sample_purchase_create_data_with_costs(sample_purchase_data_with_costs):
     """Sample purchase creation data with costs as PurchaseCreate schema."""
     return PurchaseCreate(**sample_purchase_data_with_costs)
+
+
+@pytest.fixture
+def sample_purchase_create_data_with_costs_and_budget_source(
+    sample_purchase_data_with_costs_and_budget_source,
+):
+    """Sample purchase creation data with costs and budget source as PurchaseCreate schema."""
+    return PurchaseCreate(**sample_purchase_data_with_costs_and_budget_source)
+
+
+@pytest.fixture
+def sample_purchase_update_data(sample_budget_source):
+    """Sample purchase update data for PATCH operations."""
+    return {"budget_source_id": sample_budget_source.id}
+
+
+@pytest.fixture
+def sample_purchase_update_data_null():
+    """Sample purchase update data to remove budget source."""
+    return {"budget_source_id": None}
+
+
+@pytest.fixture
+def sample_purchase_with_budget_source(
+    db_session: Session, sample_purchase_create_data_with_budget_source: PurchaseCreate
+):
+    """Create sample purchase with budget source for update tests."""
+    return purchase_service.create_purchase(
+        db_session, sample_purchase_create_data_with_budget_source
+    )
 
 
 @pytest.fixture
@@ -76,7 +133,9 @@ def sample_purchase(db_session: Session, sample_purchase_create_data: PurchaseCr
 
 @pytest.fixture
 def sample_purchase_with_costs(
-    db_session: Session, sample_purchase_create_data_with_costs: PurchaseCreate
+    db_session: Session,
+    sample_purchase_create_data_with_costs: PurchaseCreate,
+    predefined_flows_for_purchases,
 ):
     """Create a sample purchase with costs in the database."""
     return purchase_service.create_purchase(
