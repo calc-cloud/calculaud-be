@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.service_types import service
@@ -36,8 +37,16 @@ def get_service_type(service_type_id: int, db: Session = Depends(get_db)):
     return service_type
 
 
-@router.post("/", response_model=ServiceType, status_code=status.HTTP_201_CREATED)
-def create_service_type(service_type: ServiceTypeCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=ServiceType,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def create_service_type(
+    service_type: ServiceTypeCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new service type."""
     try:
         return service.create_service_type(db, service_type)
@@ -45,7 +54,11 @@ def create_service_type(service_type: ServiceTypeCreate, db: Session = Depends(g
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.patch("/{service_type_id}", response_model=ServiceType)
+@router.patch(
+    "/{service_type_id}",
+    response_model=ServiceType,
+    dependencies=[Depends(require_admin)],
+)
 def patch_service_type(
     service_type_id: int,
     service_type_update: ServiceTypeUpdate,
@@ -60,8 +73,15 @@ def patch_service_type(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.delete("/{service_type_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_service_type(service_type_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{service_type_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_service_type(
+    service_type_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a service type."""
     try:
         service.delete_service_type(db, service_type_id)

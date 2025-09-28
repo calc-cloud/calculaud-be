@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.services import service
@@ -43,8 +44,16 @@ def get_service(service_id: int, db: Session = Depends(get_db)):
     return db_service
 
 
-@router.post("/", response_model=Service, status_code=status.HTTP_201_CREATED)
-def create_service(service_data: ServiceCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=Service,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def create_service(
+    service_data: ServiceCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new service."""
     try:
         return service.create_service(db, service_data)
@@ -54,7 +63,9 @@ def create_service(service_data: ServiceCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.patch("/{service_id}", response_model=Service)
+@router.patch(
+    "/{service_id}", response_model=Service, dependencies=[Depends(require_admin)]
+)
 def patch_service(
     service_id: int,
     service_update: ServiceUpdate,
@@ -71,8 +82,15 @@ def patch_service(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_service(service_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{service_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_service(
+    service_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a service."""
     try:
         service.delete_service(db, service_id)

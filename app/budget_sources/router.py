@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.budget_sources import service
 from app.budget_sources.exceptions import (
     BudgetSourceAlreadyExists,
@@ -43,9 +44,15 @@ def get_budget_source(budget_source_id: int, db: Session = Depends(get_db)):
     return budget_source
 
 
-@router.post("/", response_model=BudgetSource, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=BudgetSource,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
 def create_budget_source(
-    budget_source: BudgetSourceCreate, db: Session = Depends(get_db)
+    budget_source: BudgetSourceCreate,
+    db: Session = Depends(get_db),
 ):
     """Create a new budget source."""
     try:
@@ -54,7 +61,11 @@ def create_budget_source(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.patch("/{budget_source_id}", response_model=BudgetSource)
+@router.patch(
+    "/{budget_source_id}",
+    response_model=BudgetSource,
+    dependencies=[Depends(require_admin)],
+)
 def patch_budget_source(
     budget_source_id: int,
     budget_source_update: BudgetSourceUpdate,
@@ -69,8 +80,15 @@ def patch_budget_source(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.message)
 
 
-@router.delete("/{budget_source_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_budget_source(budget_source_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{budget_source_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_budget_source(
+    budget_source_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a budget source."""
     try:
         service.delete_budget_source(db, budget_source_id)

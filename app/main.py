@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .analytics.router import router as analytics_router
-from .auth.dependencies import require_auth
+from .auth.dependencies import require_admin, require_auth
 from .auth.router import router as auth_router
 from .budget_sources.router import router as budget_sources_router
 from .config import settings
@@ -43,8 +43,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Common authentication dependency for all protected routes
-protected_dependencies = [Depends(require_auth)]
+# Authentication dependencies
+read_dependencies = [Depends(require_auth)]  # GET endpoints - both roles
+admin_dependencies = [Depends(require_admin)]  # CUD endpoints - admin only
 
 # Include auth router - no authentication required for proxy endpoints
 app.include_router(
@@ -53,94 +54,94 @@ app.include_router(
     tags=["auth"],
 )
 
-# Include routers - all protected by authentication
+# Include routers - protected by authentication (read) or admin access (write)
 app.include_router(
     hierarchies_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/hierarchies",
     tags=["hierarchies"],
 )
 
 app.include_router(
     predefined_flows_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/predefined-flows",
     tags=["predefined-flows"],
 )
 
 app.include_router(
     purposes_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/purposes",
     tags=["purposes"],
 )
 
 app.include_router(
     service_types_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/service-types",
     tags=["service-types"],
 )
 
 app.include_router(
     services_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/services",
     tags=["services"],
 )
 
 app.include_router(
     responsible_authorities_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/responsible-authorities",
     tags=["responsible-authorities"],
 )
 
 app.include_router(
     stage_types_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/stage-types",
     tags=["stage-types"],
 )
 
 app.include_router(
     stages_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/stages",
     tags=["stages"],
 )
 
 app.include_router(
     suppliers_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/suppliers",
     tags=["suppliers"],
 )
 
 app.include_router(
     files_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/files",
     tags=["files"],
 )
 
 app.include_router(
     purchases_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/purchases",
     tags=["purchases"],
 )
 
 app.include_router(
     analytics_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/analytics",
     tags=["analytics"],
 )
 
 app.include_router(
     budget_sources_router,
-    dependencies=protected_dependencies,
+    dependencies=read_dependencies,
     prefix=f"{settings.api_v1_prefix}/budget-sources",
     tags=["budget-sources"],
 )

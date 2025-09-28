@@ -9,28 +9,20 @@ from app.config import settings
 
 def extract_roles_from_claims(claims: dict, claim_path: str) -> list[str]:
     """
-    Extract roles from JWT claims using a configurable claim path.
-
-    Supports nested claim paths like "cognito:groups" and handles both
-    string and array role formats.
+    Extract roles from JWT claims using a direct claim key.
 
     Args:
         claims: JWT token claims dictionary
-        claim_path: Dot or colon-separated path to the roles claim
+        claim_path: Direct key to the roles claim (e.g., "cognito:groups")
 
     Returns:
         list[str]: List of extracted roles
     """
-    # Handle nested claim paths (support both "." and ":" separators)
-    path_parts = claim_path.replace(":", ".").split(".")
+    # Direct key lookup only
+    if claim_path not in claims:
+        return []
 
-    # Navigate to the nested claim
-    current_value = claims
-    for part in path_parts:
-        if isinstance(current_value, dict) and part in current_value:
-            current_value = current_value[part]
-        else:
-            return []
+    current_value = claims[claim_path]
 
     # Handle both string and array formats
     if isinstance(current_value, str):

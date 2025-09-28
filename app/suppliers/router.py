@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.pagination import PaginatedResult, PaginationParams, create_paginated_result
 from app.suppliers import service
@@ -40,8 +41,16 @@ def get_supplier(supplier_id: int, db: Session = Depends(get_db)):
     return supplier
 
 
-@router.post("/", response_model=Supplier, status_code=status.HTTP_201_CREATED)
-def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/",
+    response_model=Supplier,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def create_supplier(
+    supplier: SupplierCreate,
+    db: Session = Depends(get_db),
+):
     """Create a new supplier."""
     try:
         return service.create_supplier(db, supplier)
@@ -51,7 +60,9 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.patch("/{supplier_id}", response_model=Supplier)
+@router.patch(
+    "/{supplier_id}", response_model=Supplier, dependencies=[Depends(require_admin)]
+)
 def patch_supplier(
     supplier_id: int,
     supplier_update: SupplierUpdate,
@@ -68,8 +79,15 @@ def patch_supplier(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
-@router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+@router.delete(
+    "/{supplier_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+def delete_supplier(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+):
     """Delete a supplier."""
     try:
         service.delete_supplier(db, supplier_id)

@@ -49,7 +49,8 @@ class Settings(BaseSettings):
     auth_oidc_url: str
 
     # Role-based access control
-    required_role: Annotated[str, Field(default="calUsers")]
+    admin_role: Annotated[str, Field(default="calAdmins")]
+    user_role: Annotated[str, Field(default="calUsers")]
     role_claim_path: Annotated[str, Field(default="role")]
 
     # OAuth2 Client Configuration (for Swagger UI authorization)

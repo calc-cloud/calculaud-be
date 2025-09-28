@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
 from app.stages import service
 from app.stages.exceptions import InvalidStageValue, StageNotFound
@@ -11,7 +12,9 @@ from app.stages.schemas import StageResponse, StageUpdate
 router = APIRouter()
 
 
-@router.patch("/{stage_id}", response_model=StageResponse)
+@router.patch(
+    "/{stage_id}", response_model=StageResponse, dependencies=[Depends(require_admin)]
+)
 def update_stage(
     stage_id: int,
     stage_update: StageUpdate,

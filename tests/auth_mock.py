@@ -1,6 +1,7 @@
 """Mock authentication for testing purposes."""
 
 from app.auth.schemas import TokenInfo, User
+from app.config import settings
 
 
 def mock_auth_dependency() -> TokenInfo:
@@ -10,7 +11,7 @@ def mock_auth_dependency() -> TokenInfo:
         sub="test-user-123",
         email="test@example.com",
         username="testuser",
-        roles=["admin", "user", "manager"],
+        roles=[settings.admin_role, settings.user_role],
         given_name="Test",
         family_name="User",
     )
@@ -20,7 +21,7 @@ def mock_auth_dependency() -> TokenInfo:
         "sub": "test-user-123",
         "email": "test@example.com",
         "preferred_username": "testuser",
-        "roles": ["admin", "user", "manager"],
+        "roles": [settings.admin_role, settings.user_role],
         "given_name": "Test",
         "family_name": "User",
         "iat": 1234567890,
@@ -41,7 +42,7 @@ def mock_auth_dependency_no_admin() -> TokenInfo:
         sub="test-user-456",
         email="user@example.com",
         username="regularuser",
-        roles=["user"],
+        roles=[settings.user_role],
         given_name="Regular",
         family_name="User",
     )
@@ -51,7 +52,7 @@ def mock_auth_dependency_no_admin() -> TokenInfo:
         "sub": "test-user-456",
         "email": "user@example.com",
         "preferred_username": "regularuser",
-        "roles": ["user"],
+        "roles": [settings.user_role],
         "given_name": "Regular",
         "family_name": "User",
         "iat": 1234567890,
