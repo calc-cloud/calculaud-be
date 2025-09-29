@@ -1,8 +1,12 @@
 """Test fixtures for purchase tests."""
 
+from datetime import date
+
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import Stage
 from app.costs.models import CurrencyEnum
 from app.predefined_flows.models import PredefinedFlow, PredefinedFlowStage
 from app.purchases import service as purchase_service
@@ -222,3 +226,67 @@ def predefined_flows_for_purchases(db_session: Session):
 
     db_session.commit()
     return flows
+
+
+@pytest.fixture
+def stage_types_for_purchases(db_session: Session):
+    """Create stage types for purchase stage management tests."""
+    stage_types = [
+        StageType(
+            name="initial_review",
+            display_name="Initial Review",
+            description="Initial review stage",
+            value_required=False,
+        ),
+        StageType(
+            name="final_approval",
+            display_name="Final Approval",
+            description="Final approval stage",
+            value_required=True,
+        ),
+        StageType(
+            name="procurement",
+            display_name="Procurement",
+            description="Procurement stage",
+            value_required=False,
+        ),
+    ]
+
+    for stage_type in stage_types:
+        db_session.add(stage_type)
+    db_session.commit()
+    return stage_types
+
+
+@pytest.fixture
+def sample_purchase_with_stages(
+    db_session: Session,
+    sample_purchase_create_data_with_costs: PurchaseCreate,
+    predefined_flows_for_purchases,
+):
+    """Create a sample purchase with stages for stage management tests."""
+    return purchase_service.create_purchase(
+        db_session, sample_purchase_create_data_with_costs
+    )
+
+
+@pytest.fixture
+def sample_purchase_with_completed_stage(
+    db_session: Session,
+    sample_purchase_with_stages,
+):
+    """Create a purchase with one completed stage for preservation tests."""
+
+    # Get the first stage and mark it as completed
+
+    stmt = select(Stage).where(
+        Stage.purchase_id == sample_purchase_with_stages.id, Stage.priority == 1
+    )
+    first_stage = db_session.execute(stmt).scalar_one_or_none()
+
+    if first_stage:
+        first_stage.value = "Completed with approval"
+        first_stage.completion_date = date.today()
+        db_session.commit()
+
+    return sample_purchase_with_stages

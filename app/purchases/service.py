@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app import CurrencyEnum, Stage
+from app import CurrencyEnum
 from app.budget_sources.exceptions import BudgetSourceNotFound
 from app.budget_sources.models import BudgetSource
 from app.costs.models import Cost
@@ -12,6 +12,8 @@ from app.purchases.consts import PredefinedFlowName
 from app.purchases.exceptions import PurchaseNotFound
 from app.purchases.models import Purchase
 from app.purchases.schemas import PurchaseCreate, PurchaseUpdate
+from app.stages import service as stage_service
+from app.stages.models import Stage
 
 
 def _validate_budget_source_exists(db: Session, budget_source_id: int | None) -> None:
@@ -59,15 +61,7 @@ def create_purchase(db: Session, purchase_data: PurchaseCreate) -> Purchase:
         db_purchase.predefined_flow_id = predefined_flow.id
 
         # Create stages based on predefined flow
-        stages = [
-            Stage(
-                stage_type_id=predefined_stage.stage_type_id,
-                priority=predefined_stage.priority,
-                purchase_id=db_purchase.id,
-            )
-            for predefined_stage in predefined_flow.predefined_flow_stages
-        ]
-        db.add_all(stages)
+        stage_service.create_stages_from_flow(db, db_purchase.id, predefined_flow)
 
     db.commit()
     db.refresh(db_purchase)
@@ -102,16 +96,26 @@ def patch_purchase(
     stmt = select(Purchase).where(Purchase.id == purchase_id)
     db_purchase = db.execute(stmt).scalar_one_or_none()
     if not db_purchase:
-        raise PurchaseNotFound(f"Purchase with ID {purchase_id} not found")
+        raise PurchaseNotFound(purchase_id)
 
-    update_data = purchase_update.model_dump(exclude_unset=True)
+    # Handle stages separately if provided, preserve Pydantic object structure
+    stages_update = (
+        purchase_update.stages if purchase_update.stages is not None else None
+    )
+
+    update_data = purchase_update.model_dump(exclude_unset=True, exclude={"stages"})
 
     # Validate budget source if being updated
     if "budget_source_id" in update_data:
         _validate_budget_source_exists(db, update_data["budget_source_id"])
 
+    # Update simple fields
     for field, value in update_data.items():
         setattr(db_purchase, field, value)
+
+    # Handle stages update if provided
+    if stages_update is not None:
+        stage_service.create_stages_from_edits(db, purchase_id, stages_update)
 
     db.commit()
     db.refresh(db_purchase)
