@@ -9,6 +9,8 @@ from app.database import get_db
 from app.purchases import service
 from app.purchases.exceptions import PurchaseNotFound
 from app.purchases.schemas import PurchaseCreate, PurchaseResponse, PurchaseUpdate
+from app.stage_types.exceptions import StageTypeNotFound
+from app.stages.exceptions import StageNotFound
 
 router = APIRouter()
 
@@ -57,7 +59,7 @@ def patch_purchase(
         return service.patch_purchase(db, purchase_id, purchase_update)
     except PurchaseNotFound as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.message)
-    except BudgetSourceNotFound as e:
+    except (BudgetSourceNotFound, StageNotFound, StageTypeNotFound) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
 
