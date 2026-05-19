@@ -4,6 +4,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app import FileAttachment, Purchase, Stage
+from app.budget_sources.models import BudgetSource
+from app.hierarchies.models import Hierarchy
 from app.pagination import paginate_select
 from app.purposes.exceptions import (
     DuplicateServiceInPurpose,
@@ -19,7 +21,9 @@ from app.purposes.schemas import (
     PurposeUpdate,
 )
 from app.purposes.sorting import apply_sorting
+from app.service_types.models import ServiceType
 from app.services.models import Service
+from app.suppliers.models import Supplier
 
 
 def get_base_purpose_select():
@@ -78,11 +82,19 @@ def _create_purpose_content(
 
 def build_search_filter(search: str):
     """Build search filter for purpose queries."""
+    pattern = f"%{search}%"
     return or_(
-        Purpose.description.ilike(f"%{search}%"),
-        Purpose.purchases.any(Purchase.stages.any(Stage.value.ilike(f"%{search}%"))),
+        Purpose.description.ilike(pattern),
+        Purpose.comments.ilike(pattern),
+        Purpose._supplier.has(Supplier.name.ilike(pattern)),
+        Purpose.hierarchy.has(Hierarchy.name.ilike(pattern)),
+        Purpose._service_type.has(ServiceType.name.ilike(pattern)),
+        Purpose.purchases.any(Purchase.budget_source.has(BudgetSource.name.ilike(pattern))),
+        Purpose.purchases.any(Purchase.stages.any(Stage.value.ilike(pattern))),
+        Purpose.purchases.any(Purchase.stages.any(Stage.note.ilike(pattern))),
+        Purpose.purchases.any(Purchase.stages.any(Stage.custom_name.ilike(pattern))),
         Purpose.contents.any(
-            PurposeContent.service.has(Service.name.ilike(f"%{search}%"))
+            PurposeContent.service.has(Service.name.ilike(pattern))
         ),
     )
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.predefined_flows.models import PredefinedFlow
 from app.purchases.schemas import StageEditItem
+from app.stage_types.models import StageType
 from app.stages.exceptions import InvalidStageValue, StageNotFound
 from app.stages.models import Stage
 from app.stages.schemas import StageUpdate
@@ -70,6 +71,25 @@ def create_stages_from_flow(
     return stages
 
 
+def _get_or_create_custom_stage_type(db: Session) -> StageType:
+    """Get the 'custom' stage type, creating it if it doesn't exist."""
+    stmt = select(StageType).where(StageType.name == "custom")
+    custom_type = db.execute(stmt).scalars().first()
+
+    if not custom_type:
+        custom_type = StageType(
+            name="custom",
+            display_name="Custom",
+            description="User-defined custom stage",
+            value_required=False,
+            is_optional=True,
+        )
+        db.add(custom_type)
+        db.flush()
+
+    return custom_type
+
+
 def create_stages_from_edits(
     db: Session, purchase_id: int, stage_edits: list[StageEditItem]
 ) -> list[Stage]:
@@ -110,10 +130,22 @@ def create_stages_from_edits(
             existing_stage = existing_stages[stage_edit.id]
             existing_stage.priority = priority
             new_stages.append(existing_stage)
-        else:
-            # Create new stage
+        elif stage_edit.stage_type_id is not None:
+            # Create new predefined stage
             new_stage = Stage(
                 stage_type_id=stage_edit.stage_type_id,
+                priority=priority,
+                purchase_id=purchase_id,
+            )
+            db.add(new_stage)
+            new_stages.append(new_stage)
+        else:
+            # Create custom stage
+            custom_type = _get_or_create_custom_stage_type(db)
+            new_stage = Stage(
+                stage_type_id=custom_type.id,
+                custom_name=stage_edit.custom_name,
+                note=stage_edit.note,
                 priority=priority,
                 purchase_id=purchase_id,
             )

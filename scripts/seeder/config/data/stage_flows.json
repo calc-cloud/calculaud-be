@@ -6,22 +6,25 @@
       "display_name": "EMF ID",
       "description": "EMF identification number",
       "value_required": true,
+      "is_optional": false,
       "responsible_authority_id": 1
     },
     {
       "id": 7,
-      "name": "information_security", 
+      "name": "information_security",
       "display_name": "במ",
       "description": "Information security stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 3
     },
     {
       "id": 8,
       "name": "letter_of_necessity",
       "display_name": "מכתב נחיצות",
-      "description": "Letter of necessity of the purchase", 
+      "description": "Letter of necessity of the purchase",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -30,6 +33,7 @@
       "display_name": "BOM",
       "description": "BOM of the purchase",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 1
     },
     {
@@ -38,14 +42,16 @@
       "display_name": "מספר ביקושית",
       "description": "Bikushit ID stage",
       "value_required": true,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
       "id": 11,
       "name": "demand_id",
-      "display_name": "מספר דרישה", 
+      "display_name": "מספר דרישה",
       "description": "Demand ID Stage",
       "value_required": true,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -54,6 +60,7 @@
       "display_name": "מנהר",
       "description": "Mnhr stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -62,6 +69,7 @@
       "display_name": "ועדות",
       "description": "Committees stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -70,6 +78,7 @@
       "display_name": "בלמ",
       "description": "Blm stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -78,14 +87,16 @@
       "display_name": "ועדת פטור",
       "description": "Exemption committee stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
       "id": 16,
       "name": "mission",
       "display_name": "משלחת",
-      "description": "Mission stage", 
+      "description": "Mission stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -94,6 +105,7 @@
       "display_name": "פריסת מימון",
       "description": "Financing deployment stage",
       "value_required": false,
+      "is_optional": false,
       "responsible_authority_id": 2
     },
     {
@@ -102,6 +114,7 @@
       "display_name": "מספר הזמנה",
       "description": "Order ID stage",
       "value_required": true,
+      "is_optional": false,
       "responsible_authority_id": 1
     }
   ],

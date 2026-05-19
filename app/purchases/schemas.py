@@ -39,18 +39,41 @@ class StageEdit(BaseModel):
             json_schema_extra={"example": 5},
         ),
     ]
+    custom_name: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Name for a new custom stage (stage type will be 'custom')",
+            json_schema_extra={"example": "My Custom Stage"},
+        ),
+    ]
+    note: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Optional note for a new custom stage",
+            json_schema_extra={"example": "Some notes about this stage"},
+        ),
+    ]
 
     @model_validator(mode="after")
     def validate_stage_identification(self):
-        """Ensure exactly one of id or stage_type_id is provided."""
+        """Ensure exactly one of id, stage_type_id, or custom_name is provided."""
         id_provided = self.id is not None
         stage_type_id_provided = self.stage_type_id is not None
+        custom_name_provided = self.custom_name is not None
 
-        if id_provided and stage_type_id_provided:
-            raise ValueError("Cannot provide both id and stage_type_id")
+        provided_count = sum([id_provided, stage_type_id_provided, custom_name_provided])
 
-        if not id_provided and not stage_type_id_provided:
-            raise ValueError("Must provide either id or stage_type_id")
+        if provided_count > 1:
+            raise ValueError(
+                "Must provide exactly one of: id, stage_type_id, or custom_name"
+            )
+
+        if provided_count == 0:
+            raise ValueError(
+                "Must provide exactly one of: id, stage_type_id, or custom_name"
+            )
 
         return self
 

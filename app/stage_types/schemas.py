@@ -11,6 +11,7 @@ class StageTypeBase(BaseModel):
     display_name: Annotated[str, Field(min_length=1, max_length=255)]
     description: Annotated[str | None, Field(default=None)]
     value_required: Annotated[bool, Field(default=False)]
+    is_optional: Annotated[bool, Field(default=False)]
     responsible_authority_id: Annotated[int | None, Field(default=None)]
 
 
@@ -25,6 +26,7 @@ class StageTypeUpdate(BaseModel):
     ]
     description: Annotated[str | None, Field(default=None)]
     value_required: Annotated[bool | None, Field(default=None)]
+    is_optional: Annotated[bool | None, Field(default=None)]
     responsible_authority_id: Annotated[int | None, Field(default=None)]
 
 

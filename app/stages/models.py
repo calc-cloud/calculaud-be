@@ -1,7 +1,7 @@
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, ForeignKey, Integer, Text, event, text
+from sqlalchemy import Date, ForeignKey, Integer, String, Text, event, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,6 +24,8 @@ class Stage(Base):
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
     completion_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    custom_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Relationships
     stage_type: Mapped["StageType"] = relationship("StageType", back_populates="stages")
