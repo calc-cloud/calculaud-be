@@ -19,6 +19,7 @@ class StageCreate(StageBase):
 class StageUpdate(BaseModel):
     value: Annotated[str | None, Field(default=None)]
     completion_date: Annotated[date | None, Field(default=None)]
+    note: Annotated[str | None, Field(default=None)]
 
 
 class StageCompletion(BaseModel):
@@ -30,6 +31,8 @@ class StageResponse(StageBase):
     purchase_id: int
     stage_type: StageTypeResponse  # full stage type object relationship
     completion_date: date | None
+    note: str | None = None
+    custom_name: str | None = None
     days_since_previous_stage: int | None = None
 
     model_config = ConfigDict(from_attributes=True)

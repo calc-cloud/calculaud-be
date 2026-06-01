@@ -20,6 +20,7 @@ class StageType(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_optional: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     responsible_authority_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("responsible_authority.id"), nullable=True, index=True
     )

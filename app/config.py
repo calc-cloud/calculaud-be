@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     usd_to_ils_rate: Annotated[float, Field(default=3.7)]
 
     # Authentication Configuration
+    bypass_auth: Annotated[bool, Field(default=False)]
     auth_jwks_url: str
     auth_issuer: str
     auth_audience: str | None = None

@@ -78,6 +78,17 @@ class OpenIdConnect(SecurityBase):
         Raises:
             HTTPException: When token is invalid or insufficient permissions
         """
+        if settings.bypass_auth:
+            from app.auth.schemas import User
+
+            mock_user = User(
+                sub="local-dev-user",
+                email="dev@localhost",
+                username="dev",
+                roles=[settings.admin_role, settings.user_role],
+            )
+            return TokenInfo(raw_token="dev-token", claims={}, user=mock_user)
+
         # Extract bearer token
         bearer = await HTTPBearer()(request)
         token = bearer.credentials if bearer else ""
