@@ -63,7 +63,9 @@ class StageEdit(BaseModel):
         stage_type_id_provided = self.stage_type_id is not None
         custom_name_provided = self.custom_name is not None
 
-        provided_count = sum([id_provided, stage_type_id_provided, custom_name_provided])
+        provided_count = sum(
+            [id_provided, stage_type_id_provided, custom_name_provided]
+        )
 
         if provided_count > 1:
             raise ValueError(

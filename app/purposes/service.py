@@ -89,13 +89,13 @@ def build_search_filter(search: str):
         Purpose._supplier.has(Supplier.name.ilike(pattern)),
         Purpose.hierarchy.has(Hierarchy.name.ilike(pattern)),
         Purpose._service_type.has(ServiceType.name.ilike(pattern)),
-        Purpose.purchases.any(Purchase.budget_source.has(BudgetSource.name.ilike(pattern))),
+        Purpose.purchases.any(
+            Purchase.budget_source.has(BudgetSource.name.ilike(pattern))
+        ),
         Purpose.purchases.any(Purchase.stages.any(Stage.value.ilike(pattern))),
         Purpose.purchases.any(Purchase.stages.any(Stage.note.ilike(pattern))),
         Purpose.purchases.any(Purchase.stages.any(Stage.custom_name.ilike(pattern))),
-        Purpose.contents.any(
-            PurposeContent.service.has(Service.name.ilike(pattern))
-        ),
+        Purpose.contents.any(PurposeContent.service.has(Service.name.ilike(pattern))),
     )
 
 
